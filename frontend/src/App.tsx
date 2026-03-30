@@ -15,6 +15,7 @@ import RegisterPage from "./pages/RegisterPage";
 import ForbiddenPage from "./pages/ForbiddenPage";
 import BackendEndpointPage from "./pages/BackendEndpointPage";
 import NotFound from "./pages/NotFound";
+import { InsightsDashboard } from "@/features/insights/InsightsDashboard";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <OrgHealthPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/insights/:employeeId"
+                element={
+                  <ProtectedRoute allowedRoles={["hr", "manager"]}>
+                    <AppLayout>
+                      <InsightsDashboard />
                     </AppLayout>
                   </ProtectedRoute>
                 }

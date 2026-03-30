@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
 from typing import List
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -24,7 +26,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).resolve().parents[1] / ".env")
         case_sensitive = True
         extra = "ignore"  # Ignore extra fields in .env
 

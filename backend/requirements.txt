@@ -12,3 +12,4 @@ requests==2.31.0
 supabase==2.5.3
 postgrest==0.16.11
 httpx==0.26.0
+groq>=0.4.0

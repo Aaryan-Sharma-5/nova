@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, AsyncIterator, Iterable
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from ai.burnout import assess_burnout
@@ -95,9 +95,37 @@ async def retention_endpoint(
 @router.get("/insights/{employee_id}")
 async def insights_endpoint(
     employee_id: str,
+    texts: list[str] | None = Query(None),
+    overtime_hours: float | None = None,
+    pto_days_unused: int | None = None,
+    sentiment_score: float | None = None,
+    meeting_load_hours: float | None = None,
+    tenure_months: int | None = None,
+    kpi_completion_rate: float | None = None,
+    peer_review_score: float | None = None,
+    recent_projects_completed: int | None = None,
+    burnout_risk_score: float | None = None,
+    performance_band: str | None = None,
+    salary_band: str | None = None,
+    last_promotion_months_ago: int | None = None,
     _current_user: User = _role_dependency(),
 ) -> dict:
-    return await get_employee_insights(employee_id, {})
+    payload = {
+        "texts": texts or [],
+        "overtime_hours": overtime_hours or 0.0,
+        "pto_days_unused": pto_days_unused or 0,
+        "sentiment_score": sentiment_score or 0.0,
+        "meeting_load_hours": meeting_load_hours or 0.0,
+        "tenure_months": tenure_months or 0,
+        "kpi_completion_rate": kpi_completion_rate or 0.0,
+        "peer_review_score": peer_review_score or 0.0,
+        "recent_projects_completed": recent_projects_completed or 0,
+        "burnout_risk_score": burnout_risk_score or 0.0,
+        "performance_band": performance_band or "solid",
+        "salary_band": salary_band or "mid",
+        "last_promotion_months_ago": last_promotion_months_ago or 0,
+    }
+    return await get_employee_insights(employee_id, payload)
 
 
 @router.post("/ask")

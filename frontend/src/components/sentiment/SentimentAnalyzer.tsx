@@ -8,6 +8,9 @@ import { MessageSquareText, Sparkles, TrendingUp, TrendingDown, Minus, AlertTria
 import SentimentBreakdown from './SentimentBreakdown';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEmployees } from '@/contexts/EmployeeContext';
+import { API_BASE_URL } from '@/lib/api';
 
 const SAMPLE_TEXTS = [
   "I'm really enjoying the new project. The team is fantastic and I feel motivated every day. Great leadership!",
@@ -24,17 +27,73 @@ export function SentimentAnalyzer() {
   const [analyzing, setAnalyzing] = useState(false);
   const [insights, setInsights] = useState<string[]>([]);
   const [urgency, setUrgency] = useState<ReturnType<typeof calculateUrgencyLevel> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth();
+  const { employees } = useEmployees();
 
   const handleAnalyze = async () => {
     if (!text.trim()) return;
     setAnalyzing(true);
-    // Simulate API delay
-    await new Promise(r => setTimeout(r, 600));
-    const analysisResult = analyzeSentiment(text);
-    setResult(analysisResult);
-    setInsights(extractInsights(analysisResult, text));
-    setUrgency(calculateUrgencyLevel(analysisResult));
-    setAnalyzing(false);
+    setError(null);
+
+    if (!token) {
+      setError('Please sign in to analyze sentiment.');
+      setAnalyzing(false);
+      return;
+    }
+
+    try {
+      const employeeId = employees[0]?.id ?? 'EMP0001';
+      const requestUrl = API_BASE_URL ? `${API_BASE_URL}/api/ai/sentiment` : '/api/ai/sentiment';
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ employee_id: employeeId, texts: [text] }),
+      });
+
+      if (!response.ok) {
+        let message = `Request failed (${response.status})`;
+        try {
+          const payload = await response.json();
+          if (payload?.detail) {
+            message = String(payload.detail);
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+
+      const payload = await response.json();
+      const mapped: SentimentResult = {
+        score: typeof payload.score === 'number' ? payload.score : 0,
+        label: payload.label === 'positive' ? 'Positive' : payload.label === 'negative' ? 'Negative' : 'Neutral',
+        confidence: typeof payload.confidence === 'number' ? Math.round(payload.confidence * 100) : 0,
+        keywords: [],
+        metadata: {
+          attritionRisk: false,
+          mentalHealthConcern: false,
+          criticalIssue: false,
+          textLength: text.split(/\s+/).length,
+          wordCount: text.split(/\s+/).length,
+        },
+      };
+
+      setResult(mapped);
+      setInsights(extractInsights(mapped, text));
+      setUrgency(calculateUrgencyLevel(mapped));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to analyze sentiment.');
+      const fallback = analyzeSentiment(text);
+      setResult(fallback);
+      setInsights(extractInsights(fallback, text));
+      setUrgency(calculateUrgencyLevel(fallback));
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const loadSample = (sample: string) => {
@@ -85,6 +144,10 @@ export function SentimentAnalyzer() {
           </Button>
           <span className="text-xs text-muted-foreground">or try a sample →</span>
         </div>
+
+        {error && (
+          <p className="text-xs text-destructive">{error}</p>
+        )}
 
         {/* Sample buttons */}
         <div className="flex flex-wrap gap-2">

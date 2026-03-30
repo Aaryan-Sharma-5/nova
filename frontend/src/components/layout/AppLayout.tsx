@@ -28,13 +28,20 @@ const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCh
 };
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { refreshData } = useEmployees();
+  const { refreshData, employees } = useEmployees();
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const insightsEmployeeId = employees[0]?.id ?? 'emp-123';
+  const canSeeInsights = user?.role === 'manager' || user?.role === 'hr';
+  const insightsNav = canSeeInsights
+    ? [{ to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' }]
+    : [];
+
   const navItems = [
     ...CORE_NAV_ITEMS,
+    ...insightsNav,
     ...(user ? ROLE_NAV_ITEMS[user.role] : []),
   ];
 

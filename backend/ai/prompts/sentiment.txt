@@ -5,4 +5,5 @@ these exact keys:
 - label: one of "positive", "neutral", "negative"
 - summary: 1-2 sentence plain-English summary of the emotional tone
 - confidence: float from 0.0 to 1.0
+ - emotion_breakdown: object with keys joy, trust, fear, surprise, sadness, disgust, anger, anticipation (each 0.0 to 1.0)
 Return only the JSON object. No explanation. No markdown. No code fences.

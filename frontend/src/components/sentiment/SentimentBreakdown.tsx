@@ -8,10 +8,37 @@ import { Progress } from "@/components/ui/progress";
 interface SentimentBreakdownProps {
   text: string;
   employeeName?: string;
+  emotionBreakdown?: Record<string, number> | null;
 }
 
-export default function SentimentBreakdown({ text, employeeName }: SentimentBreakdownProps) {
-  const emotions = generateSentimentEmotions();
+const EMOTION_KEYS = [
+  "joy",
+  "trust",
+  "fear",
+  "surprise",
+  "sadness",
+  "disgust",
+  "anger",
+  "anticipation",
+];
+
+function normalizeEmotions(source: Record<string, number> | null | undefined): SentimentEmotions | null {
+  if (!source) return null;
+  const normalized = EMOTION_KEYS.map((key) => {
+    const raw = source[key] ?? 0;
+    const clamped = Math.max(0, Math.min(1, raw));
+    return clamped * 100;
+  });
+  return EMOTION_KEYS.reduce((acc, key, index) => {
+    acc[key] = normalized[index];
+    return acc;
+  }, {} as SentimentEmotions);
+}
+
+export default function SentimentBreakdown({ text, employeeName, emotionBreakdown }: SentimentBreakdownProps) {
+  const fallbackEmotions = generateSentimentEmotions();
+  const modelEmotions = normalizeEmotions(emotionBreakdown);
+  const emotions = modelEmotions ?? fallbackEmotions;
   const topics = generateSentimentTopics();
 
   // Convert emotions object to array for radar chart

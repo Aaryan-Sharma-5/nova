@@ -17,6 +17,7 @@ class SentimentResult(BaseModel):
     label: Literal["positive", "neutral", "negative"]
     summary: str
     confidence: float = Field(..., ge=0.0, le=1.0)
+    emotion_breakdown: dict[str, float] | None = None
 
 
 class BurnoutRequest(BaseModel):

@@ -66,6 +66,73 @@ export function generateInterventions(burnoutRisk: number, attritionRisk: number
   return interventions.length > 0 ? interventions : ["Continue current engagement plan — no immediate action needed"];
 }
 
+type CompositeRiskInputs = {
+  workHoursPerWeek: number;
+  projectLoad: number;
+  engagementScore: number;
+  sentimentHistory: { score: number }[];
+  performanceHistory: { score: number }[];
+};
+
+export type CompositeRiskBreakdown = {
+  score: number;
+  components: {
+    sentimentTrend: number;
+    workloadIndex: number;
+    behavioralChange: number;
+    engagementRisk: number;
+  };
+};
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function clamp(value: number, min: number = 0, max: number = 1): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function trendDelta(history: { score: number }[], recentWindow: number, baselineWindow: number): number {
+  if (history.length === 0) return 0;
+  const recent = history.slice(-recentWindow).map(point => point.score);
+  const baseline = history.slice(-baselineWindow, -recentWindow).map(point => point.score);
+  const recentAvg = average(recent);
+  const baselineAvg = baseline.length > 0 ? average(baseline) : recentAvg;
+  return recentAvg - baselineAvg;
+}
+
+export function calculateCompositeRisk(inputs: CompositeRiskInputs): CompositeRiskBreakdown {
+  const sentimentTrendDelta = trendDelta(inputs.sentimentHistory, 3, 9);
+  const sentimentTrend = clamp((Math.abs(sentimentTrendDelta) + 0.2) / 1.2);
+
+  const workloadIndexRaw = (inputs.workHoursPerWeek - 35) / 20;
+  const projectIndex = clamp((inputs.projectLoad - 1) / 5);
+  const workloadIndex = clamp((workloadIndexRaw + projectIndex) / 2);
+
+  const performanceDelta = trendDelta(inputs.performanceHistory, 3, 9);
+  const behavioralChange = clamp(Math.abs(performanceDelta) / 20);
+
+  const engagementRisk = clamp(1 - inputs.engagementScore / 100);
+
+  const score = clamp(
+    0.35 * sentimentTrend +
+      0.25 * workloadIndex +
+      0.2 * behavioralChange +
+      0.2 * engagementRisk,
+  );
+
+  return {
+    score: Math.round(score * 100),
+    components: {
+      sentimentTrend: Math.round(sentimentTrend * 100),
+      workloadIndex: Math.round(workloadIndex * 100),
+      behavioralChange: Math.round(behavioralChange * 100),
+      engagementRisk: Math.round(engagementRisk * 100),
+    },
+  };
+}
+
 export function getContributingFactors(employee: {
   workHoursPerWeek: number;
   sentimentScore: number;

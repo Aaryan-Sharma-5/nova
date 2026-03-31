@@ -290,6 +290,8 @@ export function SentimentAnalyzer() {
               </div>
             )}
 
+            <SentimentBreakdown text={text} emotionBreakdown={result.emotion_breakdown} />
+
             {/* Analysis Metadata */}
             {result.metadata && (
               <div className="chart-container bg-muted/30">
@@ -337,8 +339,6 @@ export function SentimentAnalyzer() {
               </div>
             )}
 
-            {/* Enhanced Sentiment Breakdown */}
-            <SentimentBreakdown text={text} />
           </motion.div>
         )}
       </AnimatePresence>

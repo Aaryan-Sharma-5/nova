@@ -21,7 +21,14 @@ export function EmployeeDetailDialog({ employee, onClose }: Props) {
     employee.attritionRisk,
     employee.workHoursPerWeek,
     employee.sentimentScore,
-    employee.engagementScore
+    employee.engagementScore,
+    {
+      recentBurnoutChange: employee.burnoutRisk - (employee.burnoutRisk * 0.85),
+      recentSentimentChange: employee.sentimentHistory.length >= 2
+        ? employee.sentimentHistory[employee.sentimentHistory.length - 1].score - employee.sentimentHistory[Math.max(0, employee.sentimentHistory.length - 4)].score
+        : 0,
+      upcomingDeadlineWeeks: employee.projectLoad >= 5 ? 1 : 3,
+    },
   );
 
   const performanceData = employee.performanceHistory.map(p => ({
@@ -35,7 +42,7 @@ export function EmployeeDetailDialog({ employee, onClose }: Props) {
   }));
 
   return (
-    <Dialog open={!!employee} onOpenChange={() => onClose()}>
+    <Dialog open={!!employee} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">

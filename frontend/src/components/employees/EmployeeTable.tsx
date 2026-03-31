@@ -2,14 +2,16 @@ import { useState, useMemo } from 'react';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { Employee, Department, getRiskLevel } from '@/types/employee';
 import { RiskBadge } from '@/components/shared/RiskBadge';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Download, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Download, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EmployeeDetailDialog } from '@/components/employees/EmployeeDetailDialog';
 import FlightRiskDrawer from '@/components/employees/FlightRiskDrawer';
 import { getSentimentLabel } from '@/utils/sentimentAnalysis';
+import { detectAnomaly } from '@/utils/anomalyDetection';
 
 type SortField = 'name' | 'department' | 'performanceScore' | 'sentimentScore' | 'burnoutRisk' | 'attritionRisk';
 type SortDir = 'asc' | 'desc';
@@ -147,13 +149,13 @@ export function EmployeeTable() {
                 Attrition <SortIcon field="attritionRisk" />
               </th>
               <th className="px-3 py-3 text-right">Last Assessment</th>
+              <th className="px-3 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {filtered.map((emp, i) => (
               <tr
                 key={emp.id}
-                onClick={() => setSelectedEmployee(emp)}
                 className="cursor-pointer transition-colors hover:bg-muted/30"
               >
                 <td className="px-4 py-3">
@@ -167,11 +169,23 @@ export function EmployeeTable() {
                   <span className="tabular-nums font-medium">{emp.performanceScore}</span>
                 </td>
                 <td className="px-3 py-3 text-center">
-                  <span className={`inline-flex items-center gap-1 text-xs font-medium ${
-                    emp.sentimentScore > 0.15 ? 'text-risk-low' : emp.sentimentScore < -0.15 ? 'text-risk-high' : 'text-muted-foreground'
-                  }`}>
-                    {emp.sentimentScore > 0 ? '+' : ''}{emp.sentimentScore.toFixed(2)}
-                  </span>
+                  {(() => {
+                    const anomaly = detectAnomaly(emp.sentimentHistory);
+                    return (
+                      <div className="flex items-center justify-center gap-2">
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+                          emp.sentimentScore > 0.15 ? 'text-risk-low' : emp.sentimentScore < -0.15 ? 'text-risk-high' : 'text-muted-foreground'
+                        }`}>
+                          {emp.sentimentScore > 0 ? '+' : ''}{emp.sentimentScore.toFixed(2)}
+                        </span>
+                        {anomaly.isAnomaly && (
+                          <Badge variant="destructive" className="text-[10px]">
+                            {anomaly.direction === 'spike' ? 'Spike' : 'Drop'}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="px-3 py-3 text-center">
                   <RiskBadge value={emp.burnoutRisk} />
@@ -187,6 +201,18 @@ export function EmployeeTable() {
                 </td>
                 <td className="px-3 py-3 text-right text-xs text-muted-foreground tabular-nums">
                   {emp.lastAssessment}
+                </td>
+                <td className="px-3 py-3 text-right">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedEmployee(emp);
+                    }}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
                 </td>
               </tr>
             ))}

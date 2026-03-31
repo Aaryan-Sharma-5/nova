@@ -15,6 +15,57 @@ export default function PeerNetworkGraph() {
   const [hoveredNode, setHoveredNode] = useState<NetworkNode | null>(null);
   const { nodes, links } = generateNetworkData();
 
+  const metrics = (() => {
+    const connectionCount = new Map<string, number>();
+    const weightedConnections = new Map<string, number>();
+    const neighborWeights = new Map<string, number[]>();
+
+    nodes.forEach(n => {
+      connectionCount.set(n.id, 0);
+      weightedConnections.set(n.id, 0);
+      neighborWeights.set(n.id, []);
+    });
+
+    links.forEach(l => {
+      const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+      const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+      const strength = typeof (l as any).strength === 'number' ? (l as any).strength : 1;
+
+      connectionCount.set(sourceId, (connectionCount.get(sourceId) || 0) + 1);
+      connectionCount.set(targetId, (connectionCount.get(targetId) || 0) + 1);
+      weightedConnections.set(sourceId, (weightedConnections.get(sourceId) || 0) + strength);
+      weightedConnections.set(targetId, (weightedConnections.get(targetId) || 0) + strength);
+      neighborWeights.get(sourceId)?.push(strength);
+      neighborWeights.get(targetId)?.push(strength);
+    });
+
+    const maxConnections = Math.max(...Array.from(connectionCount.values()), 1);
+
+    const centrality = new Map<string, number>();
+    const entropy = new Map<string, number>();
+    const propagationRisk = new Map<string, number>();
+
+    nodes.forEach(node => {
+      const degree = connectionCount.get(node.id) || 0;
+      const centralityScore = degree / maxConnections;
+      centrality.set(node.id, centralityScore);
+
+      const weights = neighborWeights.get(node.id) || [];
+      const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1;
+      const distribution = weights.map(weight => weight / totalWeight);
+      const entropyScore = distribution.length
+        ? -distribution.reduce((sum, p) => sum + p * Math.log2(p), 0) / Math.log2(distribution.length)
+        : 0;
+      entropy.set(node.id, entropyScore);
+
+      const sentimentRisk = 1 - node.sentiment / 100;
+      const propagationScore = Math.min(1, centralityScore * (0.7 + sentimentRisk * 0.6));
+      propagationRisk.set(node.id, propagationScore);
+    });
+
+    return { connectionCount, weightedConnections, centrality, entropy, propagationRisk };
+  })();
+
   const handleExport = async () => {
     if (chartRef.current) {
       const canvas = await html2canvas(chartRef.current);
@@ -102,10 +153,10 @@ export default function PeerNetworkGraph() {
     node.append("circle")
       .attr("r", (d: any) => 10 + (d.influence / 100) * 20)
       .attr("fill", (d: any) => {
-        // Color based on sentiment
-        if (d.sentiment >= 70) return "#22c55e";
-        if (d.sentiment >= 50) return "#eab308";
-        return "#ef4444";
+        const risk = metrics.propagationRisk.get(d.id) || 0;
+        if (risk >= 0.66) return "#ef4444";
+        if (risk >= 0.33) return "#eab308";
+        return "#22c55e";
       })
       .attr("stroke", "#fff")
       .attr("stroke-width", 2)
@@ -174,17 +225,7 @@ export default function PeerNetworkGraph() {
 
   // Calculate isolated employees (low connectivity)
   const calculateIsolatedEmployees = () => {
-    const connectionCount = new Map<string, number>();
-    nodes.forEach(n => connectionCount.set(n.id, 0));
-    
-    links.forEach(l => {
-      const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-      const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-      connectionCount.set(sourceId, (connectionCount.get(sourceId) || 0) + 1);
-      connectionCount.set(targetId, (connectionCount.get(targetId) || 0) + 1);
-    });
-
-    return nodes.filter(n => (connectionCount.get(n.id) || 0) <= 2);
+    return nodes.filter(n => (metrics.connectionCount.get(n.id) || 0) <= 2);
   };
 
   const isolatedEmployees = calculateIsolatedEmployees();
@@ -216,18 +257,19 @@ export default function PeerNetworkGraph() {
           {/* Legend */}
           <div className="absolute top-4 left-4 bg-white/90 backdrop-blur p-3 rounded-lg border shadow-sm z-10">
             <p className="text-xs font-semibold mb-2">Node Size = Influence</p>
+            <p className="text-xs font-semibold mb-2">Color = Propagation Risk</p>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-xs">High Sentiment (70+)</span>
+                <span className="text-xs">Low Risk</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span className="text-xs">Medium Sentiment (50-70)</span>
+                <span className="text-xs">Medium Risk</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-xs">Low Sentiment {'(<50)'}</span>
+                <span className="text-xs">High Risk</span>
               </div>
             </div>
           </div>
@@ -245,6 +287,24 @@ export default function PeerNetworkGraph() {
                 <div className="flex justify-between gap-4 text-sm">
                   <span>Sentiment:</span>
                   <span className="font-medium">{hoveredNode.sentiment.toFixed(0)}%</span>
+                </div>
+                <div className="flex justify-between gap-4 text-sm">
+                  <span>Centrality:</span>
+                  <span className="font-medium">
+                    {Math.round((metrics.centrality.get(hoveredNode.id) || 0) * 100)}%
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4 text-sm">
+                  <span>Collab entropy:</span>
+                  <span className="font-medium">
+                    {Math.round((metrics.entropy.get(hoveredNode.id) || 0) * 100)}%
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4 text-sm">
+                  <span>Propagation risk:</span>
+                  <span className="font-medium">
+                    {Math.round((metrics.propagationRisk.get(hoveredNode.id) || 0) * 100)}%
+                  </span>
                 </div>
               </div>
             </div>

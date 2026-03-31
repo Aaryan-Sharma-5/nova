@@ -38,21 +38,41 @@ export function calculateAttritionRisk(
   return Math.max(0, Math.min(100, Math.round(risk)));
 }
 
-export function generateInterventions(burnoutRisk: number, attritionRisk: number, workHours: number, sentimentScore: number, engagementScore: number): string[] {
+export function generateInterventions(
+  burnoutRisk: number,
+  attritionRisk: number,
+  workHours: number,
+  sentimentScore: number,
+  engagementScore: number,
+  options?: {
+    recentBurnoutChange?: number; // positive means rising risk
+    recentSentimentChange?: number; // negative means declining sentiment
+    upcomingDeadlineWeeks?: number; // 0 for immediate crunch
+  },
+): string[] {
   const interventions: string[] = [];
+  const recentBurnoutChange = options?.recentBurnoutChange ?? 0;
+  const recentSentimentChange = options?.recentSentimentChange ?? 0;
+  const upcomingDeadlineWeeks = options?.upcomingDeadlineWeeks ?? 0;
 
-  if (burnoutRisk > 60) {
-    if (workHours > 45) interventions.push("Reduce weekly workload by 15-20% and redistribute tasks");
-    interventions.push("Schedule immediate 1-on-1 with direct manager");
-    if (sentimentScore < -0.3) interventions.push("Refer to Employee Assistance Program (EAP)");
+  const timingWindow = upcomingDeadlineWeeks <= 1 ? "within 7 days" : "within 2 weeks";
+
+  if (burnoutRisk > 60 || recentBurnoutChange > 10) {
+    if (workHours > 45) {
+      interventions.push(`Reduce weekly workload by 15-20% ${timingWindow}`);
+    }
+    interventions.push(`Schedule immediate 1-on-1 with direct manager ${timingWindow}`);
+    if (sentimentScore < -0.3 || recentSentimentChange < -0.2) {
+      interventions.push("Offer wellness support and EAP resources");
+    }
   } else if (burnoutRisk > 30) {
     interventions.push("Monitor workload in next sprint cycle");
     if (workHours > 42) interventions.push("Consider flexible work arrangement");
   }
 
-  if (attritionRisk > 60) {
+  if (attritionRisk > 60 || (recentSentimentChange < -0.2 && engagementScore < 55)) {
     interventions.push("Initiate stay interview within 1 week");
-    if (engagementScore < 50) interventions.push("Explore career development opportunities and role enrichment");
+    if (engagementScore < 50) interventions.push("Create targeted growth plan with coaching");
     interventions.push("Review compensation against market benchmarks");
   } else if (attritionRisk > 30) {
     interventions.push("Include in next mentorship cohort");
@@ -63,7 +83,9 @@ export function generateInterventions(burnoutRisk: number, attritionRisk: number
     interventions.push("Conduct confidential wellbeing check-in");
   }
 
-  return interventions.length > 0 ? interventions : ["Continue current engagement plan — no immediate action needed"];
+  return interventions.length > 0
+    ? interventions
+    : ["Continue current engagement plan — no immediate action needed"];
 }
 
 type CompositeRiskInputs = {

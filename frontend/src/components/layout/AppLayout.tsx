@@ -15,7 +15,9 @@ const CORE_NAV_ITEMS = [
 ];
 
 const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCheck; label: string }>> = {
-  employee: [],
+  employee: [
+    { to: '/your-data', icon: UserRound, label: 'Your Data' },
+  ],
   manager: [
     { to: '/manager/team-alerts', icon: ShieldCheck, label: 'Manager API' },
   ],
@@ -24,6 +26,7 @@ const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCh
   ],
   leadership: [
     { to: '/leadership/roi-analytics', icon: ShieldCheck, label: 'Leadership API' },
+    { to: '/audit-logs', icon: ShieldCheck, label: 'Audit Logs' },
   ],
 };
 

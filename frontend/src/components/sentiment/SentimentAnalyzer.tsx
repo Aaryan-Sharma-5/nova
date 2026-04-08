@@ -21,7 +21,11 @@ const SAMPLE_TEXTS = [
   "I'm not unhappy with the team, but I'm very stressed with the workload and thinking of looking for other opportunities.",
 ];
 
-export function SentimentAnalyzer() {
+type SentimentAnalyzerProps = {
+  onResultChange?: (result: SentimentResult | null) => void;
+};
+
+export function SentimentAnalyzer({ onResultChange }: SentimentAnalyzerProps) {
   const [text, setText] = useState('');
   const [result, setResult] = useState<SentimentResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -72,6 +76,12 @@ export function SentimentAnalyzer() {
         score: typeof payload.score === 'number' ? payload.score : 0,
         label: payload.label === 'positive' ? 'Positive' : payload.label === 'negative' ? 'Negative' : 'Neutral',
         confidence: typeof payload.confidence === 'number' ? Math.round(payload.confidence * 100) : 0,
+        polarity: typeof payload.polarity === 'number' ? payload.polarity : (typeof payload.score === 'number' ? payload.score : 0),
+        emotions: payload?.emotions,
+        dominant_emotion: payload?.dominant_emotion,
+        trend_delta_14d: payload?.trend_delta_14d,
+        trend_delta_7d: payload?.trend_delta_7d,
+        emotion_breakdown: payload?.emotions,
         keywords: [],
         metadata: {
           attritionRisk: false,
@@ -83,12 +93,14 @@ export function SentimentAnalyzer() {
       };
 
       setResult(mapped);
+      onResultChange?.(mapped);
       setInsights(extractInsights(mapped, text));
       setUrgency(calculateUrgencyLevel(mapped));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to analyze sentiment.');
       const fallback = analyzeSentiment(text);
       setResult(fallback);
+      onResultChange?.(fallback);
       setInsights(extractInsights(fallback, text));
       setUrgency(calculateUrgencyLevel(fallback));
     } finally {
@@ -99,6 +111,7 @@ export function SentimentAnalyzer() {
   const loadSample = (sample: string) => {
     setText(sample);
     setResult(null);
+    onResultChange?.(null);
     setInsights([]);
     setUrgency(null);
   };
@@ -129,6 +142,7 @@ export function SentimentAnalyzer() {
           onChange={e => { 
             setText(e.target.value); 
             setResult(null); 
+            onResultChange?.(null);
             setInsights([]); 
             setUrgency(null); 
           }}

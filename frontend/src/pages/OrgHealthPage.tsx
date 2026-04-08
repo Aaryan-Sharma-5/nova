@@ -2,7 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Download, Printer, Share2, TrendingUp, TrendingDown, AlertTriangle, Sparkles } from "lucide-react";
+import AnomalyIndicator from "@/components/anomalies/AnomalyIndicator";
+import InterventionRecommendations from "@/components/interventions/InterventionRecommendations";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEmployees } from "@/contexts/EmployeeContext";
 import { 
   calculateWorkforceHealthScore,
   generateManagerScores,
@@ -11,10 +15,13 @@ import {
   generateAbsenteeismData,
   generateSkillsData,
 } from "@/utils/mockAnalyticsData";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import html2canvas from "html2canvas";
+import { useInterventionInsights } from "@/hooks/useInterventionInsights";
 
 export default function OrgHealthPage() {
+  const { token, hasRole } = useAuth();
+  const { employees } = useEmployees();
   const [anonymizeEmployees, setAnonymizeEmployees] = useState(false);
   const healthScore = calculateWorkforceHealthScore();
   const managers = generateManagerScores();
@@ -22,6 +29,26 @@ export default function OrgHealthPage() {
   const tenure = generateTenureDistribution();
   const absenteeism = generateAbsenteeismData();
   const skills = generateSkillsData();
+
+  const canViewAnomalyInsights = hasRole(['hr', 'leadership']);
+  const canViewInterventionInsights = hasRole(['manager', 'hr', 'leadership']);
+
+  const featuredEmployee = useMemo(() => {
+    if (employees.length === 0) {
+      return undefined;
+    }
+    return [...employees].sort(
+      (a, b) => b.attritionRisk + b.burnoutRisk - (a.attritionRisk + a.burnoutRisk),
+    )[0];
+  }, [employees]);
+
+  const { anomalyLoading, interventionLoading, anomalyData, interventionsData } =
+    useInterventionInsights({
+      token,
+      featuredEmployee,
+      includeAnomalies: canViewAnomalyInsights || canViewInterventionInsights,
+      includeRecommendations: canViewInterventionInsights,
+    });
 
   const handleExport = async () => {
     const element = document.getElementById('org-health-report');
@@ -415,6 +442,62 @@ export default function OrgHealthPage() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recommended Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {canViewAnomalyInsights && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Behavioral Anomalies
+                </h3>
+                <AnomalyIndicator
+                  isLoading={anomalyLoading}
+                  emptyStateMessage="No anomaly data available for this employee profile yet."
+                  sentiment={anomalyData?.sentiment}
+                  engagement={anomalyData?.engagement}
+                  performance={anomalyData?.performance}
+                  communication={anomalyData?.communication}
+                  composite={anomalyData?.composite}
+                />
+              </div>
+            )}
+
+            {canViewInterventionInsights && featuredEmployee && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Intervention Plan
+                </h3>
+                <InterventionRecommendations
+                  employeeId={featuredEmployee.id}
+                  employeeName={featuredEmployee.name}
+                  recommendations={interventionsData?.recommendations ?? []}
+                  overallUrgency={interventionsData?.overallUrgency ?? 'low'}
+                  reasoning={
+                    interventionsData?.reasoning ??
+                    'No intervention recommendations are currently available from the service.'
+                  }
+                  isLoading={interventionLoading}
+                  currentBurnoutRisk={featuredEmployee.burnoutRisk}
+                  currentAttritionRisk={featuredEmployee.attritionRisk}
+                  workHoursPerWeek={featuredEmployee.workHoursPerWeek}
+                  sentimentScore={featuredEmployee.sentimentScore}
+                  engagementScore={featuredEmployee.engagementScore}
+                  tenureMonths={featuredEmployee.tenure}
+                  emptyStateMessage="No interventions were recommended for the selected employee profile."
+                />
+              </div>
+            )}
+
+            {!canViewAnomalyInsights && !canViewInterventionInsights && (
+              <p className="text-sm text-muted-foreground">
+                You do not have permission to view intervention recommendations.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

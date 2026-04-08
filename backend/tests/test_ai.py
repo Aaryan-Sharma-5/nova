@@ -47,10 +47,11 @@ async def test_sentiment_endpoint_returns_shape(monkeypatch: pytest.MonkeyPatch)
     async def fake_groq_chat(*_args, **_kwargs):
         payload = json.dumps(
             {
-                "score": 0.3,
-                "label": "neutral",
-                "summary": "Balanced tone.",
-                "confidence": 0.7,
+                "summary": "Tone appears balanced with mild caution. No critical distress language appears in recent entries.",
+                "key_signals": ["Stable tone", "Low escalation language", "Mixed positive and neutral phrases"],
+                "recommended_action": "Continue weekly check-ins and monitor sentiment drift.",
+                "confidence": "medium",
+                "urgency": "monitor",
             }
         )
         return FakeResponse(payload)
@@ -72,7 +73,7 @@ async def test_sentiment_endpoint_returns_shape(monkeypatch: pytest.MonkeyPatch)
 
     assert response.status_code == 200
     data = response.json()
-    assert set(data.keys()) >= {"score", "label", "summary", "confidence"}
+    assert set(data.keys()) >= {"score", "label", "summary", "confidence", "structured_insight"}
 
 
 @pytest.mark.anyio
@@ -102,8 +103,11 @@ async def test_retention_prefilter_forces_high_risk(monkeypatch: pytest.MonkeyPa
     async def fake_groq_chat(*_args, **_kwargs):
         payload = json.dumps(
             {
-                "key_reasons": ["High workload", "Recent burnout"],
-                "retention_actions": ["Offer time off", "Discuss workload"],
+                "summary": "Risk factors indicate possible turnover pressure. Burnout and workload remain the strongest concerns.",
+                "key_signals": ["High workload", "Recent burnout", "Early-tenure fragility"],
+                "recommended_action": "Offer immediate workload rebalance and a retention-focused 1:1.",
+                "confidence": "high",
+                "urgency": "immediate",
             }
         )
         return FakeResponse(payload)
@@ -124,7 +128,7 @@ async def test_retention_prefilter_forces_high_risk(monkeypatch: pytest.MonkeyPa
 
     assert result.retention_risk == "high"
     assert result.flight_risk_score == 0.9
-    assert result.key_reasons == ["High workload", "Recent burnout"]
+    assert result.key_reasons == ["High workload", "Recent burnout", "Early-tenure fragility"]
 
 
 @pytest.mark.anyio

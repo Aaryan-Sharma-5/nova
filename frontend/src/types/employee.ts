@@ -29,10 +29,25 @@ export type Department = 'Engineering' | 'Sales' | 'Marketing' | 'HR' | 'Operati
 
 export type RiskLevel = 'low' | 'medium' | 'high';
 
+export interface EmotionSpectrum {
+  stress: number;
+  frustration: number;
+  disengagement: number;
+  satisfaction: number;
+  enthusiasm: number;
+  anxiety: number;
+}
+
 export interface SentimentResult {
   score: number; // -1 to 1
   label: 'Positive' | 'Neutral' | 'Negative';
   confidence: number; // 0-100
+  polarity?: number;
+  emotions?: EmotionSpectrum;
+  dominant_emotion?: keyof EmotionSpectrum;
+  trend_delta_14d?: EmotionSpectrum;
+  trend_delta_7d?: EmotionSpectrum;
+  emotion_breakdown?: Record<string, number>;
   keywords: { word: string; sentiment: 'positive' | 'negative' | 'neutral'; weight: number }[];
   metadata?: {
     attritionRisk: boolean;

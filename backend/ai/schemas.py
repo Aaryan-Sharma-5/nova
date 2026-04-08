@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, Field
+from ai.models import StructuredInsight
 
 
 class SentimentRequest(BaseModel):
@@ -12,12 +13,34 @@ class SentimentRequest(BaseModel):
     texts: list[str]
 
 
+class EmotionSpectrum(BaseModel):
+    stress: float = Field(..., ge=0.0, le=1.0)
+    frustration: float = Field(..., ge=0.0, le=1.0)
+    disengagement: float = Field(..., ge=0.0, le=1.0)
+    satisfaction: float = Field(..., ge=0.0, le=1.0)
+    enthusiasm: float = Field(..., ge=0.0, le=1.0)
+    anxiety: float = Field(..., ge=0.0, le=1.0)
+
+
 class SentimentResult(BaseModel):
     score: float = Field(..., ge=-1.0, le=1.0)
     label: Literal["positive", "neutral", "negative"]
     summary: str
     confidence: float = Field(..., ge=0.0, le=1.0)
+    polarity: float = Field(..., ge=-1.0, le=1.0)
+    emotions: EmotionSpectrum
+    dominant_emotion: Literal[
+        "stress",
+        "frustration",
+        "disengagement",
+        "satisfaction",
+        "enthusiasm",
+        "anxiety",
+    ]
+    trend_delta_14d: EmotionSpectrum
+    trend_delta_7d: EmotionSpectrum | None = None
     emotion_breakdown: dict[str, float] | None = None
+    structured_insight: StructuredInsight
 
 
 class BurnoutRequest(BaseModel):
@@ -34,6 +57,7 @@ class BurnoutResult(BaseModel):
     risk_score: float = Field(..., ge=0.0, le=1.0)
     factors: list[str]
     recommendation: str
+    structured_insight: StructuredInsight
 
 
 class PerformanceRequest(BaseModel):
@@ -50,6 +74,7 @@ class PerformanceResult(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     narrative: str
     suggested_actions: list[str]
+    structured_insight: StructuredInsight
 
 
 class RetentionRequest(BaseModel):
@@ -67,6 +92,7 @@ class RetentionResult(BaseModel):
     flight_risk_score: float = Field(..., ge=0.0, le=1.0)
     key_reasons: list[str]
     retention_actions: list[str]
+    structured_insight: StructuredInsight
 
 
 class AskNovaRequest(BaseModel):

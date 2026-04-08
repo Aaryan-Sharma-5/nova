@@ -13,6 +13,48 @@ import numpy as np
 # This is a simplified interface for feature engineering
 
 
+FEATURE_DIRECTION: dict[str, int] = {
+    "overtime_hours_normalized": 1,
+    "pto_days_unused_normalized": 1,
+    "meeting_load_normalized": 1,
+    "sentiment_score_normalized": -1,
+    "tenure_months_normalized": -1,
+    "performance_score": -1,
+    "days_since_promotion_normalized": 1,
+    "after_hours_ratio": 1,
+    "communication_drop_indicator": 1,
+    "engagement_score": -1,
+}
+
+
+FEATURE_LABELS: dict[str, str] = {
+    "overtime_hours_normalized": "Overtime load",
+    "pto_days_unused_normalized": "Unused PTO",
+    "meeting_load_normalized": "Meeting load",
+    "sentiment_score_normalized": "Sentiment quality",
+    "tenure_months_normalized": "Tenure stability",
+    "performance_score": "Performance trend",
+    "days_since_promotion_normalized": "Promotion gap",
+    "after_hours_ratio": "After-hours work",
+    "communication_drop_indicator": "Communication drop",
+    "engagement_score": "Engagement level",
+}
+
+
+DEFAULT_FEATURE_IMPORTANCE: dict[str, float] = {
+    "overtime_hours_normalized": 0.15,
+    "pto_days_unused_normalized": 0.10,
+    "meeting_load_normalized": 0.11,
+    "sentiment_score_normalized": 0.12,
+    "tenure_months_normalized": 0.06,
+    "performance_score": 0.10,
+    "days_since_promotion_normalized": 0.08,
+    "after_hours_ratio": 0.12,
+    "communication_drop_indicator": 0.08,
+    "engagement_score": 0.08,
+}
+
+
 class MockRandomForestClassifier:
     """Mock Random Forest classifier for demo/testing.
     Replace with actual sklearn.ensemble.RandomForestClassifier in production."""
@@ -211,3 +253,49 @@ def create_burnout_features(employee_data: dict[str, Any]) -> tuple[np.ndarray, 
     feature_names.append("engagement_score")
 
     return np.array([features]), feature_names
+
+
+def get_feature_contributions(
+    employee_data: dict[str, Any],
+    importances: dict[str, float] | None = None,
+    top_k: int = 10,
+) -> list[dict[str, Any]]:
+    """Compute signed feature contributions for explainability.
+
+    Positive contribution increases burnout risk.
+    Negative contribution reduces burnout risk.
+    """
+    feature_matrix, feature_names = create_burnout_features(employee_data)
+    values = feature_matrix[0]
+    importance_map = importances or DEFAULT_FEATURE_IMPORTANCE
+
+    contributions: list[dict[str, Any]] = []
+    for idx, feature_name in enumerate(feature_names):
+        value = float(values[idx])
+        weight = float(importance_map.get(feature_name, 0.0))
+        direction = FEATURE_DIRECTION.get(feature_name, 1)
+
+        # For protective features, high value should reduce risk.
+        if direction < 0:
+            signed_raw = -(weight * value)
+        else:
+            signed_raw = weight * value
+
+        contribution_pct = round(signed_raw * 100.0, 2)
+        plain_label = FEATURE_LABELS.get(feature_name, feature_name.replace("_", " ").title())
+        contribution_word = "increases" if contribution_pct >= 0 else "reduces"
+
+        contributions.append(
+            {
+                "feature": feature_name,
+                "label": plain_label,
+                "value": round(value, 4),
+                "weight": round(weight, 4),
+                "contribution": contribution_pct,
+                "direction": "positive" if contribution_pct >= 0 else "negative",
+                "explanation": f"{plain_label}: {contribution_pct:+.1f}% risk ({contribution_word} burnout risk)",
+            }
+        )
+
+    contributions.sort(key=lambda item: abs(float(item["contribution"])), reverse=True)
+    return contributions[:top_k]

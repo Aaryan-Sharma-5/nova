@@ -14,6 +14,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForbiddenPage from "./pages/ForbiddenPage";
 import BackendEndpointPage from "./pages/BackendEndpointPage";
+import AuditLogPage from "./pages/AuditLogPage";
+import EmployeePersonalPage from "./pages/EmployeePersonalPage";
 import NotFound from "./pages/NotFound";
 import { InsightsDashboard } from "@/features/insights/InsightsDashboard";
 
@@ -34,7 +36,7 @@ const App = () => (
               <Route
                 path="/"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["manager", "hr", "leadership"]}>
                     <AppLayout>
                       <DashboardPage />
                     </AppLayout>
@@ -44,7 +46,7 @@ const App = () => (
               <Route
                 path="/employees"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["manager", "hr", "leadership"]}>
                     <AppLayout>
                       <EmployeesPage />
                     </AppLayout>
@@ -54,7 +56,7 @@ const App = () => (
               <Route
                 path="/sentiment"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["manager", "hr", "leadership"]}>
                     <AppLayout>
                       <SentimentPage />
                     </AppLayout>
@@ -64,9 +66,19 @@ const App = () => (
               <Route
                 path="/org-health"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["manager", "hr", "leadership"]}>
                     <AppLayout>
                       <OrgHealthPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/your-data"
+                element={
+                  <ProtectedRoute allowedRoles={["employee"]}>
+                    <AppLayout>
+                      <EmployeePersonalPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }
@@ -85,7 +97,7 @@ const App = () => (
               <Route
                 path="/employee/profile"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["employee"]}>
                     <AppLayout>
                       <BackendEndpointPage
                         title="Employee Profile"
@@ -134,6 +146,16 @@ const App = () => (
                         endpoint="/leadership/roi-analytics"
                         description="Leadership-only strategic ROI metrics from backend."
                       />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/audit-logs"
+                element={
+                  <ProtectedRoute allowedRoles={["leadership"]}>
+                    <AppLayout>
+                      <AuditLogPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }

@@ -1,14 +1,23 @@
 import logging
 import time
 import uuid
+from typing import Tuple
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from core.audit import audit_log, consume_access_reason, set_audit_context
 from core.config import settings
 from core.database import get_supabase_hostname, is_supabase_host_resolvable
+from core.security import decode_access_token
 from api.routes import auth, hr, manager, leadership, employee
 from api.routes.ai import router as ai_router
 from api.routes.intervention import router as intervention_router
+from api.routes.events import router as events_router
+from api.routes.graph import router as graph_router
+from api.routes.simulate import router as simulate_router
+from api.routes.ml import router as ml_router
+from api.routes.audit import router as audit_router
+from api.routes.me import router as me_router
 
 # Configure logging
 logging.basicConfig(
@@ -53,6 +62,62 @@ app.include_router(employee.router)
 logger.info("  ✓ Employee routes registered at /employee")
 app.include_router(ai_router, prefix="/api/ai", tags=["AI Insights"])
 app.include_router(intervention_router, prefix="/api/interventions", tags=["Interventions"])
+app.include_router(events_router)
+app.include_router(graph_router, prefix="/api/graph", tags=["Graph Analytics"])
+app.include_router(simulate_router)
+app.include_router(ml_router)
+app.include_router(audit_router)
+app.include_router(me_router)
+
+
+_SENSITIVE_GET_PREFIXES = (
+    "/employee",
+    "/hr",
+    "/manager",
+    "/leadership",
+    "/api/interventions",
+    "/api/ml",
+    "/api/graph",
+    "/api/simulate",
+    "/api/ai/insights",
+    "/api/ai/burnout-risk",
+    "/api/ai/retention-risk",
+    "/api/ai/performance-prediction",
+    "/api/ai/sentiment",
+)
+
+
+def _is_sensitive_get_path(path: str) -> bool:
+    for prefix in _SENSITIVE_GET_PREFIXES:
+        if path == prefix or path.startswith(f"{prefix}/"):
+            return True
+    return False
+
+
+def _infer_resource(path: str) -> Tuple[str, str]:
+    segments = [segment for segment in path.split("/") if segment]
+    if not segments:
+        return "system", "root"
+
+    if segments[0] == "employee":
+        return "employees", segments[-1]
+    if segments[0] in {"hr", "manager", "leadership"}:
+        return "employees", segments[-1]
+    if len(segments) >= 2 and segments[0] == "api" and segments[1] == "interventions":
+        return "interventions", segments[-1]
+    if len(segments) >= 2 and segments[0] == "api" and segments[1] in {"ml", "graph", "simulate", "ai"}:
+        return "scores", segments[-1]
+    return "resource", segments[-1]
+
+
+def _resolve_request_user(request: Request) -> Tuple[str, str]:
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+        token_data = decode_access_token(token)
+        if token_data and token_data.email:
+            return token_data.email, str(token_data.role or "unknown")
+    return "anonymous", "unknown"
 
 
 @app.middleware("http")
@@ -60,6 +125,8 @@ async def request_logging_middleware(request: Request, call_next):
     """Log request start/end with latency and status code."""
     request_id = str(uuid.uuid4())[:8]
     client_ip = request.client.host if request.client else "unknown"
+    user_id, user_role = _resolve_request_user(request)
+    set_audit_context(user_id=user_id, user_role=user_role, ip_address=client_ip)
     start_time = time.perf_counter()
 
     logger.info(
@@ -92,6 +159,26 @@ async def request_logging_middleware(request: Request, call_next):
         response.status_code,
         duration_ms,
     )
+
+    if (
+        request.method.upper() == "GET"
+        and response.status_code < 400
+        and _is_sensitive_get_path(request.url.path)
+    ):
+        resource_type, resource_id = _infer_resource(request.url.path)
+        reason = await consume_access_reason(
+            user_id=user_id,
+            action="read",
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+        await audit_log(
+            action="read",
+            resource_type=resource_type,
+            resource_id=resource_id,
+            reason=reason,
+        )
+
     response.headers["X-Request-ID"] = request_id
     return response
 

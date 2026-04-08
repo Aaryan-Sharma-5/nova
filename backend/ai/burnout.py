@@ -7,6 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from ai.groq_client import groq_chat
+from ai.models import build_fallback_structured_insight, parse_structured_insight
 from ai.schemas import BurnoutRequest, BurnoutResult
 
 
@@ -77,13 +78,20 @@ async def assess_burnout(request: BurnoutRequest) -> BurnoutResult:
     risk_level = _risk_level(risk_score)
     factors = ["Data unavailable"]
     recommendation = "Manual review recommended"
+    structured_insight = build_fallback_structured_insight(
+        summary="Burnout summary unavailable due to model output issues.",
+        key_signals=factors,
+        recommended_action=recommendation,
+        confidence="low",
+        urgency="monitor",
+    )
 
     try:
         response = await groq_chat(messages=_build_messages(request, risk_score))
         content = response.choices[0].message.content if response and response.choices else ""
-        data = json.loads(content)
-        factors = _safe_list(data.get("factors"), factors)
-        recommendation = _safe_text(data.get("recommendation"), recommendation)
+        structured_insight = parse_structured_insight(content, structured_insight)
+        factors = _safe_list(structured_insight.key_signals, factors)
+        recommendation = _safe_text(structured_insight.recommended_action, recommendation)
     except Exception:
         pass
 
@@ -92,4 +100,5 @@ async def assess_burnout(request: BurnoutRequest) -> BurnoutResult:
         risk_score=risk_score,
         factors=factors,
         recommendation=recommendation,
+        structured_insight=structured_insight,
     )

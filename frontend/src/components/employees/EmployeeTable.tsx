@@ -10,6 +10,7 @@ import { Search, Download, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide
 import { motion } from 'framer-motion';
 import { EmployeeDetailDialog } from '@/components/employees/EmployeeDetailDialog';
 import FlightRiskDrawer from '@/components/employees/FlightRiskDrawer';
+import ScoreExplainability from '@/components/dashboard/ScoreExplainability';
 import { getSentimentLabel } from '@/utils/sentimentAnalysis';
 import { detectAnomaly } from '@/utils/anomalyDetection';
 
@@ -25,6 +26,7 @@ export function EmployeeTable() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [flightRiskEmployee, setFlightRiskEmployee] = useState<Employee | null>(null);
+  const [explainEmployee, setExplainEmployee] = useState<Employee | null>(null);
 
   const filtered = useMemo(() => {
     let result = [...employees];
@@ -188,7 +190,20 @@ export function EmployeeTable() {
                   })()}
                 </td>
                 <td className="px-3 py-3 text-center">
-                  <RiskBadge value={emp.burnoutRisk} />
+                  <div className="flex items-center justify-center gap-2">
+                    <RiskBadge value={emp.burnoutRisk} />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExplainEmployee(emp);
+                      }}
+                    >
+                      Explain Score
+                    </Button>
+                  </div>
                 </td>
                 <td 
                   className="px-3 py-3 text-center"
@@ -230,6 +245,13 @@ export function EmployeeTable() {
         employeeName={flightRiskEmployee?.name || ''}
         open={!!flightRiskEmployee}
         onClose={() => setFlightRiskEmployee(null)}
+      />
+
+      <ScoreExplainability
+        employeeId={explainEmployee?.id || null}
+        employeeName={explainEmployee?.name || ''}
+        open={!!explainEmployee}
+        onClose={() => setExplainEmployee(null)}
       />
     </motion.div>
   );

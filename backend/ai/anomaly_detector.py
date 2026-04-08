@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal
 
@@ -32,6 +33,21 @@ class AnomalyResult:
     description: str = ""
 
 
+@dataclass
+class CompositeAnomalyResult:
+    """Composite anomaly result with temporal weighting metadata."""
+
+    detected: bool
+    reason: str
+    severity: Literal["low", "medium", "high", "critical"]
+    temporal_weight_applied: bool
+    recency_boost_reason: str
+    score_today: float
+    score_7d_ago: float
+    weighted_contributions: dict[str, float]
+    changed_signals: list[str]
+
+
 def _calculate_z_score(value: float, historical_mean: float, std_dev: float) -> float:
     """Calculate z-score for a value."""
     if std_dev == 0:
@@ -54,6 +70,55 @@ def _get_severity(z_score: float) -> Literal["low", "medium", "high", "critical"
     if abs_z >= 2.5:
         return "medium"
     return "low"
+
+
+def _severity_score(level: Literal["low", "medium", "high", "critical"]) -> float:
+    mapping = {
+        "low": 0.25,
+        "medium": 0.5,
+        "high": 0.75,
+        "critical": 1.0,
+    }
+    return mapping[level]
+
+
+def _days_ago_from_iso(value: str | None) -> int:
+    if not value:
+        return 14
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        return max((now - dt).days, 0)
+    except Exception:
+        return 14
+
+
+def _recency_multiplier(days_ago: int) -> float:
+    if days_ago <= 7:
+        return 2.0
+    if days_ago <= 30:
+        return 1.0
+    return 0.5
+
+
+def _time_risk_from_days(days_ago: int) -> float:
+    if days_ago <= 7:
+        return 1.0
+    if days_ago <= 30:
+        return 0.6
+    return 0.3
+
+
+def _score_to_severity(score: float) -> Literal["low", "medium", "high", "critical"]:
+    if score <= 0.25:
+        return "low"
+    if score <= 0.5:
+        return "medium"
+    if score <= 0.75:
+        return "high"
+    return "critical"
 
 
 def detect_sentiment_crash(
@@ -234,43 +299,163 @@ def composite_anomaly_check(
     engagement_anomaly: AnomalyResult,
     performance_anomaly: AnomalyResult,
     communication_anomaly: AnomalyResult,
-) -> tuple[bool, str, Literal["low", "medium", "high", "critical"]]:
-    """Check if multiple anomalies co-occur (higher confidence signal)."""
-    anomalies_count = sum(
-        [
-            sentiment_anomaly.detected,
-            engagement_anomaly.detected,
-            performance_anomaly.detected,
-            communication_anomaly.detected,
-        ]
+    anomaly_timestamps: dict[str, str] | None = None,
+) -> CompositeAnomalyResult:
+    """Check anomaly co-occurrence and calculate a temporally weighted composite score.
+
+    Base weighted components:
+    - burnout: 35%
+    - sentiment: 25%
+    - time_at_risk: 20%
+    - anomaly: 20%
+    """
+    anomaly_timestamps = anomaly_timestamps or {}
+
+    signals = {
+        "sentiment": sentiment_anomaly,
+        "engagement": engagement_anomaly,
+        "performance": performance_anomaly,
+        "communication": communication_anomaly,
+    }
+
+    detected_signals = [name for name, result in signals.items() if result.detected]
+    anomalies_count = len(detected_signals)
+
+    if anomalies_count == 0:
+        return CompositeAnomalyResult(
+            detected=False,
+            reason="No significant anomalies detected",
+            severity="low",
+            temporal_weight_applied=False,
+            recency_boost_reason="No anomaly recency boost applied.",
+            score_today=0.0,
+            score_7d_ago=0.0,
+            weighted_contributions={
+                "burnout": 0.0,
+                "sentiment": 0.0,
+                "time_at_risk": 0.0,
+                "anomaly": 0.0,
+            },
+            changed_signals=[],
+        )
+
+    days_by_signal: dict[str, int] = {
+        name: _days_ago_from_iso(anomaly_timestamps.get(name)) for name in signals
+    }
+
+    multipliers_today: dict[str, float] = {
+        name: _recency_multiplier(days_by_signal[name]) for name in signals
+    }
+    multipliers_7d_ago: dict[str, float] = {
+        name: _recency_multiplier(days_by_signal[name] + 7) for name in signals
+    }
+
+    temporal_weight_applied = any(
+        signals[name].detected and multipliers_today[name] != 1.0 for name in signals
+    )
+    boosted = [
+        f"{name} ({days_by_signal[name]}d ago, x{multipliers_today[name]:.1f})"
+        for name in detected_signals
+        if multipliers_today[name] > 1.0
+    ]
+    if boosted:
+        recency_boost_reason = "Recency boost applied to anomalies: " + ", ".join(boosted)
+    else:
+        recency_boost_reason = "No recent anomalies within 7 days; standard weighting applied."
+
+    signal_intensity_today: dict[str, float] = {}
+    signal_intensity_7d_ago: dict[str, float] = {}
+    for name, result in signals.items():
+        if not result.detected:
+            signal_intensity_today[name] = 0.0
+            signal_intensity_7d_ago[name] = 0.0
+            continue
+        base = _severity_score(result.severity)
+        signal_intensity_today[name] = min(1.0, base * multipliers_today[name])
+        signal_intensity_7d_ago[name] = min(1.0, base * multipliers_7d_ago[name])
+
+    burnout_signal_today = float(
+        np.mean(
+            [
+                signal_intensity_today["engagement"],
+                signal_intensity_today["performance"],
+                signal_intensity_today["communication"],
+            ]
+        )
+    )
+    burnout_signal_7d = float(
+        np.mean(
+            [
+                signal_intensity_7d_ago["engagement"],
+                signal_intensity_7d_ago["performance"],
+                signal_intensity_7d_ago["communication"],
+            ]
+        )
     )
 
-    if anomalies_count >= 3:
-        # Critical: 3+ anomalies indicate serious behavioral shift
-        return True, "Multiple critical anomalies detected across sentiment, engagement, performance, and communication", "critical"
-    
-    if anomalies_count >= 2:
-        # High: 2 anomalies warrant attention
-        anomaly_names = []
-        if sentiment_anomaly.detected:
-            anomaly_names.append("sentiment")
-        if engagement_anomaly.detected:
-            anomaly_names.append("engagement")
-        if performance_anomaly.detected:
-            anomaly_names.append("performance")
-        if communication_anomaly.detected:
-            anomaly_names.append("communication")
-        
-        return (
-            True,
-            f"Significant anomalies in: {', '.join(anomaly_names)}",
-            "high",
-        )
-    
-    if anomalies_count == 1:
-        # Medium: Single anomaly, but trend worth monitoring
-        if sentiment_anomaly.detected and sentiment_anomaly.severity in ["high", "critical"]:
-            return True, "Critical sentiment shift detected", "high"
-        return True, "Single anomaly detected, monitor closely", "medium"
+    sentiment_signal_today = signal_intensity_today["sentiment"]
+    sentiment_signal_7d = signal_intensity_7d_ago["sentiment"]
 
-    return False, "No significant anomalies detected", "low"
+    time_at_risk_today = float(
+        np.mean([_time_risk_from_days(days_by_signal[name]) for name in detected_signals])
+    )
+    time_at_risk_7d = float(
+        np.mean([_time_risk_from_days(days_by_signal[name] + 7) for name in detected_signals])
+    )
+
+    anomaly_signal_today = min(
+        1.0,
+        float(sum(multipliers_today[name] for name in detected_signals)) / 3.0,
+    )
+    anomaly_signal_7d = min(
+        1.0,
+        float(sum(multipliers_7d_ago[name] for name in detected_signals)) / 3.0,
+    )
+
+    contributions_today = {
+        "burnout": 0.35 * burnout_signal_today,
+        "sentiment": 0.25 * sentiment_signal_today,
+        "time_at_risk": 0.20 * time_at_risk_today,
+        "anomaly": 0.20 * anomaly_signal_today,
+    }
+    contributions_7d = {
+        "burnout": 0.35 * burnout_signal_7d,
+        "sentiment": 0.25 * sentiment_signal_7d,
+        "time_at_risk": 0.20 * time_at_risk_7d,
+        "anomaly": 0.20 * anomaly_signal_7d,
+    }
+
+    score_today = min(1.0, sum(contributions_today.values()))
+    score_7d_ago = min(1.0, sum(contributions_7d.values()))
+    severity = _score_to_severity(score_today)
+
+    changed_signals: list[str] = []
+    for name in detected_signals:
+        if multipliers_today[name] > multipliers_7d_ago[name]:
+            changed_signals.append(f"{name} anomaly gained recency weight")
+        elif multipliers_today[name] < multipliers_7d_ago[name]:
+            changed_signals.append(f"{name} anomaly lost recency weight")
+
+    if not changed_signals:
+        changed_signals.append("No major recency-based signal changes in the last 7 days")
+
+    if anomalies_count >= 3:
+        reason = "Multiple critical anomalies detected across sentiment, engagement, performance, and communication"
+    elif anomalies_count == 2:
+        reason = f"Significant anomalies in: {', '.join(detected_signals)}"
+    else:
+        reason = "Single anomaly detected, monitor closely"
+
+    return CompositeAnomalyResult(
+        detected=True,
+        reason=reason,
+        severity=severity,
+        temporal_weight_applied=temporal_weight_applied,
+        recency_boost_reason=recency_boost_reason,
+        score_today=round(score_today, 4),
+        score_7d_ago=round(score_7d_ago, 4),
+        weighted_contributions={
+            key: round(value * 100.0, 2) for key, value in contributions_today.items()
+        },
+        changed_signals=changed_signals,
+    )

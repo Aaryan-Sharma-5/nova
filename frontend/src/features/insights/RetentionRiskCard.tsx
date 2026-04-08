@@ -1,11 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { StructuredInsight } from "./hooks/useInsights";
 
 type RetentionRiskCardProps = {
   retention_risk: string;
   flight_risk_score: number;
   key_reasons: string[];
   retention_actions: string[];
+  structured_insight: StructuredInsight;
 };
 
 const RISK_STYLES: Record<string, string> = {
@@ -19,6 +22,7 @@ export function RetentionRiskCard({
   flight_risk_score,
   key_reasons,
   retention_actions,
+  structured_insight,
 }: RetentionRiskCardProps) {
   const badgeClass = RISK_STYLES[retention_risk] ?? "bg-muted text-foreground";
 
@@ -44,20 +48,17 @@ export function RetentionRiskCard({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {key_reasons.map((reason, index) => (
-            <span
-              key={`${reason}-${index}`}
-              className="rounded-full border border-foreground px-2 py-1 text-xs font-medium"
-            >
+          {(structured_insight.key_signals.length ? structured_insight.key_signals : key_reasons).map((reason, index) => (
+            <Badge key={`${reason}-${index}`} variant="secondary">
               {reason}
-            </span>
+            </Badge>
           ))}
         </div>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
-          {retention_actions.map((action, index) => (
-            <li key={`${action}-${index}`}>{action}</li>
-          ))}
-        </ul>
+        <p className="text-sm text-foreground leading-relaxed">{structured_insight.summary}</p>
+        <div className="rounded-md border border-blue-300 bg-blue-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Recommended Action</p>
+          <p className="text-sm text-blue-900">{structured_insight.recommended_action || retention_actions[0]}</p>
+        </div>
       </CardContent>
     </Card>
   );

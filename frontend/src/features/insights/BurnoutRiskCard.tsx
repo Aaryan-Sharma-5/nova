@@ -1,11 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { StructuredInsight } from "./hooks/useInsights";
 
 type BurnoutRiskCardProps = {
   risk_level: string;
   risk_score: number;
   factors: string[];
   recommendation: string;
+  structured_insight: StructuredInsight;
 };
 
 const RISK_STYLES: Record<string, string> = {
@@ -15,7 +18,13 @@ const RISK_STYLES: Record<string, string> = {
   critical: "bg-rose-200 text-rose-900",
 };
 
-export function BurnoutRiskCard({ risk_level, risk_score, factors, recommendation }: BurnoutRiskCardProps) {
+export function BurnoutRiskCard({
+  risk_level,
+  risk_score,
+  factors,
+  recommendation,
+  structured_insight,
+}: BurnoutRiskCardProps) {
   const badgeClass = RISK_STYLES[risk_level] ?? "bg-muted text-foreground";
 
   return (
@@ -40,16 +49,17 @@ export function BurnoutRiskCard({ risk_level, risk_score, factors, recommendatio
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {factors.map((factor, index) => (
-            <span
-              key={`${factor}-${index}`}
-              className="rounded-full border border-foreground px-2 py-1 text-xs font-medium"
-            >
+          {(structured_insight.key_signals.length ? structured_insight.key_signals : factors).map((factor, index) => (
+            <Badge key={`${factor}-${index}`} variant="secondary">
               {factor}
-            </span>
+            </Badge>
           ))}
         </div>
-        <p className="text-sm text-foreground leading-relaxed">{recommendation}</p>
+        <p className="text-sm text-foreground leading-relaxed">{structured_insight.summary}</p>
+        <div className="rounded-md border border-blue-300 bg-blue-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Recommended Action</p>
+          <p className="text-sm text-blue-900">{structured_insight.recommended_action || recommendation}</p>
+        </div>
       </CardContent>
     </Card>
   );

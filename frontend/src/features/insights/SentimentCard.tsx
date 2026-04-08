@@ -1,11 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { StructuredInsight } from "./hooks/useInsights";
 
 type SentimentCardProps = {
   score: number;
   label: string;
   summary: string;
   confidence: number;
+  structured_insight: StructuredInsight;
 };
 
 const LABEL_STYLES: Record<string, string> = {
@@ -14,7 +17,7 @@ const LABEL_STYLES: Record<string, string> = {
   negative: "bg-rose-200 text-rose-900",
 };
 
-export function SentimentCard({ score, label, summary, confidence }: SentimentCardProps) {
+export function SentimentCard({ score, label, summary, confidence, structured_insight }: SentimentCardProps) {
   const normalized = Math.round(((score + 1) / 2) * 100);
   const badgeClass = LABEL_STYLES[label] ?? "bg-muted text-foreground";
 
@@ -39,7 +42,18 @@ export function SentimentCard({ score, label, summary, confidence }: SentimentCa
             />
           </div>
         </div>
-        <p className="text-sm text-foreground leading-relaxed">{summary}</p>
+        <p className="text-sm text-foreground leading-relaxed">{structured_insight.summary || summary}</p>
+        <div className="flex flex-wrap gap-2">
+          {structured_insight.key_signals.map((signal, index) => (
+            <Badge key={`${signal}-${index}`} variant="secondary">
+              {signal}
+            </Badge>
+          ))}
+        </div>
+        <div className="rounded-md border border-blue-300 bg-blue-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Recommended Action</p>
+          <p className="text-sm text-blue-900">{structured_insight.recommended_action}</p>
+        </div>
         <p className="text-xs text-muted-foreground">
           Confidence: {Math.round(confidence * 100)}%
         </p>

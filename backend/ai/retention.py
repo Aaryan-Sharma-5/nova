@@ -7,6 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from ai.groq_client import groq_chat
+from ai.models import build_fallback_structured_insight, parse_structured_insight
 from ai.schemas import RetentionRequest, RetentionResult
 
 
@@ -55,16 +56,35 @@ async def assess_retention(request: RetentionRequest) -> RetentionResult:
     )
     key_reasons = ["Data unavailable"]
     retention_actions = ["Manual review recommended"]
+    structured_insight = build_fallback_structured_insight(
+        summary="Retention summary unavailable due to model output issues.",
+        key_signals=key_reasons,
+        recommended_action=retention_actions[0],
+        confidence="low",
+        urgency="monitor",
+    )
 
     try:
         response = await groq_chat(messages=_build_messages(request))
         content = response.choices[0].message.content if response and response.choices else ""
-        data = json.loads(content)
-        key_reasons = _safe_list(data.get("key_reasons"), key_reasons)
-        retention_actions = _safe_list(data.get("retention_actions"), retention_actions)
+        structured_insight = parse_structured_insight(content, structured_insight)
+        key_reasons = _safe_list(structured_insight.key_signals, key_reasons)
+        retention_actions = [structured_insight.recommended_action]
+
         if not force_high_risk:
-            retention_risk = _safe_risk(data.get("retention_risk"), retention_risk)
-            flight_risk_score = _safe_float(data.get("flight_risk_score"), flight_risk_score)
+            if structured_insight.urgency == "immediate":
+                retention_risk = "high"
+            elif structured_insight.urgency == "this_week":
+                retention_risk = "medium"
+            else:
+                retention_risk = "low"
+
+            if structured_insight.confidence == "high":
+                flight_risk_score = max(flight_risk_score, 0.8)
+            elif structured_insight.confidence == "medium":
+                flight_risk_score = max(flight_risk_score, 0.5)
+            else:
+                flight_risk_score = max(flight_risk_score, 0.25)
     except Exception:
         pass
 
@@ -73,4 +93,5 @@ async def assess_retention(request: RetentionRequest) -> RetentionResult:
         flight_risk_score=flight_risk_score,
         key_reasons=key_reasons,
         retention_actions=retention_actions,
+        structured_insight=structured_insight,
     )

@@ -88,4 +88,19 @@ export async function protectedGetApi<T>(path: string, token: string): Promise<T
   return apiRequest<T>(path, { token });
 }
 
+export async function protectedPostApi<T>(
+  path: string,
+  token: string,
+  payload: unknown,
+): Promise<T> {
+  return apiRequest<T>(path, {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 export { API_BASE_URL };

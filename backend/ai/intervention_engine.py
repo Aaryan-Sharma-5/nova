@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from ai.groq_client import groq_chat
+from ai.models import StructuredInsight, build_fallback_structured_insight, parse_structured_insight
 
 
 class InterventionType(str, Enum):
@@ -65,6 +66,7 @@ class InterventionResponse(BaseModel):
     recommendations: list[InterventionRecommendation]
     overall_urgency: InterventionUrgency
     reasoning: str
+    structured_insight: StructuredInsight
     generated_at: datetime
 
 
@@ -244,7 +246,7 @@ def _get_delay_risks(intervention_type: InterventionType, weeks_delayed: int = 1
 async def _enrich_with_llm(
     request: InterventionRequest,
     recommendations: list[InterventionRecommendation],
-) -> str:
+) -> StructuredInsight:
     """Enrich recommendations with LLM reasoning."""
     payload = {
         "employee_id": request.employee_id,
@@ -272,15 +274,28 @@ async def _enrich_with_llm(
         },
     ]
 
+    fallback = build_fallback_structured_insight(
+        summary="Standard intervention protocol applied for this employee profile.",
+        key_signals=[
+            f"Burnout score: {request.burnout_score:.2f}",
+            f"Retention risk: {request.retention_risk}",
+            f"Anomaly detected: {'yes' if request.anomaly_detected else 'no'}",
+        ],
+        recommended_action=(
+            recommendations[0].description
+            if recommendations
+            else "Schedule a manager check-in and monitor weekly indicators."
+        ),
+        confidence="medium",
+        urgency="this_week",
+    )
+
     try:
         response = await groq_chat(messages)
-        return (
-            response.get("reasoning", "")
-            if isinstance(response, dict)
-            else str(response)
-        )
-    except Exception as e:
-        return f"Standard intervention protocol applied. Error details: {str(e)[:100]}"
+        content = response.choices[0].message.content if response and response.choices else ""
+        return parse_structured_insight(content, fallback)
+    except Exception:
+        return fallback
 
 
 async def get_interventions(request: InterventionRequest) -> InterventionResponse:
@@ -333,12 +348,13 @@ async def get_interventions(request: InterventionRequest) -> InterventionRespons
     )
 
     # Enrich with LLM reasoning
-    reasoning = await _enrich_with_llm(request, recommendations)
+    structured_insight = await _enrich_with_llm(request, recommendations)
 
     return InterventionResponse(
         employee_id=request.employee_id,
         recommendations=recommendations,
         overall_urgency=overall_urgency,
-        reasoning=reasoning,
+        reasoning=structured_insight.summary,
+        structured_insight=structured_insight,
         generated_at=datetime.utcnow(),
     )

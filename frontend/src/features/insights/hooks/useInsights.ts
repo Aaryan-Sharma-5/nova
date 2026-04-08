@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
-import { protectedGetApi } from "@/lib/api";
+import { protectedGetApi, protectedPostApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployees } from "@/contexts/EmployeeContext";
+
+export type StructuredInsight = {
+  summary: string;
+  key_signals: string[];
+  recommended_action: string;
+  confidence: "high" | "medium" | "low";
+  urgency: "immediate" | "this_week" | "monitor";
+};
 
 export type SentimentInsight = {
   score: number;
   label: string;
   summary: string;
   confidence: number;
+  structured_insight: StructuredInsight;
 };
 
 export type BurnoutInsight = {
@@ -15,6 +24,7 @@ export type BurnoutInsight = {
   risk_score: number;
   factors: string[];
   recommendation: string;
+  structured_insight: StructuredInsight;
 };
 
 export type PerformanceInsight = {
@@ -22,6 +32,7 @@ export type PerformanceInsight = {
   confidence: number;
   narrative: string;
   suggested_actions: string[];
+  structured_insight: StructuredInsight;
 };
 
 export type RetentionInsight = {
@@ -29,6 +40,24 @@ export type RetentionInsight = {
   flight_risk_score: number;
   key_reasons: string[];
   retention_actions: string[];
+  structured_insight: StructuredInsight;
+};
+
+export type CompositeAnomalyInsight = {
+  detected: boolean;
+  reason: string;
+  severity: "low" | "medium" | "high" | "critical";
+  temporal_weight_applied: boolean;
+  recency_boost_reason: string;
+  score_today: number;
+  score_7d_ago: number;
+  weighted_contributions: {
+    burnout: number;
+    sentiment: number;
+    time_at_risk: number;
+    anomaly: number;
+  };
+  changed_signals: string[];
 };
 
 export type InsightsPayload = {
@@ -36,6 +65,7 @@ export type InsightsPayload = {
   burnout: BurnoutInsight;
   performance: PerformanceInsight;
   retention: RetentionInsight;
+  composite?: CompositeAnomalyInsight;
 };
 
 export function useInsights(employeeId?: string) {
@@ -97,8 +127,26 @@ export function useInsights(employeeId?: string) {
           `/api/ai/insights/${employeeId}?${params.toString()}`,
           token,
         );
+
+        const anomalyPayload = await protectedPostApi<{
+          composite_result: CompositeAnomalyInsight;
+        }>("/api/interventions/anomalies", token, {
+          employee_id: employeeId,
+          sentiment_history: employee.sentimentHistory.slice(-6).map((p) => p.score),
+          sentiment_dates: employee.sentimentHistory.slice(-6).map((p) => p.date),
+          engagement_history: [employee.engagementScore],
+          engagement_dates: [new Date().toISOString().split("T")[0]],
+          performance_history: employee.performanceHistory.slice(-6).map((p) => p.score),
+          performance_dates: employee.performanceHistory.slice(-6).map((p) => p.date),
+          message_counts: [],
+          message_dates: [new Date().toISOString().split("T")[0]],
+        });
+
         if (isMounted) {
-          setData(payload);
+          setData({
+            ...payload,
+            composite: anomalyPayload.composite_result,
+          });
         }
       } catch (err) {
         if (isMounted) {

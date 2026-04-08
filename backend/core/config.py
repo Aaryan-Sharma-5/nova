@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # Server Configuration
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+
+    # Optional ML feature explainability source configuration
+    ML_FEATURE_TABLE: str = ""
+    ML_FEATURE_EMPLOYEE_KEY: str = "employee_id"
+    ML_FEATURE_COLUMN_MAP_JSON: str = ""
     
     class Config:
         env_file = str(Path(__file__).resolve().parents[1] / ".env")

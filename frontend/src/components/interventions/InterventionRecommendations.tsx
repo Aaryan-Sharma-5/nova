@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle, Clock, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import WhatIfSimulator from '@/components/dashboard/WhatIfSimulator';
+import type { WhatIfScenarioPayload } from '@/components/dashboard/WhatIfSimulator';
+import { Skeleton } from '@/components/ui/skeleton';
 
-interface InterventionRecommendation {
+export interface InterventionRecommendation {
   intervention_type: string;
   description: string;
   urgency: 'low' | 'medium' | 'high' | 'critical';
@@ -19,6 +22,13 @@ interface InterventionRecommendationsProps {
   reasoning: string;
   onExecuteIntervention?: (interventionType: string, notes: string) => Promise<void>;
   isLoading?: boolean;
+  currentBurnoutRisk?: number;
+  currentAttritionRisk?: number;
+  workHoursPerWeek?: number;
+  sentimentScore?: number;
+  engagementScore?: number;
+  tenureMonths?: number;
+  emptyStateMessage?: string;
 }
 
 const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = ({
@@ -29,10 +39,26 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
   reasoning,
   onExecuteIntervention,
   isLoading = false,
+  currentBurnoutRisk = 62,
+  currentAttritionRisk = 48,
+  workHoursPerWeek = 48,
+  sentimentScore = -0.2,
+  engagementScore = 54,
+  tenureMonths = 16,
+  emptyStateMessage = 'No immediate interventions recommended for this employee profile.',
 }) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
   const [executingIndex, setExecutingIndex] = useState<number | null>(null);
   const [executionNotes, setExecutionNotes] = useState<string>('');
+  const [simulatorOpen, setSimulatorOpen] = useState<boolean>(false);
+  const [simulatorInterventionLabel, setSimulatorInterventionLabel] = useState<string>('');
+  const [simulatorInterventionType, setSimulatorInterventionType] = useState<string>('');
+  const [simulatorInputs, setSimulatorInputs] = useState<{
+    meetingLoadReductionPct: number;
+    workHoursNormalizationPct: number;
+    teamSizeAdjustmentPct: number;
+    managerOneOnOneFrequency: number;
+  } | null>(null);
 
   const urgencyColors: Record<string, string> = {
     low: 'bg-blue-50 border-blue-200 text-blue-700',
@@ -55,6 +81,62 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     critical: 'Critical - Act Immediately',
   };
 
+  const interventionPrefillMap: Record<string, {
+    meetingLoadReductionPct: number;
+    workHoursNormalizationPct: number;
+    teamSizeAdjustmentPct: number;
+    managerOneOnOneFrequency: number;
+  }> = {
+    'workload-reduction': {
+      meetingLoadReductionPct: 35,
+      workHoursNormalizationPct: 30,
+      teamSizeAdjustmentPct: -10,
+      managerOneOnOneFrequency: 2,
+    },
+    'one-on-one': {
+      meetingLoadReductionPct: 10,
+      workHoursNormalizationPct: 15,
+      teamSizeAdjustmentPct: 0,
+      managerOneOnOneFrequency: 4,
+    },
+    mentoring: {
+      meetingLoadReductionPct: 8,
+      workHoursNormalizationPct: 10,
+      teamSizeAdjustmentPct: -5,
+      managerOneOnOneFrequency: 3,
+    },
+    'wellness-program': {
+      meetingLoadReductionPct: 12,
+      workHoursNormalizationPct: 20,
+      teamSizeAdjustmentPct: 0,
+      managerOneOnOneFrequency: 2,
+    },
+    'promotion-discussion': {
+      meetingLoadReductionPct: 5,
+      workHoursNormalizationPct: 10,
+      teamSizeAdjustmentPct: 0,
+      managerOneOnOneFrequency: 2,
+    },
+    sabbatical: {
+      meetingLoadReductionPct: 40,
+      workHoursNormalizationPct: 45,
+      teamSizeAdjustmentPct: -20,
+      managerOneOnOneFrequency: 1,
+    },
+    'team-building': {
+      meetingLoadReductionPct: 8,
+      workHoursNormalizationPct: 10,
+      teamSizeAdjustmentPct: -8,
+      managerOneOnOneFrequency: 3,
+    },
+    'flexible-schedule': {
+      meetingLoadReductionPct: 15,
+      workHoursNormalizationPct: 30,
+      teamSizeAdjustmentPct: 0,
+      managerOneOnOneFrequency: 2,
+    },
+  };
+
   const handleExecute = async (index: number) => {
     if (!onExecuteIntervention) return;
 
@@ -70,6 +152,48 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
       console.error('Failed to execute intervention:', error);
     }
   };
+
+  const openSimulatorForRecommendation = (rec: InterventionRecommendation) => {
+    setSimulatorInterventionLabel(rec.intervention_type.replace(/-/g, ' '));
+    setSimulatorInterventionType(rec.intervention_type);
+    setSimulatorInputs(
+      interventionPrefillMap[rec.intervention_type] ?? {
+        meetingLoadReductionPct: 15,
+        workHoursNormalizationPct: 20,
+        teamSizeAdjustmentPct: 0,
+        managerOneOnOneFrequency: 2,
+      },
+    );
+    setSimulatorOpen(true);
+  };
+
+  const handleApplyScenario = async (payload: WhatIfScenarioPayload) => {
+    if (!onExecuteIntervention || !simulatorInterventionType) {
+      return;
+    }
+
+    const notes = [
+      `Scenario: ${payload.interventionLabel}`,
+      `Inputs -> meeting_reduction=${payload.inputs.meetingLoadReductionPct}%, hours_normalization=${payload.inputs.workHoursNormalizationPct}%, team_adjustment=${payload.inputs.teamSizeAdjustmentPct}%, manager_1on1=${payload.inputs.managerOneOnOneFrequency}/mo`,
+      `Client projection -> burnout=${payload.clientProjection.projectedBurnout.toFixed(1)}%, attrition=${payload.clientProjection.projectedAttrition.toFixed(1)}%, burnout_delta=${payload.clientProjection.burnoutDelta.toFixed(1)}pts, attrition_delta=${payload.clientProjection.attritionDelta.toFixed(1)}pts`,
+      payload.serverProjection
+        ? `Server projection -> burnout=${(payload.serverProjection.projected_burnout_score * 100).toFixed(1)}%, attrition=${(payload.serverProjection.projected_attrition_score * 100).toFixed(1)}%`
+        : 'Server projection unavailable',
+      'Applied via What-If Intervention Simulator.',
+    ].join('\n');
+
+    await onExecuteIntervention(simulatorInterventionType, notes);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -88,7 +212,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
         {recommendations.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No immediate interventions recommended</p>
+            <p>{emptyStateMessage}</p>
           </div>
         ) : (
           recommendations.map((rec, index) => (
@@ -166,11 +290,28 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
 
                   {/* Execution Section */}
                   {onExecuteIntervention && executingIndex !== index && (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => setExecutingIndex(index)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold"
+                      >
+                        Mark as Executed
+                      </button>
+                      <button
+                        onClick={() => openSimulatorForRecommendation(rec)}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold"
+                      >
+                        Simulate Intervention
+                      </button>
+                    </div>
+                  )}
+
+                  {!onExecuteIntervention && (
                     <button
-                      onClick={() => setExecutingIndex(index)}
-                      className="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold"
+                      onClick={() => openSimulatorForRecommendation(rec)}
+                      className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold"
                     >
-                      Mark as Executed
+                      Simulate Intervention
                     </button>
                   )}
 
@@ -212,6 +353,23 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
           ))
         )}
       </div>
+
+      <WhatIfSimulator
+        open={simulatorOpen}
+        onOpenChange={setSimulatorOpen}
+        employeeId={employeeId}
+        interventionLabel={simulatorInterventionLabel}
+        initialInputs={simulatorInputs ?? undefined}
+        onApplyScenario={onExecuteIntervention ? handleApplyScenario : undefined}
+        currentContext={{
+          burnoutRisk: currentBurnoutRisk,
+          attritionRisk: currentAttritionRisk,
+          workHoursPerWeek,
+          sentimentScore,
+          engagementScore,
+          tenureMonths,
+        }}
+      />
 
       {/* Support Text */}
       <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">

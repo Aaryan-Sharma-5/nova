@@ -270,7 +270,9 @@ POST   /api/ai/ask-nova             Chat with AI assistant (streaming)
 ### Interventions (NEW)
 ```
 POST   /api/interventions/recommend           Get AI intervention recommendations
+POST   /api/interventions/recommendations     Alias: intervention recommendations
 POST   /api/interventions/analyze-anomalies   Detect behavioral anomalies
+POST   /api/interventions/anomalies           Alias: anomaly analysis endpoint
 GET    /api/interventions/history/{id}        Get intervention history
 POST   /api/interventions/execute/{id}        Log intervention execution
 ```
@@ -447,7 +449,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ### ✅ **Fully Implemented**
 - FastAPI backend with 55+ endpoints
 - Burnout risk assessment (rules + Groq LLM)
-- Sentiment analysis with emotion classification
+- Sentiment analysis with structured LLM outputs
 - Retention flight risk prediction
 - Performance prediction
 - Staff aggregated insights API
@@ -456,15 +458,17 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Supabase authentication & database
 - 12+ frontend visualization components
 - **NEW: Intervention Engine** (8 recommendation types)
-- **NEW: Anomaly Detection** (Z-score based)
+- **NEW: Anomaly Detection** (Z-score + temporal weighting)
 - **NEW: Network Analysis** (centrality, propagation)
 - **NEW: Batch Scheduler** (APScheduler ready)
+- **NEW: Structured AI insight schema** (summary, key signals, recommended action + fallback parser)
+- **NEW: Intervention + anomaly widgets integrated** in both dashboard and org health pages with RBAC visibility
+- **NEW: Composite score explainability UI** (weighted breakdown, 7-day change reason, trend badges)
 
 ### 🔄 **In Progress**
-- Enhanced sentiment pipeline (emotion classification)
-- Temporal-weighted composite risk scoring
 - ML feature importance visualization
 - What-If intervention simulator
+- Historical trend persistence with correlation tagging
 
 ### ⏳ **Planned (Roadmap)**
 - Org-graph burnout propagation map
@@ -484,9 +488,9 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Intervention engine with 8 recommendation types
 
 ### Phase 2: Intelligence (Current)
-- Enhanced anomaly detection
-- Network-based burnout propagation
-- ML classifier with feature importance
+- Structured AI summaries with robust fallback handling
+- Temporal-weighted anomaly composite with explainability panels
+- ML classifier with feature importance visualization
 - What-if intervention simulator
 
 ### Phase 3: Enterprise (Q2 2026)

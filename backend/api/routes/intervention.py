@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 
 from ai.anomaly_detector import (
     composite_anomaly_check,
-    detect_after_hours_surge,
     detect_communication_drop,
     detect_engagement_drop,
     detect_performance_decline,
@@ -25,10 +25,27 @@ from models.user import User, UserRole
 router = APIRouter()
 
 
+class AnomalyAnalysisRequest(BaseModel):
+    """Payload for anomaly analysis endpoint."""
+
+    employee_id: str
+    sentiment_history: list[float] = Field(default_factory=list)
+    sentiment_dates: list[str] = Field(default_factory=list)
+    engagement_history: list[float] = Field(default_factory=list)
+    engagement_dates: list[str] = Field(default_factory=list)
+    performance_history: list[float] = Field(default_factory=list)
+    performance_dates: list[str] = Field(default_factory=list)
+    message_counts: list[int] = Field(default_factory=list)
+    message_dates: list[str] = Field(default_factory=list)
+
+
 @router.post("/interventions/recommend", response_model=InterventionResponse)
+@router.post("/recommendations", response_model=InterventionResponse)
 async def get_intervention_recommendations(
     request: InterventionRequest,
-    _current_user: User = Depends(require_role([UserRole.HR, UserRole.MANAGER])),
+    _current_user: User = Depends(
+        require_role([UserRole.HR, UserRole.MANAGER, UserRole.LEADERSHIP])
+    ),
 ) -> InterventionResponse:
     """Get AI-recommended interventions for an employee.
     
@@ -39,13 +56,12 @@ async def get_intervention_recommendations(
 
 
 @router.post("/interventions/analyze-anomalies")
+@router.post("/anomalies")
 async def analyze_behavioral_anomalies(
-    employee_id: str = Query(..., description="Employee ID"),
-    sentiment_history: list[float] = Query(None, description="Recent sentiment scores"),
-    engagement_history: list[float] = Query(None, description="Recent engagement scores"),
-    performance_history: list[float] = Query(None, description="Recent performance scores"),
-    message_counts: list[int] = Query(None, description="Recent communication message counts"),
-    _current_user: User = Depends(require_role([UserRole.HR, UserRole.MANAGER])),
+    request: AnomalyAnalysisRequest,
+    _current_user: User = Depends(
+        require_role([UserRole.HR, UserRole.MANAGER, UserRole.LEADERSHIP])
+    ),
 ) -> dict[str, Any]:
     """Analyze behavioral anomalies using Z-score detection.
     
@@ -54,10 +70,10 @@ async def analyze_behavioral_anomalies(
     - composite anomaly flag
     - severity level
     """
-    sentiment_history = sentiment_history or []
-    engagement_history = engagement_history or []
-    performance_history = performance_history or []
-    message_counts = message_counts or []
+    sentiment_history = request.sentiment_history
+    engagement_history = request.engagement_history
+    performance_history = request.performance_history
+    message_counts = request.message_counts
 
     # Get individual anomalies
     sentiment_anomaly = detect_sentiment_crash(
@@ -81,15 +97,23 @@ async def analyze_behavioral_anomalies(
     )
 
     # Get composite result
-    composite_detected, composite_reason, composite_severity = composite_anomaly_check(
+    anomaly_timestamps = {
+        "sentiment": request.sentiment_dates[-1] if request.sentiment_dates else None,
+        "engagement": request.engagement_dates[-1] if request.engagement_dates else None,
+        "performance": request.performance_dates[-1] if request.performance_dates else None,
+        "communication": request.message_dates[-1] if request.message_dates else None,
+    }
+
+    composite_result = composite_anomaly_check(
         sentiment_anomaly,
         engagement_anomaly,
         performance_anomaly,
         communication_anomaly,
+        anomaly_timestamps=anomaly_timestamps,
     )
 
     return {
-        "employee_id": employee_id,
+        "employee_id": request.employee_id,
         "sentiment_anomaly": {
             "detected": sentiment_anomaly.detected,
             "type": sentiment_anomaly.anomaly_type.value if sentiment_anomaly.anomaly_type else None,
@@ -119,9 +143,15 @@ async def analyze_behavioral_anomalies(
             "description": communication_anomaly.description,
         },
         "composite_result": {
-            "detected": composite_detected,
-            "reason": composite_reason,
-            "severity": composite_severity,
+            "detected": composite_result.detected,
+            "reason": composite_result.reason,
+            "severity": composite_result.severity,
+            "temporal_weight_applied": composite_result.temporal_weight_applied,
+            "recency_boost_reason": composite_result.recency_boost_reason,
+            "score_today": composite_result.score_today,
+            "score_7d_ago": composite_result.score_7d_ago,
+            "weighted_contributions": composite_result.weighted_contributions,
+            "changed_signals": composite_result.changed_signals,
         },
     }
 

@@ -7,6 +7,7 @@ import html2canvas from "html2canvas";
 import { useRef, useState, Fragment } from "react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 
 export default function ManagerEffectivenessScorecard() {
   const data = generateManagerScores();
@@ -89,7 +90,10 @@ export default function ManagerEffectivenessScorecard() {
   return (
     <Card className="col-span-4">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Manager Effectiveness Scorecard</CardTitle>
+        <div className="flex items-center gap-3">
+          <CardTitle>Manager Effectiveness Scorecard</CardTitle>
+          <ScoreExplanationDrawer employeeId="org-manager-scorecard" scoreType="engagement" />
+        </div>
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="h-4 w-4 mr-2" />
           Export
@@ -167,6 +171,7 @@ export default function ManagerEffectivenessScorecard() {
                           title={getTrafficLight(manager.avgPerformance, 'performance').label}
                         />
                         <span>{manager.avgPerformance.toFixed(0)}%</span>
+                        <ScoreExplanationDrawer employeeId={manager.managerId} scoreType="burnout" />
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
@@ -176,6 +181,7 @@ export default function ManagerEffectivenessScorecard() {
                           title={getTrafficLight(manager.avgSentiment, 'sentiment').label}
                         />
                         <span>{manager.avgSentiment.toFixed(0)}%</span>
+                        <ScoreExplanationDrawer employeeId={manager.managerId} scoreType="engagement" />
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
@@ -185,14 +191,18 @@ export default function ManagerEffectivenessScorecard() {
                           title={getTrafficLight(manager.turnoverRate, 'turnoverRate').label}
                         />
                         <span>{manager.turnoverRate.toFixed(1)}%</span>
+                        <ScoreExplanationDrawer employeeId={manager.managerId} scoreType="attrition" />
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge 
-                        variant={manager.enpsScore >= 30 ? 'default' : manager.enpsScore >= 0 ? 'secondary' : 'destructive'}
-                      >
-                        {manager.enpsScore.toFixed(0)}
-                      </Badge>
+                      <div className="inline-flex items-center gap-2">
+                        <Badge 
+                          variant={manager.enpsScore >= 30 ? 'default' : manager.enpsScore >= 0 ? 'secondary' : 'destructive'}
+                        >
+                          {manager.enpsScore.toFixed(0)}
+                        </Badge>
+                        <ScoreExplanationDrawer employeeId={manager.managerId} scoreType="engagement" />
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <MiniSparkline data={manager.trend} />
@@ -228,24 +238,28 @@ export default function ManagerEffectivenessScorecard() {
             <p className="text-2xl font-bold text-green-600">
               {sortedData.filter(m => getTrafficLight(m.avgPerformance, 'performance').color === 'bg-green-500').length}
             </p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="burnout" className="inline-block" />
             <p className="text-xs text-muted-foreground">High Performing Teams</p>
           </div>
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <p className="text-2xl font-bold text-yellow-600">
               {sortedData.filter(m => getTrafficLight(m.turnoverRate, 'turnoverRate').color === 'bg-yellow-500').length}
             </p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="attrition" className="inline-block" />
             <p className="text-xs text-muted-foreground">Teams at Risk</p>
           </div>
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <p className="text-2xl font-bold text-gray-900">
               {(sortedData.reduce((sum, m) => sum + m.enpsScore, 0) / sortedData.length).toFixed(0)}
             </p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="engagement" className="inline-block" />
             <p className="text-xs text-muted-foreground">Avg eNPS Score</p>
           </div>
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <p className="text-2xl font-bold text-gray-900">
               {sortedData.reduce((sum, m) => sum + m.teamSize, 0)}
             </p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="engagement" className="inline-block" />
             <p className="text-xs text-muted-foreground">Total Team Members</p>
           </div>
         </div>

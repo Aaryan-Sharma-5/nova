@@ -152,6 +152,42 @@ def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
 
 
+def _heuristic_sarcasm(texts: list[str]) -> tuple[bool, float]:
+    if not texts:
+        return False, 0.0
+
+    sarcasm_markers = {
+        "yeah right",
+        "as if",
+        "just what i needed",
+        "great, another",
+        "perfect, another",
+        "wow, amazing",
+    }
+    marker_hits = 0
+    for text in texts:
+        normalized = _normalize_text(text)
+        if any(marker in normalized for marker in sarcasm_markers):
+            marker_hits += 1
+
+    confidence = _clamp(marker_hits / max(1.0, float(len(texts))), 0.0, 1.0)
+    return confidence > 0.4, round(confidence, 3)
+
+
+def _apply_sarcasm_adjustment(polarity: float, sarcasm_detected: bool, sarcasm_confidence: float) -> float:
+    adjusted = polarity
+    if sarcasm_detected:
+        # Positive surface language under sarcasm should move toward likely negative intent.
+        if polarity > 0:
+            inversion_strength = 0.65 + (0.35 * _clamp(sarcasm_confidence, 0.0, 1.0))
+            adjusted = -abs(polarity) * inversion_strength
+        else:
+            # If already non-positive, slightly deepen the negative read.
+            adjusted = polarity - (0.2 * _clamp(sarcasm_confidence, 0.0, 1.0))
+
+    return round(_clamp(adjusted, -1.0, 1.0), 3)
+
+
 def _normalize_emotions(raw: Any, fallback: dict[str, float]) -> dict[str, float]:
     if not isinstance(raw, dict):
         return fallback
@@ -240,6 +276,25 @@ async def analyze_sentiment(request: SentimentRequest) -> SentimentResult:
         except (TypeError, ValueError):
             polarity = heuristic_polarity
 
+        raw_sarcasm_detected = payload.get("sarcasm_detected")
+        sarcasm_detected = bool(raw_sarcasm_detected) if isinstance(raw_sarcasm_detected, bool) else False
+        raw_sarcasm_confidence = payload.get("sarcasm_confidence", 0.0)
+        try:
+            sarcasm_confidence = _clamp(float(raw_sarcasm_confidence), 0.0, 1.0)
+        except (TypeError, ValueError):
+            sarcasm_confidence = 0.0
+
+        heuristic_sarcasm_detected, heuristic_sarcasm_confidence = _heuristic_sarcasm(request.texts)
+        if not sarcasm_detected and heuristic_sarcasm_detected:
+            sarcasm_detected = True
+            sarcasm_confidence = max(sarcasm_confidence, heuristic_sarcasm_confidence)
+
+        sarcasm_adjusted_polarity = _apply_sarcasm_adjustment(
+            polarity,
+            sarcasm_detected,
+            sarcasm_confidence,
+        )
+
         emotions = _normalize_emotions(payload.get("emotions"), fallback_emotions)
         dominant_candidate = payload.get("dominant_emotion")
         dominant = (
@@ -248,9 +303,9 @@ async def analyze_sentiment(request: SentimentRequest) -> SentimentResult:
             else _dominant_emotion(emotions)
         )
 
-        if polarity > 0.2:
+        if sarcasm_adjusted_polarity > 0.2:
             label = "positive"
-        elif polarity < -0.2:
+        elif sarcasm_adjusted_polarity < -0.2:
             label = "negative"
         else:
             label = "neutral"
@@ -271,8 +326,11 @@ async def analyze_sentiment(request: SentimentRequest) -> SentimentResult:
         _store_daily_emotion_vector(request.employee_id, today, emotions)
 
         return SentimentResult(
-            score=polarity,
+            score=sarcasm_adjusted_polarity,
             polarity=polarity,
+            sarcasm_detected=sarcasm_detected,
+            sarcasm_confidence=sarcasm_confidence,
+            sarcasm_adjusted_polarity=sarcasm_adjusted_polarity,
             label=label,
             summary=structured.summary,
             confidence=confidence_map.get(structured.confidence, 0.45),
@@ -284,9 +342,16 @@ async def analyze_sentiment(request: SentimentRequest) -> SentimentResult:
             structured_insight=structured,
         )
     except Exception:
-        if heuristic_polarity > 0.2:
+        heuristic_sarcasm_detected, heuristic_sarcasm_confidence = _heuristic_sarcasm(request.texts)
+        adjusted_heuristic_polarity = _apply_sarcasm_adjustment(
+            heuristic_polarity,
+            heuristic_sarcasm_detected,
+            heuristic_sarcasm_confidence,
+        )
+
+        if adjusted_heuristic_polarity > 0.2:
             fallback_label = "positive"
-        elif heuristic_polarity < -0.2:
+        elif adjusted_heuristic_polarity < -0.2:
             fallback_label = "negative"
         else:
             fallback_label = "neutral"
@@ -307,8 +372,11 @@ async def analyze_sentiment(request: SentimentRequest) -> SentimentResult:
         _store_daily_emotion_vector(request.employee_id, today, fallback_emotions)
 
         return SentimentResult(
-            score=heuristic_polarity,
+            score=adjusted_heuristic_polarity,
             polarity=heuristic_polarity,
+            sarcasm_detected=heuristic_sarcasm_detected,
+            sarcasm_confidence=heuristic_sarcasm_confidence,
+            sarcasm_adjusted_polarity=adjusted_heuristic_polarity,
             label=fallback_label,
             summary=fallback.summary,
             confidence=0.0,

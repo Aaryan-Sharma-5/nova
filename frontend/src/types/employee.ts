@@ -43,6 +43,9 @@ export interface SentimentResult {
   label: 'Positive' | 'Neutral' | 'Negative';
   confidence: number; // 0-100
   polarity?: number;
+  sarcasm_detected?: boolean;
+  sarcasm_confidence?: number;
+  sarcasm_adjusted_polarity?: number;
   emotions?: EmotionSpectrum;
   dominant_emotion?: keyof EmotionSpectrum;
   trend_delta_14d?: EmotionSpectrum;

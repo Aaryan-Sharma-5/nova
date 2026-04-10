@@ -18,6 +18,10 @@ from api.routes.simulate import router as simulate_router
 from api.routes.ml import router as ml_router
 from api.routes.audit import router as audit_router
 from api.routes.me import router as me_router
+from api.routes.feedback_sessions import router as feedback_sessions_router
+from api.routes.schema import router as schema_router
+from api.routes.insights import router as insights_router
+from api.routes.explain import router as explain_router
 
 # Configure logging
 logging.basicConfig(
@@ -68,6 +72,10 @@ app.include_router(simulate_router)
 app.include_router(ml_router)
 app.include_router(audit_router)
 app.include_router(me_router)
+app.include_router(feedback_sessions_router, prefix="/api/feedback", tags=["Feedback Sessions"])
+app.include_router(schema_router)
+app.include_router(insights_router)
+app.include_router(explain_router)
 
 
 _SENSITIVE_GET_PREFIXES = (

@@ -15,6 +15,12 @@ interface PersonalDataResponse {
   source: string;
 }
 
+interface EmployeeFeedbackSession {
+  id: string;
+  scheduled_date: string;
+  status: "scheduled" | "completed" | "skipped";
+}
+
 function levelColor(level: string): string {
   if (level === "High") {
     return "bg-amber-100 text-amber-900 border-amber-300";
@@ -35,6 +41,7 @@ export default function EmployeePersonalPage() {
   const [feedbackCategory, setFeedbackCategory] = useState("wellness");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [pendingSession, setPendingSession] = useState<EmployeeFeedbackSession | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -47,8 +54,14 @@ export default function EmployeePersonalPage() {
       setLoading(true);
       try {
         const response = await protectedGetApi<PersonalDataResponse>("/api/me/data", token);
+        const sessionsResponse = await protectedGetApi<{ sessions: EmployeeFeedbackSession[] }>(
+          "/api/feedback/sessions/my",
+          token,
+        );
+        const nextSession = (sessionsResponse.sessions || []).find((session) => session.status === "scheduled") || null;
         if (mounted) {
           setData(response);
+          setPendingSession(nextSession);
           setError("");
         }
       } catch (err) {
@@ -99,6 +112,15 @@ export default function EmployeePersonalPage() {
         <h1 className="text-2xl font-bold">Your Data</h1>
         <p className="text-sm text-muted-foreground">Transparent view of wellness signals and data categories held for your account.</p>
       </div>
+
+      {pendingSession && (
+        <Card className="p-4 border-amber-300 bg-amber-50">
+          <p className="text-sm font-semibold text-amber-900">
+            You have a mandatory feedback session due by {new Date(pendingSession.scheduled_date).toLocaleDateString()}.{' '}
+            <a href="/feedback-session" className="underline">Complete it here -&gt;</a>
+          </p>
+        </Card>
+      )}
 
       {loading && <p className="text-sm text-muted-foreground">Loading your profile...</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}

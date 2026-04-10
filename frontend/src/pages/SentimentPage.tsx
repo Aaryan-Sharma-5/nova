@@ -3,7 +3,9 @@ import { SentimentAnalyzer } from '@/components/sentiment/SentimentAnalyzer';
 import WordCloud from '@/components/sentiment/WordCloud';
 import { SentimentResult } from '@/types/employee';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Radar,
   RadarChart,
@@ -101,6 +103,23 @@ export default function SentimentPage() {
             </ul>
           </AlertDescription>
         </Alert>
+      )}
+
+      {latestResult?.sarcasm_confidence !== undefined && latestResult.sarcasm_confidence > 0.6 && (
+        <TooltipProvider>
+          <div className="flex items-center justify-start">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="destructive" className="cursor-help">
+                  ⚠️ Sarcasm Detected
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                Positive language flagged as likely sarcastic — adjusted score applied
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       )}
 
       <WordCloud />

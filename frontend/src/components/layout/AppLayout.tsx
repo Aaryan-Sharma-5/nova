@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, MessageSquareText, Brain, RefreshCw, Menu, X, HeartPulse, ShieldCheck, UserRound, LogOut } from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeeContext';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/auth';
+import { Badge } from '@/components/ui/badge';
 
 const CORE_NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -13,6 +14,8 @@ const CORE_NAV_ITEMS = [
   { to: '/org-health', icon: HeartPulse, label: 'Org Health' },
   { to: '/employee/profile', icon: UserRound, label: 'My Backend Profile' },
 ];
+
+type NavItem = { to: string; icon: typeof ShieldCheck; label: string; badgeCount?: number };
 
 const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCheck; label: string }>> = {
   employee: [
@@ -23,6 +26,7 @@ const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCh
   ],
   hr: [
     { to: '/hr/org-risk-distribution', icon: ShieldCheck, label: 'HR API' },
+    { to: '/hr/sessions-review', icon: ShieldCheck, label: 'Sessions to Review' },
   ],
   leadership: [
     { to: '/leadership/roi-analytics', icon: ShieldCheck, label: 'Leadership API' },
@@ -32,9 +36,10 @@ const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCh
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { refreshData, employees } = useEmployees();
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingSessionReviewCount, setPendingSessionReviewCount] = useState(0);
 
   const insightsEmployeeId = employees[0]?.id ?? 'emp-123';
   const canSeeInsights = user?.role === 'manager' || user?.role === 'hr';
@@ -46,7 +51,41 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...CORE_NAV_ITEMS,
     ...insightsNav,
     ...(user ? ROLE_NAV_ITEMS[user.role] : []),
-  ];
+  ] as NavItem[];
+
+  useEffect(() => {
+    const loadPendingCount = async () => {
+      if (!token || user?.role !== 'hr') {
+        setPendingSessionReviewCount(0);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/feedback/sessions/pending-review', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setPendingSessionReviewCount(0);
+          return;
+        }
+        const payload = await response.json();
+        setPendingSessionReviewCount(Number(payload?.count ?? 0));
+      } catch {
+        setPendingSessionReviewCount(0);
+      }
+    };
+
+    void loadPendingCount();
+  }, [token, user?.role]);
+
+  const navItemsWithBadges = useMemo(() => (
+    navItems.map((item) => {
+      if (item.to === '/hr/sessions-review') {
+        return { ...item, badgeCount: pendingSessionReviewCount };
+      }
+      return item;
+    })
+  ), [navItems, pendingSessionReviewCount]);
 
   return (
     <div className="flex min-h-screen w-full">
@@ -73,7 +112,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
-          {navItems.map(item => (
+          {navItemsWithBadges.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -85,6 +124,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             >
               <item.icon className="h-4.5 w-4.5" />
               <span>{item.label}</span>
+              {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                <Badge variant="destructive" className="ml-auto text-[10px] px-1.5 py-0">
+                  {item.badgeCount}
+                </Badge>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -127,7 +171,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </Button>
           <div className="flex-1">
             <h2 className="text-lg font-bold font-heading">
-              {navItems.find(i => i.to === location.pathname)?.label || 'Employee Insights'}
+              {navItemsWithBadges.find(i => i.to === location.pathname)?.label || 'Employee Insights'}
             </h2>
           </div>
         </header>

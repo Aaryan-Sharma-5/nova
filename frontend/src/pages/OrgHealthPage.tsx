@@ -1,10 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Printer, Share2, TrendingUp, TrendingDown, AlertTriangle, Sparkles } from "lucide-react";
+import { Download, Printer, Share2, TrendingUp, TrendingDown, AlertTriangle, Sparkles, Info } from "lucide-react";
 import AnomalyIndicator from "@/components/anomalies/AnomalyIndicator";
 import InterventionRecommendations from "@/components/interventions/InterventionRecommendations";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployees } from "@/contexts/EmployeeContext";
 import { 
@@ -15,9 +24,99 @@ import {
   generateAbsenteeismData,
   generateSkillsData,
 } from "@/utils/mockAnalyticsData";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import html2canvas from "html2canvas";
 import { useInterventionInsights } from "@/hooks/useInterventionInsights";
+
+type ImpactStep = {
+  name: string;
+  formula: string;
+  result: number;
+};
+
+type CalculationBreakdown = {
+  formula?: string;
+  inputs: Record<string, number | string>;
+  steps: ImpactStep[];
+};
+
+type InterventionImpact = {
+  intervention: string;
+  target_group: string;
+  estimated_cost: number;
+  projected_savings: number;
+  roi_percent: number;
+  plain_english: string;
+  calculation_breakdown: CalculationBreakdown;
+};
+
+type CostImpactPayload = {
+  figures: {
+    total_attrition_cost: number;
+    projected_savings: number;
+    productivity_gain: number;
+    net_impact: number;
+  };
+  plain_english: string;
+  calculation_breakdown: CalculationBreakdown;
+  intervention_impacts: InterventionImpact[];
+  methodology: {
+    assumptions: string[];
+    currency: string;
+    version: string;
+  };
+};
+
+function formatINR(value: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function ExplainableValue({
+  value,
+  breakdown,
+  plainEnglish,
+}: {
+  value: string;
+  breakdown: CalculationBreakdown | null;
+  plainEnglish: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 align-middle">
+      <span>{value}</span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button type="button" className="inline-flex items-center text-muted-foreground hover:text-foreground" aria-label="Show calculation details">
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-96 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Formula</p>
+          <p className="text-sm font-medium">{breakdown?.formula || breakdown?.steps?.[0]?.formula || "See steps below"}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">Inputs</p>
+          <div className="text-xs space-y-1">
+            {Object.entries(breakdown?.inputs || {}).map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">{k}</span>
+                <span className="font-mono">{String(v)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">Calculation Steps</p>
+          <div className="text-xs space-y-1">
+            {(breakdown?.steps || []).map((step) => (
+              <p key={step.name}><span className="font-medium">{step.name}:</span> {step.formula} = {step.result}</p>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground pt-1">{plainEnglish}</p>
+        </PopoverContent>
+      </Popover>
+    </span>
+  );
+}
 
 export default function OrgHealthPage() {
   const { token, hasRole } = useAuth();
@@ -29,6 +128,7 @@ export default function OrgHealthPage() {
   const tenure = generateTenureDistribution();
   const absenteeism = generateAbsenteeismData();
   const skills = generateSkillsData();
+  const [impact, setImpact] = useState<CostImpactPayload | null>(null);
 
   const canViewAnomalyInsights = hasRole(['hr', 'leadership']);
   const canViewInterventionInsights = hasRole(['manager', 'hr', 'leadership']);
@@ -49,6 +149,30 @@ export default function OrgHealthPage() {
       includeAnomalies: canViewAnomalyInsights || canViewInterventionInsights,
       includeRecommendations: canViewInterventionInsights,
     });
+
+  useEffect(() => {
+    const loadCostImpact = async () => {
+      if (!token) {
+        setImpact(null);
+        return;
+      }
+      try {
+        const response = await fetch('/api/insights/cost-impact', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setImpact(null);
+          return;
+        }
+        const payload = (await response.json()) as CostImpactPayload;
+        setImpact(payload);
+      } catch {
+        setImpact(null);
+      }
+    };
+
+    void loadCostImpact();
+  }, [token]);
 
   const handleExport = async () => {
     const element = document.getElementById('org-health-report');
@@ -118,49 +242,19 @@ export default function OrgHealthPage() {
     { id: 5, name: 'Emma Wilson', department: 'Sales', riskScore: 74, reason: 'Manager conflict + low recognition' },
   ];
 
-  // Recommended interventions
-  const interventions = [
-    {
-      intervention: 'Compensation Review Program',
-      targetGroup: '23 employees below market rate',
-      estimatedCost: '$285,000',
-      potentialSavings: '$420,000',
-      roi: '147%',
-      priority: 'High',
-    },
-    {
-      intervention: 'Manager Leadership Training',
-      targetGroup: '5 managers with low team scores',
-      estimatedCost: '$45,000',
-      potentialSavings: '$180,000',
-      roi: '400%',
-      priority: 'High',
-    },
-    {
-      intervention: 'Workload Rebalancing Initiative',
-      targetGroup: 'Engineering & Sales teams',
-      estimatedCost: '$120,000',
-      potentialSavings: '$340,000',
-      roi: '283%',
-      priority: 'Critical',
-    },
-    {
-      intervention: 'Career Development Program',
-      targetGroup: '45 employees due for advancement',
-      estimatedCost: '$95,000',
-      potentialSavings: '$270,000',
-      roi: '284%',
-      priority: 'Medium',
-    },
-    {
-      intervention: 'Enhanced Recognition System',
-      targetGroup: 'Organization-wide',
-      estimatedCost: '$30,000',
-      potentialSavings: '$150,000',
-      roi: '500%',
-      priority: 'Medium',
-    },
-  ];
+  const interventions = useMemo(() => {
+    const source = impact?.intervention_impacts || [];
+    return source.map((item, idx) => ({
+      intervention: item.intervention,
+      targetGroup: item.target_group,
+      estimatedCost: item.estimated_cost,
+      potentialSavings: item.projected_savings,
+      roi: `${item.roi_percent.toFixed(1)}%`,
+      priority: idx === 2 ? 'Critical' : idx <= 1 ? 'High' : 'Medium',
+      plainEnglish: item.plain_english,
+      breakdown: item.calculation_breakdown,
+    }));
+  }, [impact]);
 
   const getTrendIcon = (trend: string) => {
     if (trend === 'up') return <TrendingUp className="h-4 w-4 text-green-600" />;
@@ -374,7 +468,28 @@ export default function OrgHealthPage() {
         {/* Recommended Interventions */}
         <Card>
           <CardHeader>
-            <CardTitle>Recommended HR Interventions (ROI-Ranked)</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>Recommended HR Interventions (ROI-Ranked)</CardTitle>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="link" className="h-auto p-0 text-sm">Methodology</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Cost Impact Methodology</DialogTitle>
+                    <DialogDescription>
+                      Transparent assumptions used for all cost/savings figures shown in this report.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-2 text-sm">
+                    {(impact?.methodology?.assumptions || []).map((item) => (
+                      <p key={item}>- {item}</p>
+                    ))}
+                    {impact?.plain_english && <p className="text-muted-foreground pt-2">{impact.plain_english}</p>}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -394,9 +509,19 @@ export default function OrgHealthPage() {
                     <TableCell>{getPriorityBadge(item.priority)}</TableCell>
                     <TableCell className="font-medium">{item.intervention}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{item.targetGroup}</TableCell>
-                    <TableCell className="text-right">{item.estimatedCost}</TableCell>
+                    <TableCell className="text-right">
+                      <ExplainableValue
+                        value={formatINR(item.estimatedCost)}
+                        breakdown={item.breakdown}
+                        plainEnglish={item.plainEnglish}
+                      />
+                    </TableCell>
                     <TableCell className="text-right text-green-600 font-medium">
-                      {item.potentialSavings}
+                      <ExplainableValue
+                        value={formatINR(item.potentialSavings)}
+                        breakdown={item.breakdown}
+                        plainEnglish={item.plainEnglish}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge className="bg-green-600">{item.roi}</Badge>
@@ -408,7 +533,19 @@ export default function OrgHealthPage() {
 
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm font-semibold text-green-800">
-                Total Investment: $575,000 | Projected Savings: $1,360,000 | Net ROI: 237%
+                Total Investment:{' '}
+                <ExplainableValue
+                  value={formatINR(interventions.reduce((sum, item) => sum + item.estimatedCost, 0))}
+                  breakdown={impact?.calculation_breakdown ?? null}
+                  plainEnglish={impact?.plain_english || 'Transparent cost model applied'}
+                />
+                {' | '}Projected Savings:{' '}
+                <ExplainableValue
+                  value={formatINR(impact?.figures?.projected_savings || 0)}
+                  breakdown={impact?.calculation_breakdown ?? null}
+                  plainEnglish={impact?.plain_english || 'Transparent savings model applied'}
+                />
+                {' | '}Net Impact: {formatINR(impact?.figures?.net_impact || 0)}
               </p>
             </div>
           </CardContent>

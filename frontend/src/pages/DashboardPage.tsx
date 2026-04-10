@@ -11,6 +11,7 @@ import CompensationEquityAnalysis from '@/components/dashboard/CompensationEquit
 import HiringFunnel from '@/components/dashboard/HiringFunnel';
 import AbsenteeismPatterns from '@/components/dashboard/AbsenteeismPatterns';
 import ManagerEffectivenessScorecard from '@/components/dashboard/ManagerEffectivenessScorecard';
+import DataSourcesPanel from '@/components/dashboard/DataSourcesPanel';
 import InterventionRecommendations, {
   InterventionRecommendation,
 } from '@/components/interventions/InterventionRecommendations';
@@ -19,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, BarChart3, TrendingDown, ShieldCheck, Clock } from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInterventionInsights } from '@/hooks/useInterventionInsights';
 
@@ -53,11 +54,30 @@ export default function DashboardPage() {
       includeAnomalies: canViewAnomalyBar || canViewInterventions,
       includeRecommendations: canViewInterventions,
     });
+  const [lowQualityCount, setLowQualityCount] = useState(0);
 
   return (
     <div className="space-y-6">
       {/* Top KPI - Workforce Health Score */}
       <WorkforceHealthScore />
+
+      {lowQualityCount > 0 && (
+        <Card className="border-red-300 bg-red-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              Data Quality Warning
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-red-700">
+              {lowQualityCount} employees have a data_quality_score below 70%. Analytics confidence may be reduced until missing fields are improved.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <DataSourcesPanel employees={employees} onLowQualityCountChange={setLowQualityCount} />
 
       {canViewAnomalyBar && (
         <Card className="border-orange-300 bg-orange-50/50">

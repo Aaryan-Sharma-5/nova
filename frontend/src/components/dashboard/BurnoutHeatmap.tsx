@@ -5,6 +5,7 @@ import { generateBurnoutHeatmap } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
 import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 
 export default function BurnoutHeatmap() {
   const data = generateBurnoutHeatmap();
@@ -127,6 +128,11 @@ export default function BurnoutHeatmap() {
               <div>
                 <p className="text-sm text-muted-foreground">Average Burnout Score</p>
                 <p className="text-3xl font-bold text-red-600">{selectedCell.score}</p>
+                <ScoreExplanationDrawer
+                  employeeId={`${selectedCell.dept}-week-${selectedCell.week}`}
+                  scoreType="burnout"
+                  className="mt-1 inline-block"
+                />
               </div>
               <div className="pt-4 border-t">
                 <p className="text-sm font-semibold mb-2">Employees with High Burnout Signals</p>

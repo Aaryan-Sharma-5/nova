@@ -16,6 +16,8 @@ import ForbiddenPage from "./pages/ForbiddenPage";
 import BackendEndpointPage from "./pages/BackendEndpointPage";
 import AuditLogPage from "./pages/AuditLogPage";
 import EmployeePersonalPage from "./pages/EmployeePersonalPage";
+import FeedbackSessionPage from "./pages/FeedbackSessionPage";
+import HRSessionsReviewPage from "./pages/HRSessionsReviewPage";
 import NotFound from "./pages/NotFound";
 import { InsightsDashboard } from "@/features/insights/InsightsDashboard";
 
@@ -79,6 +81,26 @@ const App = () => (
                   <ProtectedRoute allowedRoles={["employee"]}>
                     <AppLayout>
                       <EmployeePersonalPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/feedback-session"
+                element={
+                  <ProtectedRoute allowedRoles={["employee"]}>
+                    <AppLayout>
+                      <FeedbackSessionPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/hr/sessions-review"
+                element={
+                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                    <AppLayout>
+                      <HRSessionsReviewPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }

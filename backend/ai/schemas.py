@@ -28,6 +28,9 @@ class SentimentResult(BaseModel):
     summary: str
     confidence: float = Field(..., ge=0.0, le=1.0)
     polarity: float = Field(..., ge=-1.0, le=1.0)
+    sarcasm_detected: bool = False
+    sarcasm_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    sarcasm_adjusted_polarity: float = Field(..., ge=-1.0, le=1.0)
     emotions: EmotionSpectrum
     dominant_emotion: Literal[
         "stress",

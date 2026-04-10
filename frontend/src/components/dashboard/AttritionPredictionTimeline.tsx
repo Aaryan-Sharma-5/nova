@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { generateAttritionForecast } from "@/utils/mockAnalyticsData";
 import { protectedGetApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 import html2canvas from "html2canvas";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -93,7 +94,8 @@ export default function AttritionPredictionTimeline() {
       
       if (monthData && dept) {
         const atRiskCount = Math.round(value * 10); // Mock calculation
-        return (
+            const explainTarget = `attrition-${dept}-${label}`.toLowerCase();
+            return (
           <div className="bg-white border border-gray-200 p-3 rounded-lg shadow-lg">
             <p className="font-semibold">{label}</p>
             <p className="text-sm text-blue-600">
@@ -102,6 +104,9 @@ export default function AttritionPredictionTimeline() {
             <p className="text-sm text-red-600 mt-1">
               At-risk headcount: ~{atRiskCount} employees
             </p>
+                <div className="mt-2">
+                  <ScoreExplanationDrawer employeeId={explainTarget} scoreType="attrition" className="text-[11px]" />
+                </div>
             {monthEvents.length > 0 && (
               <div className="mt-2 border-t pt-2">
                 <p className="text-xs font-semibold text-slate-700 mb-1">Event Correlation</p>
@@ -123,7 +128,10 @@ export default function AttritionPredictionTimeline() {
   return (
     <Card className="col-span-2">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>6-Month Attrition Forecast</CardTitle>
+        <div className="flex items-center gap-3">
+          <CardTitle>6-Month Attrition Forecast</CardTitle>
+          <ScoreExplanationDrawer employeeId="org-attrition-forecast" scoreType="attrition" />
+        </div>
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="h-4 w-4 mr-2" />
           Export

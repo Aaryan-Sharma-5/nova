@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { calculateWorkforceHealthScore } from "@/utils/mockAnalyticsData";
 import { useEffect, useState } from "react";
+import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 
 export default function WorkforceHealthScore() {
   const [data, setData] = useState(calculateWorkforceHealthScore());
@@ -45,9 +46,12 @@ export default function WorkforceHealthScore() {
   return (
     <Card className="col-span-1">
       <CardHeader>
-        <CardTitle>
-          Workforce Health Score
-        </CardTitle>
+        <div className="flex items-center gap-3">
+          <CardTitle>
+            Workforce Health Score
+          </CardTitle>
+          <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="burnout" />
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
         {/* Circular Progress Gauge */}
@@ -94,6 +98,7 @@ export default function WorkforceHealthScore() {
               {Math.round(animatedScore)}
             </span>
             <span className="text-sm text-muted-foreground">/ 100</span>
+            <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="burnout" className="mt-1 inline-block" />
           </div>
         </div>
 
@@ -107,25 +112,26 @@ export default function WorkforceHealthScore() {
           <span className={`font-semibold ${data.delta > 0 ? "text-green-500" : "text-red-500"}`}>
             {Math.abs(data.delta).toFixed(1)}% vs last week
           </span>
+          <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="engagement" />
         </div>
 
         {/* Component Breakdown */}
         <div className="w-full space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Burnout (inverse)</span>
-            <span className="font-medium">{data.components.burnout.toFixed(0)}%</span>
+            <span className="font-medium inline-flex items-center gap-2">{data.components.burnout.toFixed(0)}% <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="burnout" /></span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Attrition Risk (inverse)</span>
-            <span className="font-medium">{data.components.attrition.toFixed(0)}%</span>
+            <span className="font-medium inline-flex items-center gap-2">{data.components.attrition.toFixed(0)}% <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="attrition" /></span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Engagement</span>
-            <span className="font-medium">{data.components.engagement.toFixed(0)}%</span>
+            <span className="font-medium inline-flex items-center gap-2">{data.components.engagement.toFixed(0)}% <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="engagement" /></span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Sentiment</span>
-            <span className="font-medium">{data.components.sentiment.toFixed(0)}%</span>
+            <span className="font-medium inline-flex items-center gap-2">{data.components.sentiment.toFixed(0)}% <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="engagement" /></span>
           </div>
         </div>
       </CardContent>

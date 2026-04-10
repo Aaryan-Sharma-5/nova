@@ -7,6 +7,7 @@ import html2canvas from "html2canvas";
 import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 
 export default function EngagementPerformanceQuadrant() {
   const data = generateQuadrantEmployees();
@@ -52,6 +53,10 @@ export default function EngagementPerformanceQuadrant() {
           <p className="text-sm text-gray-600">{emp.role} - {emp.department}</p>
           <p className="text-sm text-blue-600">Engagement: {emp.engagement.toFixed(0)}%</p>
           <p className="text-sm text-purple-600">Performance: {emp.performance.toFixed(0)}%</p>
+          <div className="mt-1 flex flex-col items-start gap-1">
+            <ScoreExplanationDrawer employeeId={emp.id} scoreType="engagement" className="text-[11px]" />
+            <ScoreExplanationDrawer employeeId={emp.id} scoreType="burnout" className="text-[11px]" />
+          </div>
           <p className="text-xs text-gray-500 mt-1">Click to view profile</p>
         </div>
       );
@@ -63,7 +68,10 @@ export default function EngagementPerformanceQuadrant() {
     <>
       <Card className="col-span-3">
         <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-3">
           <CardTitle>Engagement vs Performance Matrix</CardTitle>
+          <ScoreExplanationDrawer employeeId="org-engagement-quadrant" scoreType="engagement" />
+        </div>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -176,12 +184,14 @@ export default function EngagementPerformanceQuadrant() {
                   <p className="text-2xl font-bold text-blue-600">
                     {selectedEmployee.engagement.toFixed(0)}%
                   </p>
+                  <ScoreExplanationDrawer employeeId={selectedEmployee.id} scoreType="engagement" className="mt-1 inline-block" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Performance Score</p>
                   <p className="text-2xl font-bold text-purple-600">
                     {selectedEmployee.performance.toFixed(0)}%
                   </p>
+                  <ScoreExplanationDrawer employeeId={selectedEmployee.id} scoreType="burnout" className="mt-1 inline-block" />
                 </div>
               </div>
               <div>

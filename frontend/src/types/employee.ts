@@ -18,6 +18,9 @@ export interface Employee {
   performanceHistory: TimePoint[];
   sentimentHistory: TimePoint[];
   avatar?: string;
+  isOnboarding?: boolean;
+  onboardingDay?: number;
+  onboardingFlags?: string[];
 }
 
 export interface TimePoint {

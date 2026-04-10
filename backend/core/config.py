@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Server Configuration
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    ORG_SECTOR: str = "IT Services"
 
     # Optional ML feature explainability source configuration
     ML_FEATURE_TABLE: str = ""

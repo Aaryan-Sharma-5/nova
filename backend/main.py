@@ -22,6 +22,11 @@ from api.routes.feedback_sessions import router as feedback_sessions_router
 from api.routes.schema import router as schema_router
 from api.routes.insights import router as insights_router
 from api.routes.explain import router as explain_router
+from api.routes.reports import router as reports_router
+from api.routes.benchmarks import router as benchmarks_router
+from api.routes.integrations import router as integrations_router
+from api.routes.manager_feedback import router as manager_feedback_router
+from api.routes.onboarding import router as onboarding_router
 
 # Configure logging
 logging.basicConfig(
@@ -76,6 +81,11 @@ app.include_router(feedback_sessions_router, prefix="/api/feedback", tags=["Feed
 app.include_router(schema_router)
 app.include_router(insights_router)
 app.include_router(explain_router)
+app.include_router(reports_router)
+app.include_router(benchmarks_router)
+app.include_router(integrations_router)
+app.include_router(manager_feedback_router)
+app.include_router(onboarding_router)
 
 
 _SENSITIVE_GET_PREFIXES = (

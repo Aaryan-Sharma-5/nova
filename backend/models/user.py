@@ -17,6 +17,7 @@ class User(BaseModel):
     full_name: str
     role: UserRole
     disabled: bool = False
+    avatar_url: Optional[str] = None
 
 
 class UserInDB(User):
@@ -34,3 +35,5 @@ class TokenData(BaseModel):
     """Token payload data."""
     email: Optional[EmailStr] = None
     role: Optional[UserRole] = None
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None

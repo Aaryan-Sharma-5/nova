@@ -12,6 +12,7 @@ import HiringFunnel from '@/components/dashboard/HiringFunnel';
 import AbsenteeismPatterns from '@/components/dashboard/AbsenteeismPatterns';
 import ManagerEffectivenessScorecard from '@/components/dashboard/ManagerEffectivenessScorecard';
 import DataSourcesPanel from '@/components/dashboard/DataSourcesPanel';
+import JiraHealthPanel from '@/components/dashboard/JiraHealthPanel';
 import InterventionRecommendations, {
   InterventionRecommendation,
 } from '@/components/interventions/InterventionRecommendations';
@@ -20,9 +21,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, BarChart3, TrendingDown, ShieldCheck, Clock } from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInterventionInsights } from '@/hooks/useInterventionInsights';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const KPI_DATA = [
   { icon: TrendingDown, label: 'Projected Attrition Reduction', value: '25%', desc: 'With AI-driven interventions', color: '#4ECDC4' },
@@ -55,6 +57,30 @@ export default function DashboardPage() {
       includeRecommendations: canViewInterventions,
     });
   const [lowQualityCount, setLowQualityCount] = useState(0);
+  const [onboardingEmployees, setOnboardingEmployees] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadOnboarding = async () => {
+      if (!token || !hasRole(['hr', 'leadership'])) {
+        setOnboardingEmployees([]);
+        return;
+      }
+      try {
+        const response = await fetch('/api/employees/onboarding', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setOnboardingEmployees([]);
+          return;
+        }
+        const payload = await response.json();
+        setOnboardingEmployees(payload.employees || []);
+      } catch {
+        setOnboardingEmployees([]);
+      }
+    };
+    void loadOnboarding();
+  }, [hasRole, token]);
 
   return (
     <div className="space-y-6">
@@ -78,6 +104,52 @@ export default function DashboardPage() {
       )}
 
       <DataSourcesPanel employees={employees} onLowQualityCountChange={setLowQualityCount} />
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Data Sources Legend</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div className="rounded border p-2">Survey: sentiment and engagement pulse data</div>
+          <div className="rounded border p-2">Jira: objective delivery and workflow metrics</div>
+          <div className="rounded border p-2">Session: mandatory feedback session analysis</div>
+          <div className="rounded border p-2">System: attendance, workload, and utilization</div>
+        </CardContent>
+      </Card>
+
+      <JiraHealthPanel />
+
+      {hasRole(['hr', 'leadership']) && (
+        <Card className="border-cyan-300 bg-cyan-50/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Onboarding Watch</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {onboardingEmployees.slice(0, 6).map((employee) => (
+              <div key={employee.employee_id} className="rounded border border-cyan-300 bg-white p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">{employee.name}</p>
+                  <span className="text-xs text-cyan-700">Day {employee.onboarding_day}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {(employee.risk_flags || []).map((flag: string) => (
+                    <span key={flag} className="text-[11px] rounded bg-cyan-100 px-2 py-0.5 text-cyan-800">{flag}</span>
+                  ))}
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="mt-2 text-[11px] text-cyan-700 underline decoration-dotted cursor-help">Onboarding score context</p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Scores reflect onboarding cohort baseline, not org-wide average</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            ))}
+            {onboardingEmployees.length === 0 && <p className="text-sm text-muted-foreground">No onboarding employees detected.</p>}
+          </CardContent>
+        </Card>
+      )}
 
       {canViewAnomalyBar && (
         <Card className="border-orange-300 bg-orange-50/50">

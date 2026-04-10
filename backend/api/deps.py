@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from core.security import decode_access_token
-from core.database import get_supabase_admin
+from core.database import get_supabase_admin, get_supabase_oauth_user
 from models.user import User, UserInDB, UserRole
 
 logger = logging.getLogger(__name__)
@@ -86,18 +86,28 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     
     logger.debug("🔎 Validating access token")
     token_data = decode_access_token(token)
+    oauth_payload = None
     if token_data is None or token_data.email is None:
-        logger.warning("❌ Token validation failed: missing or invalid token data")
-        raise credentials_exception
+        oauth_payload = get_supabase_oauth_user(token)
+        if not oauth_payload or not oauth_payload.get("email"):
+            logger.warning("❌ Token validation failed: missing or invalid token data")
+            raise credentials_exception
     
-    user = get_user_by_email(email=token_data.email)
+    resolved_email = token_data.email if token_data and token_data.email else oauth_payload["email"]
+    user = get_user_by_email(email=resolved_email)
     if user is None:
-        logger.warning("❌ Token user not found in database: %s", token_data.email)
+        logger.warning("❌ Token user not found in database: %s", resolved_email)
         raise credentials_exception
 
     logger.info("✅ Authenticated user from token: %s (role=%s)", user.email, user.role.value)
+
+    avatar_url = None
+    if token_data and token_data.avatar_url:
+        avatar_url = token_data.avatar_url
+    elif oauth_payload:
+        avatar_url = oauth_payload.get("avatar_url")
     
-    return User(**user.model_dump(exclude={"hashed_password"}))
+    return User(**user.model_dump(exclude={"hashed_password"}), avatar_url=avatar_url)
 
 
 async def get_current_active_user(

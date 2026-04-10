@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Download, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Search, Download, ChevronUp, ChevronDown, MoreHorizontal, FolderKanban } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EmployeeDetailDialog } from '@/components/employees/EmployeeDetailDialog';
 import FlightRiskDrawer from '@/components/employees/FlightRiskDrawer';
@@ -158,11 +158,18 @@ export function EmployeeTable() {
             {filtered.map((emp, i) => (
               <tr
                 key={emp.id}
-                className="cursor-pointer transition-colors hover:bg-muted/30"
+                className={`cursor-pointer transition-colors hover:bg-muted/30 ${emp.isOnboarding ? 'bg-cyan-50/60' : ''}`}
               >
                 <td className="px-4 py-3">
                   <div>
-                    <p className="font-medium">{emp.name}</p>
+                    <p className="font-medium inline-flex items-center gap-2">
+                      {emp.name}
+                      {emp.isOnboarding && (
+                        <span className="rounded bg-cyan-100 px-2 py-0.5 text-[10px] text-cyan-800" title="Scores reflect onboarding cohort baseline, not org-wide average">
+                          Onboarding
+                        </span>
+                      )}
+                    </p>
                     <p className="text-xs text-muted-foreground">{emp.role}</p>
                   </div>
                 </td>
@@ -212,7 +219,21 @@ export function EmployeeTable() {
                     setFlightRiskEmployee(emp);
                   }}
                 >
-                  <RiskBadge value={emp.attritionRisk} />
+                  <div className="inline-flex items-center gap-2">
+                    <RiskBadge value={emp.attritionRisk} />
+                    {emp.id && (
+                      (() => {
+                        const overdueCount = Number(emp.id.replace(/\D/g, '')) % 5;
+                        if (overdueCount <= 0) return null;
+                        return (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-amber-700" title="Jira overdue tickets">
+                            <FolderKanban className="h-3.5 w-3.5" />
+                            {overdueCount}
+                          </span>
+                        );
+                      })()
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-3 text-right text-xs text-muted-foreground tabular-nums">
                   {emp.lastAssessment}

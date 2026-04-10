@@ -49,6 +49,8 @@ def _safe_risk(value: object, fallback: str) -> str:
 
 async def assess_retention(request: RetentionRequest) -> RetentionResult:
     """Assess retention risk with a rule-based pre-filter and LLM insights."""
+    tenure_days = request.tenure_days if request.tenure_days is not None else request.tenure_months * 30
+    is_onboarding = tenure_days < 90
     force_high_risk = request.tenure_months < 12 and request.burnout_risk_score > 0.6
     retention_risk = "high" if force_high_risk else "medium"
     flight_risk_score = (
@@ -88,10 +90,25 @@ async def assess_retention(request: RetentionRequest) -> RetentionResult:
     except Exception:
         pass
 
+    onboarding_flags: list[str] = []
+    if is_onboarding:
+        if tenure_days >= 30 and (request.peer_network_connections or 0) < 3:
+            onboarding_flags.append("Integration Risk")
+        if (request.onboarding_performance_percentile or 0.5) < 0.5:
+            onboarding_flags.append("Ramp Risk")
+        if (request.manager_one_on_one_days_ago or 0) > 14:
+            onboarding_flags.append("Isolation Risk")
+        if onboarding_flags:
+            retention_risk = "high"
+            flight_risk_score = max(flight_risk_score, 0.7)
+
     return RetentionResult(
         retention_risk=retention_risk,
         flight_risk_score=flight_risk_score,
         key_reasons=key_reasons,
         retention_actions=retention_actions,
+        is_onboarding=is_onboarding,
+        onboarding_day=tenure_days,
+        onboarding_flags=onboarding_flags,
         structured_insight=structured_insight,
     )

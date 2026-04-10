@@ -53,6 +53,9 @@ class BurnoutRequest(BaseModel):
     sentiment_score: float
     meeting_load_hours: float
     tenure_months: int
+    tenure_days: int | None = None
+    peer_network_connections: int | None = None
+    manager_one_on_one_days_ago: int | None = None
 
 
 class BurnoutResult(BaseModel):
@@ -60,6 +63,9 @@ class BurnoutResult(BaseModel):
     risk_score: float = Field(..., ge=0.0, le=1.0)
     factors: list[str]
     recommendation: str
+    is_onboarding: bool = False
+    onboarding_day: int = 0
+    onboarding_flags: list[str] = []
     structured_insight: StructuredInsight
 
 
@@ -88,6 +94,10 @@ class RetentionRequest(BaseModel):
     salary_band: str
     last_promotion_months_ago: int
     sentiment_score: float
+    tenure_days: int | None = None
+    peer_network_connections: int | None = None
+    manager_one_on_one_days_ago: int | None = None
+    onboarding_performance_percentile: float | None = None
 
 
 class RetentionResult(BaseModel):
@@ -95,6 +105,9 @@ class RetentionResult(BaseModel):
     flight_risk_score: float = Field(..., ge=0.0, le=1.0)
     key_reasons: list[str]
     retention_actions: list[str]
+    is_onboarding: bool = False
+    onboarding_day: int = 0
+    onboarding_flags: list[str] = []
     structured_insight: StructuredInsight
 
 

@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import timedelta
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -10,6 +11,7 @@ from core.database import (
     get_supabase_hostname,
     is_supabase_host_resolvable,
     supabase_admin,
+    get_supabase_oauth_user,
 )
 from models.user import Token, User, UserRole
 from api.deps import get_user_by_email, get_current_active_user
@@ -29,6 +31,30 @@ class UserRegister(BaseModel):
 class MessageResponse(BaseModel):
     """Generic message response."""
     message: str
+
+
+class OAuthExchangeRequest(BaseModel):
+    access_token: str
+    provider: str = "google"
+
+
+def _employee_record_exists(email: str) -> bool:
+    """Check whether an org employee record exists for account linking."""
+    candidate_tables = ["employees", "employee_profiles", "users"]
+    for table_name in candidate_tables:
+        try:
+            response = (
+                supabase_admin.table(table_name)
+                .select("email")
+                .eq("email", email)
+                .limit(1)
+                .execute()
+            )
+            if response.data:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 @router.post("/login", response_model=Token)
@@ -137,7 +163,7 @@ async def register(request: Request, user_data: UserRegister):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed - database error"
         )
-    
+
     # Create new user
     hashed_password = get_password_hash(user_data.password)
     new_user = {
@@ -147,7 +173,7 @@ async def register(request: Request, user_data: UserRegister):
         "role": user_data.role.value,
         "disabled": False
     }
-    
+
     try:
         response = supabase_admin.table("users").insert(new_user).execute()
         created_user = response.data[0]
@@ -156,7 +182,7 @@ async def register(request: Request, user_data: UserRegister):
             created_user.get("email"),
             user_data.role.value,
         )
-        
+
         return User(
             email=created_user["email"],
             full_name=created_user["full_name"],
@@ -175,6 +201,59 @@ async def register(request: Request, user_data: UserRegister):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed - database error"
         )
+
+
+@router.post("/oauth/exchange", response_model=Token)
+async def exchange_oauth_token(payload: OAuthExchangeRequest):
+    """Exchange a Supabase OAuth token for a NOVA app token with RBAC role binding."""
+    oauth_user = get_supabase_oauth_user(payload.access_token)
+    if not oauth_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid OAuth session token",
+        )
+
+    email = oauth_user["email"]
+    existing_user = get_user_by_email(email)
+
+    if existing_user is None:
+        if not _employee_record_exists(email):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account not found in your organization's NOVA instance. Contact HR.",
+            )
+
+        random_password = secrets.token_urlsafe(24)
+        create_payload = {
+            "email": email,
+            "full_name": oauth_user.get("full_name") or email.split("@")[0],
+            "hashed_password": get_password_hash(random_password),
+            "role": UserRole.EMPLOYEE.value,
+            "disabled": False,
+        }
+        try:
+            supabase_admin.table("users").insert(create_payload).execute()
+        except Exception as exc:
+            logger.exception("Failed to create OAuth-linked user for email=%s", email)
+            raise HTTPException(status_code=500, detail=f"OAuth linking failed: {exc}") from exc
+
+        existing_user = get_user_by_email(email)
+        if existing_user is None:
+            raise HTTPException(status_code=500, detail="OAuth account linking failed")
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "sub": existing_user.email,
+            "role": existing_user.role.value,
+            "full_name": existing_user.full_name,
+            "avatar_url": oauth_user.get("avatar_url"),
+            "auth_provider": payload.provider,
+        },
+        expires_delta=access_token_expires,
+    )
+
+    return Token(access_token=access_token, token_type="bearer")
 
 
 @router.post("/logout", response_model=MessageResponse)

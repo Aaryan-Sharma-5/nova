@@ -63,6 +63,16 @@ export async function loginApi(email: string, password: string): Promise<TokenRe
   });
 }
 
+export async function oauthExchangeApi(accessToken: string, provider: string = "google"): Promise<TokenResponse> {
+  return apiRequest<TokenResponse>("/auth/oauth/exchange", {
+    method: "POST",
+    body: JSON.stringify({ access_token: accessToken, provider }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 export async function registerApi(payload: RegisterPayload): Promise<AuthUser> {
   return apiRequest<AuthUser>("/auth/register", {
     method: "POST",

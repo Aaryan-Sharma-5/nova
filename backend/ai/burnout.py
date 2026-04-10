@@ -22,6 +22,21 @@ def _clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
 
 
 def _compute_score(request: BurnoutRequest) -> float:
+    tenure_days = request.tenure_days if request.tenure_days is not None else request.tenure_months * 30
+    is_onboarding = tenure_days < 90
+
+    if is_onboarding:
+        score = 0.0
+        if request.meeting_load_hours > 35:
+            score += 0.22
+        if request.sentiment_score < -0.2:
+            score += 0.22
+        if request.overtime_hours > 45:
+            score += 0.20
+        if request.pto_days_unused > 6:
+            score += 0.10
+        return _clamp(score)
+
     score = 0.0
     if request.overtime_hours > 50:
         score += 0.30
@@ -95,10 +110,24 @@ async def assess_burnout(request: BurnoutRequest) -> BurnoutResult:
     except Exception:
         pass
 
+    tenure_days = request.tenure_days if request.tenure_days is not None else request.tenure_months * 30
+    is_onboarding = tenure_days < 90
+    onboarding_flags: list[str] = []
+    if is_onboarding:
+      if tenure_days >= 30 and (request.peer_network_connections or 0) < 3:
+          onboarding_flags.append("Integration Risk")
+      if request.meeting_load_hours > 32 and request.sentiment_score < -0.2:
+          onboarding_flags.append("Ramp Risk")
+      if (request.manager_one_on_one_days_ago or 0) > 14:
+          onboarding_flags.append("Isolation Risk")
+
     return BurnoutResult(
         risk_level=risk_level,
         risk_score=risk_score,
         factors=factors,
         recommendation=recommendation,
+        is_onboarding=is_onboarding,
+        onboarding_day=tenure_days,
+        onboarding_flags=onboarding_flags,
         structured_insight=structured_insight,
     )

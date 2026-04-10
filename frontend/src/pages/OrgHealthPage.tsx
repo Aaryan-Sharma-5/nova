@@ -27,6 +27,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import html2canvas from "html2canvas";
 import { useInterventionInsights } from "@/hooks/useInterventionInsights";
+import jsPDF from "jspdf";
+import BenchmarkBadge from "@/components/dashboard/BenchmarkBadge";
 
 type ImpactStep = {
   name: string;
@@ -129,6 +131,9 @@ export default function OrgHealthPage() {
   const absenteeism = generateAbsenteeismData();
   const skills = generateSkillsData();
   const [impact, setImpact] = useState<CostImpactPayload | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportStep, setReportStep] = useState("Idle");
+  const [benchmark, setBenchmark] = useState<any>(null);
 
   const canViewAnomalyInsights = hasRole(['hr', 'leadership']);
   const canViewInterventionInsights = hasRole(['manager', 'hr', 'leadership']);
@@ -174,6 +179,30 @@ export default function OrgHealthPage() {
     void loadCostImpact();
   }, [token]);
 
+  useEffect(() => {
+    const loadBenchmark = async () => {
+      if (!token) {
+        setBenchmark(null);
+        return;
+      }
+      try {
+        const response = await fetch('/api/benchmarks/current/org', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setBenchmark(null);
+          return;
+        }
+        const payload = await response.json();
+        setBenchmark(payload);
+      } catch {
+        setBenchmark(null);
+      }
+    };
+
+    void loadBenchmark();
+  }, [token]);
+
   const handleExport = async () => {
     const element = document.getElementById('org-health-report');
     if (element) {
@@ -182,6 +211,84 @@ export default function OrgHealthPage() {
       link.download = `org-health-report-${new Date().toISOString().split('T')[0]}.png`;
       link.href = canvas.toDataURL();
       link.click();
+    }
+  };
+
+  const handleExportPdfReport = async () => {
+    if (!token) {
+      return;
+    }
+
+    setIsGeneratingReport(true);
+    try {
+      setReportStep("Collecting report data...");
+      const reportResponse = await fetch('/api/reports/org-health?format=pdf', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const report = reportResponse.ok ? await reportResponse.json() : null;
+
+      setReportStep("Capturing dashboard snapshot...");
+      const canvasTarget = document.getElementById('org-health-report');
+      const captured = canvasTarget ? await html2canvas(canvasTarget, { scale: 2 }) : null;
+
+      setReportStep("Generating PDF pages...");
+      const doc = new jsPDF("p", "mm", "a4");
+      const orgName = "NOVA Demo Org";
+      const dateLabel = new Date().toISOString().split('T')[0];
+
+      doc.setFontSize(22);
+      doc.text("NOVA Org Health Report", 20, 30);
+      doc.setFontSize(12);
+      doc.text(`Organization: ${orgName}`, 20, 42);
+      doc.text(`Date: ${dateLabel}`, 20, 50);
+      doc.text("Confidential", 20, 58);
+
+      doc.addPage();
+      doc.setFontSize(16);
+      doc.text("Executive Summary", 20, 24);
+      doc.setFontSize(11);
+      doc.text(doc.splitTextToSize(report?.executive_summary || "Summary unavailable.", 170), 20, 34);
+
+      if (captured) {
+        const imageData = captured.toDataURL("image/png");
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text("Workforce Health & Burnout Overview", 20, 18);
+        doc.addImage(imageData, "PNG", 10, 24, 190, 120);
+
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text("Top Risks & Recommended Interventions", 20, 18);
+        doc.addImage(imageData, "PNG", 10, 24, 190, 120);
+      } else {
+        doc.addPage();
+        doc.text("Workforce Health & Burnout Overview", 20, 24);
+        doc.text("Chart capture unavailable.", 20, 34);
+        doc.addPage();
+        doc.text("Top Risks & Recommended Interventions", 20, 24);
+      }
+
+      doc.addPage();
+      doc.setFontSize(16);
+      doc.text("Methodology & Data Sources", 20, 24);
+      doc.setFontSize(11);
+      doc.text(
+        doc.splitTextToSize(
+          "Data Sources: Survey, Jira, Session, System. Benchmarks are simulated industry medians for demonstration purposes.",
+          170,
+        ),
+        20,
+        34,
+      );
+
+      setReportStep("Downloading PDF...");
+      doc.save(`NOVA_OrgHealth_${orgName.replace(/\s+/g, "")}_${dateLabel}.pdf`);
+      setReportStep("Done");
+    } finally {
+      setTimeout(() => {
+        setIsGeneratingReport(false);
+        setReportStep("Idle");
+      }, 600);
     }
   };
 
@@ -310,12 +417,24 @@ export default function OrgHealthPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
+          <Button size="sm" onClick={handleExportPdfReport} disabled={isGeneratingReport}>
+            <Download className="h-4 w-4 mr-2" />
+            {isGeneratingReport ? "Generating report..." : "Export Report"}
+          </Button>
           <Button size="sm">
             <Share2 className="h-4 w-4 mr-2" />
             Share
           </Button>
         </div>
       </div>
+      {isGeneratingReport && (
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-sm font-medium">Generating report...</p>
+            <p className="text-xs text-muted-foreground mt-1">{reportStep}</p>
+          </CardContent>
+        </Card>
+      )}
 
       <div id="org-health-report" className="space-y-6">
         {/* Summary Scorecard */}
@@ -368,6 +487,32 @@ export default function OrgHealthPage() {
             </div>
           </CardContent>
         </Card>
+
+        {benchmark && (
+          <Card>
+            <CardHeader>
+              <CardTitle>How You Compare</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3">
+                <BenchmarkBadge
+                  sector={benchmark.org_sector || benchmark.sector || 'Industry'}
+                  score={healthScore.score}
+                  topQuartileThreshold={benchmark.top_quartile_threshold || 80}
+                  bottomQuartileThreshold={benchmark.bottom_quartile_threshold || 55}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Benchmarks are simulated industry medians for demonstration purposes
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div className="rounded border p-3">Burnout median: {(Number(benchmark.avg_burnout_rate || 0) * 100).toFixed(1)}%</div>
+                <div className="rounded border p-3">Attrition median: {(Number(benchmark.avg_attrition_rate || 0) * 100).toFixed(1)}%</div>
+                <div className="rounded border p-3">Engagement median: {Number(benchmark.avg_engagement_score || 0).toFixed(0)}</div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* AI-Generated Summary */}
         <Card>

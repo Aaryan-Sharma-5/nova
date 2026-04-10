@@ -46,6 +46,7 @@ export default function BurnoutHeatmap() {
         </CardHeader>
         <CardContent>
           <div ref={chartRef} className="overflow-x-auto">
+            <div className="min-w-[760px]">
             {/* Week headers */}
             <div className="flex mb-2">
               <div className="w-32 flex-shrink-0"></div>
@@ -96,6 +97,7 @@ export default function BurnoutHeatmap() {
                 <div className="w-6 h-6 bg-red-600 rounded"></div>
               </div>
               <span className="text-xs text-muted-foreground">High</span>
+            </div>
             </div>
           </div>
 

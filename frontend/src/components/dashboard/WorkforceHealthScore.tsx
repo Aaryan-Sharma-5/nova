@@ -3,10 +3,39 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { calculateWorkforceHealthScore } from "@/utils/mockAnalyticsData";
 import { useEffect, useState } from "react";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 export default function WorkforceHealthScore() {
+  const { token } = useAuth();
   const [data, setData] = useState(calculateWorkforceHealthScore());
   const [animatedScore, setAnimatedScore] = useState(0);
+  const [showIndustry, setShowIndustry] = useState(false);
+  const [industry, setIndustry] = useState<{ sector: string; avg_engagement_score: number } | null>(null);
+
+  useEffect(() => {
+    const loadBenchmark = async () => {
+      if (!token) {
+        setIndustry(null);
+        return;
+      }
+      try {
+        const response = await fetch("/api/benchmarks/current/org", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setIndustry(null);
+          return;
+        }
+        const payload = await response.json();
+        setIndustry(payload);
+      } catch {
+        setIndustry(null);
+      }
+    };
+
+    void loadBenchmark();
+  }, [token]);
 
   useEffect(() => {
     // Animate score on mount
@@ -51,6 +80,9 @@ export default function WorkforceHealthScore() {
             Workforce Health Score
           </CardTitle>
           <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="burnout" />
+          <Button variant="outline" size="sm" onClick={() => setShowIndustry((value) => !value)}>
+            {showIndustry ? "Hide vs Industry" : "vs Industry"}
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
@@ -134,6 +166,21 @@ export default function WorkforceHealthScore() {
             <span className="font-medium inline-flex items-center gap-2">{data.components.sentiment.toFixed(0)}% <ScoreExplanationDrawer employeeId="org-workforce-health" scoreType="engagement" /></span>
           </div>
         </div>
+        {showIndustry && industry && (
+          <div className="mt-4 w-full rounded border p-3">
+            <p className="text-xs text-muted-foreground mb-2">Industry comparison ({industry.sector})</p>
+            <div className="relative h-3 rounded bg-slate-200">
+              <div className="h-3 rounded bg-blue-500" style={{ width: `${Math.min(100, Math.max(0, data.score))}%` }} />
+              <div
+                className="absolute top-0 h-3 border-l-2 border-dashed border-black"
+                style={{ left: `${Math.min(100, Math.max(0, industry.avg_engagement_score))}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Your score: {data.score.toFixed(0)} | Industry median: {industry.avg_engagement_score}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

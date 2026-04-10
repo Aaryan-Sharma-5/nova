@@ -162,6 +162,9 @@ export function generateEmployees(count: number = 100): Employee[] {
       recentFeedback: generateFeedback(clampedSentiment),
       performanceHistory,
       sentimentHistory,
+      isOnboarding: tenure < 3,
+      onboardingDay: Math.min(89, tenure * 30),
+      onboardingFlags: tenure < 3 ? ["Onboarding Cohort"] : [],
     });
   }
 

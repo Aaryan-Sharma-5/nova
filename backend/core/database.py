@@ -39,3 +39,46 @@ def is_supabase_host_resolvable() -> bool:
         return True
     except OSError:
         return False
+
+
+def get_supabase_oauth_user(access_token: str) -> dict | None:
+    """Resolve a Supabase OAuth access token into core user metadata."""
+    auth_client = supabase_admin.auth
+    user_payload = None
+
+    for resolver in (
+        lambda: auth_client.get_user(access_token),
+        lambda: auth_client.get_user(jwt=access_token),
+    ):
+        try:
+            user_payload = resolver()
+            if user_payload:
+                break
+        except Exception:
+            continue
+
+    if not user_payload:
+        return None
+
+    user_obj = getattr(user_payload, "user", None)
+    if not user_obj:
+        return None
+
+    email = getattr(user_obj, "email", None)
+    user_metadata = getattr(user_obj, "user_metadata", None) or {}
+    app_metadata = getattr(user_obj, "app_metadata", None) or {}
+
+    if not email:
+        return None
+
+    full_name = (
+        user_metadata.get("full_name")
+        or user_metadata.get("name")
+        or email.split("@")[0]
+    )
+    return {
+        "email": str(email).strip().lower(),
+        "full_name": str(full_name),
+        "avatar_url": user_metadata.get("avatar_url"),
+        "provider": app_metadata.get("provider") or "oauth",
+    }

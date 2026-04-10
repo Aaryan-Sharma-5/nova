@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 import html2canvas from "html2canvas";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Switch } from "@/components/ui/switch";
 
 const ACCEPTABLE_ATTRITION_RATE = 10; // Configurable threshold
 
@@ -35,6 +36,8 @@ export default function AttritionPredictionTimeline() {
   const chartRef = useRef<HTMLDivElement>(null);
   const { token } = useAuth();
   const [eventCorrelations, setEventCorrelations] = useState<EventCorrelation[]>([]);
+  const [showIndustry, setShowIndustry] = useState(false);
+  const [industryAttrition, setIndustryAttrition] = useState<number | null>(null);
 
   const eventsByMonth = useMemo(() => {
     const byMonth = new Map<string, EventCorrelation[]>();
@@ -73,6 +76,30 @@ export default function AttritionPredictionTimeline() {
     return () => {
       mounted = false;
     };
+  }, [token]);
+
+  useEffect(() => {
+    const loadIndustry = async () => {
+      if (!token) {
+        setIndustryAttrition(null);
+        return;
+      }
+      try {
+        const response = await fetch("/api/benchmarks/current/org", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setIndustryAttrition(null);
+          return;
+        }
+        const payload = await response.json();
+        setIndustryAttrition(Number(payload?.avg_attrition_rate ?? 0) * 100);
+      } catch {
+        setIndustryAttrition(null);
+      }
+    };
+
+    void loadIndustry();
   }, [token]);
 
   const handleExport = async () => {
@@ -131,6 +158,10 @@ export default function AttritionPredictionTimeline() {
         <div className="flex items-center gap-3">
           <CardTitle>6-Month Attrition Forecast</CardTitle>
           <ScoreExplanationDrawer employeeId="org-attrition-forecast" scoreType="attrition" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch checked={showIndustry} onCheckedChange={setShowIndustry} />
+            <span>vs Industry</span>
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="h-4 w-4 mr-2" />
@@ -196,6 +227,14 @@ export default function AttritionPredictionTimeline() {
                 strokeDasharray="5 5"
                 label={{ value: 'Acceptable Rate (10%)', position: 'right', fill: '#ef4444', fontSize: 11 }}
               />
+              {showIndustry && industryAttrition !== null && (
+                <ReferenceLine
+                  y={industryAttrition}
+                  stroke="#111827"
+                  strokeDasharray="2 4"
+                  label={{ value: "Industry Median", position: "left", fill: "#111827", fontSize: 11 }}
+                />
+              )}
 
               {/* Confidence bands */}
               <Area

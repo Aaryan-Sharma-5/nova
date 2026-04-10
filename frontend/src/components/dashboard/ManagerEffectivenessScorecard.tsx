@@ -5,15 +5,44 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { generateManagerScores, ManagerScore } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
 import { useRef, useState, Fragment } from "react";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { LineChart, Line, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 
 export default function ManagerEffectivenessScorecard() {
+  const { token } = useAuth();
   const data = generateManagerScores();
   const chartRef = useRef<HTMLDivElement>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sortConfig, setSortConfig] = useState<{ key: keyof ManagerScore; direction: 'asc' | 'desc' } | null>(null);
+  const [selectedManagerId, setSelectedManagerId] = useState<string>('mgr-0');
+  const [scores360, setScores360] = useState<any>(null);
+
+  useEffect(() => {
+    const load360 = async () => {
+      if (!token || !selectedManagerId) {
+        setScores360(null);
+        return;
+      }
+      try {
+        const response = await fetch(`/api/managers/${selectedManagerId}/360-scores`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setScores360(null);
+          return;
+        }
+        setScores360(await response.json());
+      } catch {
+        setScores360(null);
+      }
+    };
+
+    void load360();
+  }, [selectedManagerId, token]);
 
   const handleExport = async () => {
     if (chartRef.current) {
@@ -100,6 +129,13 @@ export default function ManagerEffectivenessScorecard() {
         </Button>
       </CardHeader>
       <CardContent>
+        <Tabs defaultValue="core" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="core">Core Metrics</TabsTrigger>
+            <TabsTrigger value="feedback360">360° Feedback</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="core" className="space-y-4">
         <div ref={chartRef} className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -153,7 +189,10 @@ export default function ManagerEffectivenessScorecard() {
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
-                        onClick={() => toggleRow(manager.managerId)}
+                        onClick={() => {
+                          toggleRow(manager.managerId);
+                          setSelectedManagerId(manager.managerId);
+                        }}
                       >
                         {expandedRows.has(manager.managerId) ? (
                           <ChevronDown className="h-4 w-4" />
@@ -272,6 +311,45 @@ export default function ManagerEffectivenessScorecard() {
             ).length} managers would benefit from leadership development programs based on current metrics.
           </p>
         </div>
+          </TabsContent>
+
+          <TabsContent value="feedback360" className="space-y-4">
+            <p className="text-xs text-muted-foreground">Powered by anonymous peer feedback</p>
+            {scores360 ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded border p-4">
+                  <p className="text-sm font-semibold mb-2">Dimension Radar</p>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <RadarChart
+                      data={Object.entries(scores360.dimensions || {}).map(([key, value]) => ({
+                        dimension: key.replace(/_/g, ' '),
+                        score: Number(value),
+                      }))}
+                    >
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 11 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 5]} />
+                      <Radar dataKey="score" stroke="#2563eb" fill="#2563eb" fillOpacity={0.25} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="rounded border p-4 space-y-3">
+                  <p className="text-sm"><strong>Overall score:</strong> {scores360.overall_score}</p>
+                  <p className="text-sm"><strong>Improvement suggestion:</strong> {scores360.suggestion}</p>
+                  <div className="space-y-1">
+                    {(scores360.trend_last_3_cycles || []).map((cycle: any) => (
+                      <p key={cycle.cycle} className="text-xs text-muted-foreground">
+                        {cycle.cycle}: {cycle.score}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">360° feedback data unavailable.</p>
+            )}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

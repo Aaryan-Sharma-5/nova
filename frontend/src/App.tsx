@@ -18,6 +18,7 @@ import AuditLogPage from "./pages/AuditLogPage";
 import EmployeePersonalPage from "./pages/EmployeePersonalPage";
 import FeedbackSessionPage from "./pages/FeedbackSessionPage";
 import HRSessionsReviewPage from "./pages/HRSessionsReviewPage";
+import IntegrationsPage from "./pages/IntegrationsPage";
 import NotFound from "./pages/NotFound";
 import { InsightsDashboard } from "@/features/insights/InsightsDashboard";
 
@@ -101,6 +102,16 @@ const App = () => (
                   <ProtectedRoute allowedRoles={["hr", "leadership"]}>
                     <AppLayout>
                       <HRSessionsReviewPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/integrations"
+                element={
+                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                    <AppLayout>
+                      <IntegrationsPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }

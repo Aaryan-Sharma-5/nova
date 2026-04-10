@@ -27,10 +27,12 @@ const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCh
   hr: [
     { to: '/hr/org-risk-distribution', icon: ShieldCheck, label: 'HR API' },
     { to: '/hr/sessions-review', icon: ShieldCheck, label: 'Sessions to Review' },
+    { to: '/integrations', icon: ShieldCheck, label: 'Integrations' },
   ],
   leadership: [
     { to: '/leadership/roi-analytics', icon: ShieldCheck, label: 'Leadership API' },
     { to: '/audit-logs', icon: ShieldCheck, label: 'Audit Logs' },
+    { to: '/integrations', icon: ShieldCheck, label: 'Integrations' },
   ],
 };
 
@@ -40,6 +42,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingSessionReviewCount, setPendingSessionReviewCount] = useState(0);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   const insightsEmployeeId = employees[0]?.id ?? 'emp-123';
   const canSeeInsights = user?.role === 'manager' || user?.role === 'hr';
@@ -77,6 +80,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     void loadPendingCount();
   }, [token, user?.role]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      event.preventDefault();
+      setDeferredPrompt(event as any);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
 
   const navItemsWithBadges = useMemo(() => (
     navItems.map((item) => {
@@ -136,8 +149,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="border-t-2 border-foreground p-3 space-y-2">
           {user && (
             <div className="px-2 py-2 border-2 border-foreground bg-muted text-xs">
-              <p className="font-bold truncate">{user.full_name}</p>
-              <p className="text-muted-foreground truncate">{user.email}</p>
+              <div className="flex items-center gap-2">
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.full_name}
+                    className="h-8 w-8 rounded-full border border-foreground object-cover"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full border border-foreground bg-background flex items-center justify-center font-bold">
+                    {user.full_name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-bold truncate">{user.full_name}</p>
+                  <p className="text-muted-foreground truncate">{user.email}</p>
+                </div>
+              </div>
               <p className="font-semibold uppercase mt-1">Role: {user.role}</p>
             </div>
           )}
@@ -174,11 +202,52 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {navItemsWithBadges.find(i => i.to === location.pathname)?.label || 'Employee Insights'}
             </h2>
           </div>
+          {user && (
+            <div className="flex items-center gap-2 rounded-full border border-foreground px-2 py-1">
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user.full_name}
+                  className="h-7 w-7 rounded-full object-cover"
+                />
+              ) : (
+                <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                  {user.full_name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="hidden sm:inline text-xs font-medium max-w-[160px] truncate">{user.full_name}</span>
+            </div>
+          )}
         </header>
 
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        {deferredPrompt && (
+          <div className="mx-4 mt-3 rounded border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs flex items-center justify-between gap-2 lg:hidden">
+            <span>Install NOVA for a faster mobile experience.</span>
+            <Button
+              size="sm"
+              onClick={async () => {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+                setDeferredPrompt(null);
+              }}
+            >
+              Install
+            </Button>
+          </div>
+        )}
+
+        <main className="flex-1 overflow-auto p-4 lg:p-6 pb-20 lg:pb-6">
           {children}
         </main>
+
+        <nav className="fixed bottom-0 inset-x-0 z-30 border-t-2 border-foreground bg-card p-2 lg:hidden">
+          <div className="grid grid-cols-4 gap-2 text-xs">
+            <NavLink to="/" className="text-center py-2 rounded border border-transparent hover:border-foreground">Home</NavLink>
+            <NavLink to="/employees" className="text-center py-2 rounded border border-transparent hover:border-foreground">Alerts</NavLink>
+            <NavLink to="/feedback-session" className="text-center py-2 rounded border border-transparent hover:border-foreground">Feedback</NavLink>
+            <NavLink to="/your-data" className="text-center py-2 rounded border border-transparent hover:border-foreground">Profile</NavLink>
+          </div>
+        </nav>
       </div>
     </div>
   );

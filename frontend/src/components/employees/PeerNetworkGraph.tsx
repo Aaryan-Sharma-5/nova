@@ -100,6 +100,18 @@ export default function PeerNetworkGraph() {
       .attr("height", height)
       .attr("viewBox", `0 0 ${width} ${height}`);
 
+    svg.style("touch-action", "none");
+    const zoomLayer = svg.append("g").attr("class", "zoom-layer");
+    const contentLayer = zoomLayer.append("g").attr("class", "content-layer");
+
+    svg.call(
+      d3.zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.5, 3])
+        .on("zoom", (event) => {
+          zoomLayer.attr("transform", event.transform.toString());
+        }),
+    );
+
     // Create force simulation
     const simulation = d3.forceSimulation(filteredNodes as any)
       .force("link", d3.forceLink(filteredLinks)
@@ -126,7 +138,7 @@ export default function PeerNetworkGraph() {
       .attr("fill", "#94a3b8");
 
     // Create links
-    const link = svg.append("g")
+    const link = contentLayer.append("g")
       .attr("class", "links")
       .selectAll("line")
       .data(filteredLinks)
@@ -137,7 +149,7 @@ export default function PeerNetworkGraph() {
       .attr("marker-end", "url(#arrowhead)");
 
     // Create node groups
-    const node = svg.append("g")
+    const node = contentLayer.append("g")
       .attr("class", "nodes")
       .selectAll("g")
       .data(filteredNodes)

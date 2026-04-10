@@ -5,6 +5,7 @@ export interface AuthUser {
   full_name: string;
   role: UserRole;
   disabled?: boolean;
+  avatar_url?: string | null;
 }
 
 export interface TokenResponse {

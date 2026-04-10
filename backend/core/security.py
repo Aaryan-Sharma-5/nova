@@ -36,8 +36,15 @@ def decode_access_token(token: str) -> Optional[TokenData]:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
         role: str = payload.get("role")
+        full_name: str | None = payload.get("full_name")
+        avatar_url: str | None = payload.get("avatar_url")
         if email is None:
             return None
-        return TokenData(email=email, role=role)
+        return TokenData(
+            email=email,
+            role=role,
+            full_name=full_name,
+            avatar_url=avatar_url,
+        )
     except JWTError:
         return None

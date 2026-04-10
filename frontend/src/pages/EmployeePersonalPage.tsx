@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { protectedGetApi, protectedPostApi } from "@/lib/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface PersonalDataResponse {
   employee_id: string;
@@ -42,6 +43,17 @@ export default function EmployeePersonalPage() {
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [pendingSession, setPendingSession] = useState<EmployeeFeedbackSession | null>(null);
+  const [managerModalOpen, setManagerModalOpen] = useState(false);
+  const [managerId, setManagerId] = useState("mgr-0");
+  const [managerText, setManagerText] = useState("");
+  const [managerStatus, setManagerStatus] = useState("");
+  const [managerRatings, setManagerRatings] = useState<Record<string, number>>({
+    clarity_of_direction: 3,
+    psychological_safety: 3,
+    recognition_frequency: 3,
+    workload_fairness: 3,
+    growth_support: 3,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -106,12 +118,93 @@ export default function EmployeePersonalPage() {
     }
   };
 
+  const submitManagerFeedback = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+
+    setManagerStatus("Submitting...");
+    try {
+      await protectedPostApi(`/api/feedback/manager/${managerId}`, token, {
+        ratings: managerRatings,
+        free_text: managerText.slice(0, 280),
+      });
+      setManagerStatus("Submitted. Thank you for helping improve manager effectiveness.");
+      setManagerText("");
+      setManagerModalOpen(false);
+    } catch (err) {
+      setManagerStatus(err instanceof Error ? err.message : "Unable to submit manager feedback");
+    }
+  };
+
+  const dimensions = [
+    ["clarity_of_direction", "Clarity of Direction"],
+    ["psychological_safety", "Psychological Safety"],
+    ["recognition_frequency", "Recognition Frequency"],
+    ["workload_fairness", "Workload Fairness"],
+    ["growth_support", "Growth Support"],
+  ] as const;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Your Data</h1>
         <p className="text-sm text-muted-foreground">Transparent view of wellness signals and data categories held for your account.</p>
       </div>
+
+      <Dialog open={managerModalOpen} onOpenChange={setManagerModalOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline">Rate Your Manager</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manager 360 Feedback</DialogTitle>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={submitManagerFeedback}>
+            <div>
+              <p className="text-sm mb-1">Manager</p>
+              <Select value={managerId} onValueChange={setManagerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mgr-0">Sarah Chen</SelectItem>
+                  <SelectItem value="mgr-1">Michael Park</SelectItem>
+                  <SelectItem value="mgr-2">Jennifer Lopez</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dimensions.map(([key, label]) => (
+              <div key={key} className="space-y-1">
+                <p className="text-sm">{label}</p>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((score) => (
+                    <button
+                      key={score}
+                      type="button"
+                      onClick={() => setManagerRatings((prev) => ({ ...prev, [key]: score }))}
+                      className={`h-8 w-8 rounded border text-sm ${managerRatings[key] >= score ? "bg-amber-300 border-amber-500" : "bg-background"}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div>
+              <p className="text-sm mb-1">Optional feedback (max 2 lines)</p>
+              <textarea
+                className="w-full min-h-[80px] rounded-md border p-3 text-sm"
+                value={managerText}
+                onChange={(e) => setManagerText(e.target.value)}
+                placeholder="What should improve?"
+              />
+            </div>
+            <Button type="submit" className="w-full">Submit Anonymous Feedback</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {pendingSession && (
         <Card className="p-4 border-amber-300 bg-amber-50">
@@ -189,6 +282,7 @@ export default function EmployeePersonalPage() {
               </div>
             </form>
           </Card>
+          {managerStatus && <p className="text-sm text-muted-foreground">{managerStatus}</p>}
         </>
       )}
     </div>

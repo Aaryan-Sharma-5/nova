@@ -90,6 +90,18 @@ Risk Score = (
 - Generates natural language explanations of risk drivers
 - Produces standardized 3-bullet summaries and action recommendations
 - Streaming responses for real-time dashboards
+- Sentiment engine also checks **sarcasm cues** (positive wording with negative intent)
+- Judge demo prompt samples for the existing Sentiment Analyzer:
+  - Should detect sarcasm:
+    - "Oh great, another all-hands meeting. Just what I needed on a Friday afternoon."
+    - "Sure, I absolutely love staying until 9 PM every single day. Best work-life balance ever."
+    - "Wow, my manager finally responded to my message. Only took three weeks."
+    - "Yeah, the new process is amazing. We now need 6 approvals to send one email."
+  - Should NOT detect sarcasm:
+    - "The team lunch today was really fun, felt good to connect outside work."
+    - "Got great feedback on my presentation, feeling motivated."
+  - Edge case (subtle sarcasm):
+    - "I'm sure the 'optional' team outing that managers track attendance for will be very relaxing."
 
 #### 3. **Statistical Anomaly Detection** (Early Warning System)
 - **Z-score analysis** detects sudden behavioral shifts (not just absolute scores)
@@ -151,7 +163,7 @@ Risk Score = (
 
 ### 🔍 **Advanced Analytics**
 - ✅ **Burnout Risk Assessment** - Rule-based + LLM hybrid scoring
-- ✅ **Sentiment Analysis** - Groq-powered with emotion classification
+- ✅ **Sentiment Analysis** - Groq-powered with emotion classification + sarcasm cue detection
 - ✅ **Retention Flight Risk** - Predict who might leave
 - ✅ **Performance Prediction** - Identify high performers at risk
 - ✅ **Anomaly Detection** - Z-score detection of sudden behavioral shifts

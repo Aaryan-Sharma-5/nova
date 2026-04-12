@@ -261,7 +261,7 @@ export default function OrgHealthPage() {
     if (element) {
       const canvas = await html2canvas(element, { scale: 2 });
       const link = document.createElement("a");
-      link.download = `org-health-report-${new Date().toISOString().split('T')[0]}.png`;
+      link.download = `org-wellbeing-report-${new Date().toISOString().split('T')[0]}.png`;
       link.href = canvas.toDataURL();
       link.click();
     }
@@ -290,7 +290,7 @@ export default function OrgHealthPage() {
       const dateLabel = new Date().toISOString().split('T')[0];
 
       doc.setFontSize(22);
-      doc.text("NOVA Org Health Report", 20, 30);
+      doc.text("NOVA Org Wellbeing Report", 20, 30);
       doc.setFontSize(12);
       doc.text(`Organization: ${orgName}`, 20, 42);
       doc.text(`Date: ${dateLabel}`, 20, 50);
@@ -457,7 +457,7 @@ export default function OrgHealthPage() {
       {/* Header with Actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Organization Health Report</h1>
+          <h1 className="text-3xl font-bold">Organization Wellbeing Report</h1>
           <p className="text-muted-foreground mt-1">
             Generated on {new Date().toLocaleDateString('en-US', { 
               year: 'numeric', 

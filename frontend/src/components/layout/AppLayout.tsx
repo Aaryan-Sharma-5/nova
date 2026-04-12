@@ -12,7 +12,7 @@ const CORE_NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/employees', icon: Users, label: 'Employees' },
   { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
-  { to: '/org-health', icon: HeartPulse, label: 'Org Health' },
+  { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
   { to: '/employee/profile', icon: UserCircle, label: 'My Backend Profile' },
 ];
 

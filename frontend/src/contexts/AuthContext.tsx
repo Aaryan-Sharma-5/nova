@@ -1,10 +1,38 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { loginApi, logoutApi, meApi, oauthExchangeApi, registerApi } from "@/lib/api";
+import { API_BASE_URL, loginApi, logoutApi, meApi, oauthExchangeApi, registerApi } from "@/lib/api";
 import { AuthUser, RegisterPayload, UserRole } from "@/types/auth";
 import { supabase } from "@/lib/supabaseClient";
 
-const AUTH_STORAGE_KEY = "nova.auth.token";
+const LEGACY_AUTH_STORAGE_KEY = "nova.auth.token";
+const AUTH_STORAGE_SCOPE = (API_BASE_URL || "same-origin").replace(/[^a-zA-Z0-9]+/g, "_");
+const AUTH_STORAGE_KEY = `nova.auth.token.${AUTH_STORAGE_SCOPE}`;
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) {
+      return null;
+    }
+
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const json = atob(padded);
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== "number") {
+    return true;
+  }
+
+  const nowEpochSeconds = Math.floor(Date.now() / 1000);
+  return payload.exp <= nowEpochSeconds + 15;
+}
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -30,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
   }, []);
 
   const bootstrapSession = useCallback(async (incomingToken: string) => {
@@ -43,6 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function init() {
       if (!token) {
         setIsLoading(false);
+        return;
+      }
+
+      if (isTokenExpired(token)) {
+        if (isMounted) {
+          clearSession();
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -71,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const auth = await loginApi(email, password);
       localStorage.setItem(AUTH_STORAGE_KEY, auth.access_token);
+      localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
       setToken(auth.access_token);
       await bootstrapSession(auth.access_token);
     } catch (error) {
@@ -115,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const auth = await oauthExchangeApi(data.session.access_token, "google");
       localStorage.setItem(AUTH_STORAGE_KEY, auth.access_token);
+      localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
       setToken(auth.access_token);
       await bootstrapSession(auth.access_token);
     } catch (error) {

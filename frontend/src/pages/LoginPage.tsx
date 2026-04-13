@@ -19,10 +19,6 @@ export default function LoginPage() {
 
   const redirectPath = (location.state as { from?: string } | null)?.from ?? "/";
 
-  if (isAuthenticated && !isLoading) {
-    return <Navigate to={redirectPath} replace />;
-  }
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("oauth") !== "google") {
@@ -52,6 +48,10 @@ export default function LoginPage() {
       mounted = false;
     };
   }, [completeGoogleSignIn, location.search, navigate, redirectPath]);
+
+  if (isAuthenticated && !isLoading) {
+    return <Navigate to={redirectPath} replace />;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

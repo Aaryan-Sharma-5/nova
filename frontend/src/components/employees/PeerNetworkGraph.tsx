@@ -332,7 +332,7 @@ export default function PeerNetworkGraph() {
         {isolatedEmployees.length > 0 && (
           <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
             <p className="text-sm font-semibold text-orange-800 mb-2">
-              ⚠️ {isolatedEmployees.length} Isolated Employees Detected (Flight Risk Signal)
+              {isolatedEmployees.length} Isolated Employees Detected (Flight Risk Signal)
             </p>
             <div className="flex flex-wrap gap-2">
               {isolatedEmployees.slice(0, 5).map((emp, i) => (

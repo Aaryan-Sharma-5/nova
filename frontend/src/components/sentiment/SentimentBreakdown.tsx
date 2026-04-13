@@ -74,9 +74,9 @@ export default function SentimentBreakdown({ text, employeeName, emotionBreakdow
 
   const getTopicIcon = (sentiment: string) => {
     switch (sentiment) {
-      case 'positive': return '👍';
-      case 'negative': return '👎';
-      default: return '➖';
+      case 'positive': return '+';
+      case 'negative': return '-';
+      default: return '=';
     }
   };
 
@@ -242,7 +242,7 @@ export default function SentimentBreakdown({ text, employeeName, emotionBreakdow
             {urgency.level === 'Critical' && (
               <>
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm font-semibold text-red-800">🚨 Immediate Response Required</p>
+                  <p className="text-sm font-semibold text-red-800">Immediate Response Required</p>
                   <p className="text-sm text-red-700 mt-1">Schedule urgent 1:1 meeting within 24 hours</p>
                 </div>
                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">

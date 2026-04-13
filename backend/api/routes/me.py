@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -12,6 +13,7 @@ from core.database import get_supabase_admin
 from models.user import User, UserRole
 
 router = APIRouter(prefix="/api/me", tags=["Personal Data"])
+logger = logging.getLogger(__name__)
 
 
 class FeedbackRequest(BaseModel):
@@ -104,6 +106,7 @@ def _fetch_self_metrics(user_email: str) -> dict:
 async def get_my_data(
     current_user: User = Depends(require_role([UserRole.EMPLOYEE])),
 ) -> dict:
+    logger.info("Personal data requested by=%s", current_user.email)
     metrics = _fetch_self_metrics(current_user.email)
 
     # Transparency list intentionally avoids raw values.
@@ -118,7 +121,7 @@ async def get_my_data(
         "Promotion and tenure timeline",
     ]
 
-    return {
+    response = {
         "employee_id": current_user.email,
         "engagement_level": _category_from_score(metrics["engagement_score"]),
         "burnout_risk_category": _category_from_score(metrics["burnout_score"]),
@@ -126,6 +129,13 @@ async def get_my_data(
         "data_fields_held": data_fields,
         "source": metrics["source"],
     }
+    logger.info(
+        "Personal data served for=%s source=%s trend=%s",
+        current_user.email,
+        response["source"],
+        response["sentiment_trend"],
+    )
+    return response
 
 
 @router.post("/feedback")
@@ -134,6 +144,12 @@ async def submit_my_feedback(
     current_user: User = Depends(require_role([UserRole.EMPLOYEE])),
 ) -> dict:
     supabase = get_supabase_admin()
+    logger.info(
+        "Employee feedback submit requested by=%s category=%s message_len=%d",
+        current_user.email,
+        payload.category.strip(),
+        len(payload.message.strip()),
+    )
 
     try:
         supabase.table("employee_feedback").insert(
@@ -144,6 +160,8 @@ async def submit_my_feedback(
                 "message": payload.message.strip(),
             }
         ).execute()
+        logger.info("Employee feedback submit succeeded for=%s", current_user.email)
         return {"status": "ok", "message": "Feedback submitted"}
     except Exception as exc:
+        logger.exception("Employee feedback submit failed for=%s", current_user.email)
         raise HTTPException(status_code=500, detail=f"Failed to submit feedback: {exc}") from exc

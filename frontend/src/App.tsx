@@ -42,7 +42,7 @@ const App = () => (
               <Route
                 path="/"
                 element={
-                  <ProtectedRoute allowedRoles={["manager", "hr", "leadership"]}>
+                  <ProtectedRoute>
                     <AppLayout>
                       <DashboardPage />
                     </AppLayout>
@@ -112,7 +112,7 @@ const App = () => (
               <Route
                 path="/hr/sessions-review"
                 element={
-                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                  <ProtectedRoute allowedRoles={["hr"]}>
                     <AppLayout>
                       <HRSessionsReviewPage />
                     </AppLayout>
@@ -122,7 +122,7 @@ const App = () => (
               <Route
                 path="/hr/sessions-schedule"
                 element={
-                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                  <ProtectedRoute allowedRoles={["hr"]}>
                     <AppLayout>
                       <HRSessionsSchedulerPage />
                     </AppLayout>
@@ -132,7 +132,7 @@ const App = () => (
               <Route
                 path="/integrations"
                 element={
-                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                  <ProtectedRoute allowedRoles={["hr"]}>
                     <AppLayout>
                       <IntegrationsPage />
                     </AppLayout>
@@ -230,7 +230,7 @@ const App = () => (
               <Route
                 path="/audit-logs"
                 element={
-                  <ProtectedRoute allowedRoles={["leadership"]}>
+                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
                     <AppLayout>
                       <AuditLogPage />
                     </AppLayout>

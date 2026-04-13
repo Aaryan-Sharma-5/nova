@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
@@ -23,6 +24,7 @@ from core.database import get_supabase_admin
 from models.user import User, UserRole
 
 router = APIRouter(prefix="/sessions", tags=["Feedback Sessions"])
+logger = logging.getLogger(__name__)
 
 RECORDINGS_BUCKET = "feedback-recordings"
 CONSENT_VERSION = "v1.0-dpdp-2023"
@@ -180,6 +182,7 @@ def _log_decline_notification(employee_id: str, session_id: str) -> None:
 
 
 async def _process_session_async(session_id: str) -> None:
+    logger.info("Feedback processing started session_id=%s", session_id)
     supabase = get_supabase_admin()
     session = _session_or_404(session_id)
 
@@ -205,6 +208,12 @@ async def _process_session_async(session_id: str) -> None:
             "derived_scores": derived_scores,
         }
     ).eq("id", session_id).execute()
+    logger.info(
+        "Feedback processing completed session_id=%s transcript_len=%d score_keys=%d",
+        session_id,
+        len(transcript),
+        len(derived_scores.keys()),
+    )
 
 
 def _upsert_feedback_metrics(employee_id: str, derived_scores: dict[str, float]) -> dict[str, float]:
@@ -268,6 +277,13 @@ async def schedule_feedback_session(
     current_user: User = Depends(require_role([UserRole.HR])),
 ) -> dict[str, Any]:
     """Schedule mandatory feedback sessions for one employee or a department."""
+    logger.info(
+        "Schedule feedback requested by=%s employee_id=%s department=%s mandatory=%s",
+        current_user.email,
+        payload.employee_id,
+        payload.department,
+        payload.mandatory,
+    )
     supabase = get_supabase_admin()
 
     employee_ids: list[str] = []
@@ -307,12 +323,18 @@ async def schedule_feedback_session(
             raise
         sessions = _local_insert_sessions(rows)
 
-    return {
+    response = {
         "scheduled_count": len(sessions),
         "mandatory": payload.mandatory,
         "scheduled_by": current_user.email,
         "sessions": sessions,
     }
+    logger.info(
+        "Schedule feedback completed by=%s scheduled_count=%d",
+        current_user.email,
+        response["scheduled_count"],
+    )
+    return response
 
 
 @router.post("/admin/bootstrap-storage")
@@ -333,6 +355,7 @@ async def get_my_feedback_sessions(
     current_user: User = Depends(require_role([UserRole.EMPLOYEE])),
 ) -> dict[str, Any]:
     """Employee view of their own scheduled/completed sessions."""
+    logger.info("Feedback sessions requested by employee=%s", current_user.email)
     supabase = get_supabase_admin()
     try:
         response = (
@@ -342,11 +365,19 @@ async def get_my_feedback_sessions(
             .order("scheduled_date", desc=False)
             .execute()
         )
-        return {"sessions": response.data or []}
+        sessions = response.data or []
+        logger.info("Feedback sessions served for employee=%s count=%d", current_user.email, len(sessions))
+        return {"sessions": sessions}
     except Exception as exc:
         if not _is_missing_feedback_sessions_table(exc):
             raise
-        return {"sessions": _local_sessions_for_employee(current_user.email)}
+        sessions = _local_sessions_for_employee(current_user.email)
+        logger.warning(
+            "Feedback sessions fallback storage used for employee=%s count=%d",
+            current_user.email,
+            len(sessions),
+        )
+        return {"sessions": sessions}
 
 
 @router.post("/{session_id}/consent")
@@ -391,6 +422,12 @@ async def upload_feedback_recording(
     current_user: User = Depends(require_role([UserRole.EMPLOYEE])),
 ) -> dict[str, Any]:
     """Upload employee recording to Supabase Storage under recordings/{employee}/{session}."""
+    logger.info(
+        "Feedback upload requested by=%s session_id=%s filename=%s",
+        current_user.email,
+        session_id,
+        video_file.filename or "unknown",
+    )
     session = _session_or_404(session_id)
     _ensure_access(session, current_user)
 
@@ -424,6 +461,7 @@ async def upload_feedback_recording(
             {"content-type": video_file.content_type or "video/webm", "upsert": "true"},
         )
     except Exception as exc:
+        logger.exception("Feedback upload failed by=%s session_id=%s", current_user.email, session_id)
         raise HTTPException(status_code=500, detail=f"Failed to store recording: {exc}") from exc
 
     supabase.table("feedback_sessions").update(
@@ -433,12 +471,19 @@ async def upload_feedback_recording(
         }
     ).eq("id", session_id).execute()
 
-    return {
+    response = {
         "status": "uploaded",
         "session_id": session_id,
         "recording_path": storage_path,
         "recording_hash": recording_hash,
     }
+    logger.info(
+        "Feedback upload completed by=%s session_id=%s bytes=%d",
+        current_user.email,
+        session_id,
+        len(content),
+    )
+    return response
 
 
 @router.post("/{session_id}/process")
@@ -448,6 +493,7 @@ async def process_feedback_session(
     current_user: User = Depends(require_role([UserRole.EMPLOYEE, UserRole.HR, UserRole.LEADERSHIP])),
 ) -> dict[str, Any]:
     """Trigger async processing pipeline for uploaded recording."""
+    logger.info("Feedback process requested by=%s session_id=%s", current_user.email, session_id)
     session = _session_or_404(session_id)
     _ensure_access(session, current_user)
 
@@ -455,6 +501,7 @@ async def process_feedback_session(
         raise HTTPException(status_code=400, detail="Recording must be uploaded before processing")
 
     background_tasks.add_task(_process_session_async, session_id)
+    logger.info("Feedback process queued by=%s session_id=%s", current_user.email, session_id)
     return {"status": "processing_started", "session_id": session_id}
 
 
@@ -501,6 +548,12 @@ async def hr_ingest_feedback_results(
     current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP])),
 ) -> dict[str, Any]:
     """HR confirms review and ingests derived scores into NOVA analytics signals."""
+    logger.info(
+        "Feedback ingest requested by=%s session_id=%s notes_len=%d",
+        current_user.email,
+        session_id,
+        len(payload.notes),
+    )
     supabase = get_supabase_admin()
     session = _session_or_404(session_id)
 
@@ -535,7 +588,7 @@ async def hr_ingest_feedback_results(
             raise
         _local_update_session(session_id, updates)
 
-    return {
+    response = {
         "status": "ingested",
         "session_id": session_id,
         "employee_id": session.get("employee_id"),
@@ -543,6 +596,13 @@ async def hr_ingest_feedback_results(
         "engagement_score": pipeline_scores.get("engagement_score"),
         "notes_saved": bool(payload.notes.strip()),
     }
+    logger.info(
+        "Feedback ingest completed by=%s session_id=%s employee_id=%s",
+        current_user.email,
+        session_id,
+        session.get("employee_id"),
+    )
+    return response
 
 
 @router.get("/pending-review")
@@ -550,6 +610,7 @@ async def list_sessions_pending_review(
     current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP])),
 ) -> dict[str, Any]:
     """List session queue visible to HR (scheduled, in-progress, and completed pending review)."""
+    logger.info("Pending review requested by=%s", current_user.email)
     supabase = get_supabase_admin()
     try:
         rows = (
@@ -566,11 +627,13 @@ async def list_sessions_pending_review(
             raise
         data = _local_pending_sessions()
 
-    return {
+    response = {
         "count": len(data),
         "sessions": data,
         "requested_by": current_user.email,
     }
+    logger.info("Pending review served for=%s count=%d", current_user.email, response["count"])
+    return response
 
 
 @router.post("/{session_id}/flag-follow-up")
@@ -578,6 +641,7 @@ async def flag_session_follow_up(
     session_id: str,
     current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP])),
 ) -> dict[str, Any]:
+    logger.info("Follow-up flag requested by=%s session_id=%s", current_user.email, session_id)
     session = _session_or_404(session_id)
     emotion_analysis = _safe_json(session.get("emotion_analysis"))
     emotion_analysis["follow_up_required"] = True
@@ -598,12 +662,14 @@ async def flag_session_follow_up(
         local = _local_update_session(session_id, {"emotion_analysis": emotion_analysis})
         session_payload = local or {"id": session_id}
 
-    return {
+    response = {
         "status": "follow_up_flagged",
         "session_id": session_id,
         "session": session_payload,
         "flagged_by": current_user.email,
     }
+    logger.info("Follow-up flag completed by=%s session_id=%s", current_user.email, session_id)
+    return response
 
 
 @router.post("/seed-demo")
@@ -611,6 +677,7 @@ async def seed_demo_feedback_sessions(
     current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP])),
 ) -> dict[str, Any]:
     """Seed demo sessions with mixed states so Sessions to Review is never empty."""
+    logger.info("Seed demo sessions requested by=%s", current_user.email)
     supabase = get_supabase_admin()
     now = datetime.utcnow()
 
@@ -727,8 +794,10 @@ async def seed_demo_feedback_sessions(
                 continue
             continue
 
-    return {
+    response = {
         "status": "seeded",
         "inserted": len(inserted),
         "seeded_by": current_user.email,
     }
+    logger.info("Seed demo sessions completed by=%s inserted=%d", current_user.email, response["inserted"])
+    return response

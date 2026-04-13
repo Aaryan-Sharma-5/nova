@@ -116,7 +116,7 @@
   h2,
   h3,
   .font-heading {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
   /* Global focus-visible for accessibility */
@@ -165,7 +165,7 @@
 
   /* ─── Sidebar Navigation ─── */
   .sidebar-link {
-    @apply flex items-center gap-3 border-l-4 border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-100;
+    @apply relative flex items-center gap-3 border-l-4 border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-100;
     color: hsl(var(--sidebar-foreground));
     border-radius: 0;
   }
@@ -174,12 +174,30 @@
     background: hsl(var(--sidebar-accent));
     color: hsl(var(--sidebar-accent-foreground));
     border-left-color: hsl(var(--muted-foreground));
+    transform: translateX(2px);
   }
 
   .sidebar-link-active {
     background: hsl(var(--sidebar-primary));
     color: hsl(var(--sidebar-primary-foreground));
     @apply border-l-4 border-foreground font-bold;
+    box-shadow: var(--shadow-sm);
+    transform: translateX(2px);
+  }
+
+  @media (min-width: 1024px) {
+    .app-sidebar:not(:hover):not(:focus-within) .sidebar-link,
+    .app-sidebar:not(:hover):not(:focus-within) .sidebar-link:hover {
+      border-left-color: transparent;
+      transform: none;
+    }
+
+    .app-sidebar:not(:hover):not(:focus-within) .sidebar-link-active {
+      border-left-width: 0;
+      border: 2px solid hsl(var(--foreground));
+      box-shadow: var(--shadow-sm);
+      transform: none;
+    }
   }
 
   /* ─── Chart Container ─── */

@@ -143,7 +143,7 @@ export default function CompensationEquityAnalysis() {
                   <p>Q3: ${(item.q3 / 1000).toFixed(0)}k</p>
                   <p>Max: ${(item.max / 1000).toFixed(0)}k</p>
                   {item.outliers.length > 0 && (
-                    <p className="text-orange-600 font-semibold">⚠ {item.outliers.length} outlier(s)</p>
+                    <p className="text-orange-600 font-semibold">{item.outliers.length} outlier(s)</p>
                   )}
                 </div>
               </div>

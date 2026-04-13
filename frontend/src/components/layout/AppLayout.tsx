@@ -1,76 +1,254 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, MessageSquare, Brain, RefreshCw, Menu, X, HeartPulse, ShieldCheck, UserCircle, LogOut, CalendarClock, Settings2, Code2, BriefcaseBusiness, LineChart, FileText } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  Brain,
+  Menu,
+  X,
+  HeartPulse,
+  ShieldCheck,
+  UserCircle,
+  LogOut,
+  CalendarClock,
+  Settings2,
+  LineChart,
+  FileText,
+  AlertTriangle,
+  ClipboardList,
+  Home,
+} from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/auth';
 import { Badge } from '@/components/ui/badge';
-import { protectedGetApi, protectedPostApi } from '@/lib/api';
+import { protectedGetApi } from '@/lib/api';
 
-const CORE_NAV_ITEMS = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/employees', icon: Users, label: 'Employees' },
-  { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
-  { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
-  { to: '/employee/profile', icon: UserCircle, label: 'My Backend Profile' },
-];
-
-type NavItem = { to: string; icon: typeof ShieldCheck; label: string; badgeCount?: number };
-
-const ROLE_NAV_ITEMS: Record<UserRole, Array<{ to: string; icon: typeof ShieldCheck; label: string }>> = {
-  employee: [
-    { to: '/your-data', icon: UserCircle, label: 'Your Data' },
-  ],
-  manager: [
-    { to: '/manager/team-alerts', icon: BriefcaseBusiness, label: 'Manager API' },
-  ],
-  hr: [
-    { to: '/hr/org-risk-distribution', icon: Code2, label: 'HR API' },
-    { to: '/hr/sessions-schedule', icon: CalendarClock, label: 'Schedule Sessions' },
-    { to: '/hr/sessions-review', icon: ShieldCheck, label: 'Sessions to Review' },
-    { to: '/integrations', icon: Settings2, label: 'Integrations' },
-  ],
-  leadership: [
-    { to: '/leadership/roi-analytics', icon: LineChart, label: 'Leadership API' },
-    { to: '/hr/sessions-schedule', icon: CalendarClock, label: 'Schedule Sessions' },
-    { to: '/hr/sessions-review', icon: ShieldCheck, label: 'Sessions to Review' },
-    { to: '/audit-logs', icon: FileText, label: 'Audit Logs' },
-    { to: '/integrations', icon: Settings2, label: 'Integrations' },
-  ],
+type NavItem = {
+  to: string;
+  icon: typeof ShieldCheck;
+  label: string;
+  badgeCount?: number;
 };
 
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
+const ROLE_HOME_PATH: Record<UserRole, string> = {
+  employee: '/',
+  manager: '/',
+  hr: '/',
+  leadership: '/',
+};
+
+function getRoleHomePath(role: UserRole): string {
+  return ROLE_HOME_PATH[role] ?? '/';
+}
+
+function resolvePageTitle(pathname: string, navItems: NavItem[], role?: UserRole): string {
+  if (pathname === '/') {
+    if (role === 'manager') return 'Dashboard';
+    if (role === 'hr') return 'Dashboard';
+    if (role === 'leadership') return 'Executive Pulse';
+    if (role === 'employee') return 'Home';
+  }
+
+  const exact = navItems.find((item) => item.to === pathname);
+  if (exact) {
+    return exact.label;
+  }
+
+  if (pathname.startsWith('/insights/')) return 'AI Insights';
+  if (pathname.startsWith('/employees/') && pathname.endsWith('/profile')) return 'Employee Profile';
+  if (pathname.startsWith('/feedback/session/')) return 'Feedback Session';
+
+  const prefixed = [...navItems]
+    .sort((a, b) => b.to.length - a.to.length)
+    .find((item) => item.to !== '/' && pathname.startsWith(item.to));
+  if (prefixed) {
+    return prefixed.label;
+  }
+
+  return 'NOVA Workspace';
+}
+
+function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSection[] {
+  switch (role) {
+    case 'manager':
+      return [
+        {
+          title: 'Overview',
+          items: [
+            { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
+          ],
+        },
+        {
+          title: 'My Team',
+          items: [
+            { to: '/employees', icon: Users, label: 'Team Roster' },
+            { to: '/sentiment', icon: MessageSquare, label: 'Team Sentiment' },
+            { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
+            { to: '/anomalies', icon: AlertTriangle, label: 'Risk Alerts' },
+          ],
+        },
+      ];
+
+    case 'hr':
+      return [
+        {
+          title: 'Overview',
+          items: [
+            { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
+          ],
+        },
+        {
+          title: 'People',
+          items: [
+            { to: '/employees', icon: Users, label: 'Employees' },
+            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
+            { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
+            { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
+          ],
+        },
+        {
+          title: 'Operations',
+          items: [
+            { to: '/hr/sessions-schedule', icon: CalendarClock, label: 'Schedule Sessions' },
+            { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions Review' },
+          ],
+        },
+        {
+          title: 'Admin',
+          items: [
+            { to: '/integrations', icon: Settings2, label: 'Integrations' },
+            { to: '/audit-logs', icon: FileText, label: 'Audit Logs' },
+          ],
+        },
+      ];
+
+    case 'leadership':
+      return [
+        {
+          title: 'Overview',
+          items: [
+            { to: '/', icon: LayoutDashboard, label: 'Executive Pulse' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
+          ],
+        },
+        {
+          title: 'Analytics',
+          items: [
+            { to: '/employees', icon: Users, label: 'Workforce' },
+            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment' },
+            { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
+            { to: '/leadership/roi-analytics', icon: LineChart, label: 'ROI Analytics' },
+          ],
+        },
+        {
+          title: 'Governance',
+          items: [
+            { to: '/audit-logs', icon: FileText, label: 'Audit Logs' },
+          ],
+        },
+      ];
+
+    case 'employee':
+      return [
+        {
+          title: 'My Workspace',
+          items: [
+            { to: '/', icon: Home, label: 'Home' },
+            { to: '/your-data', icon: UserCircle, label: 'Your Data' },
+            { to: '/feedback-session', icon: MessageSquare, label: 'Feedback Session' },
+            { to: '/employee/profile', icon: ShieldCheck, label: 'Privacy & Profile' },
+          ],
+        },
+      ];
+
+    default:
+      return [];
+  }
+}
+
+function buildMobileBottomNav(role: UserRole): NavItem[] {
+  switch (role) {
+    case 'manager':
+      return [
+        { to: '/', icon: Home, label: 'Home' },
+        { to: '/employees', icon: Users, label: 'Team' },
+        { to: '/anomalies', icon: AlertTriangle, label: 'Alerts' },
+        { to: '/org-health', icon: HeartPulse, label: 'Wellbeing' },
+      ];
+    case 'hr':
+      return [
+        { to: '/', icon: Home, label: 'Home' },
+        { to: '/employees', icon: Users, label: 'People' },
+        { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions' },
+        { to: '/org-health', icon: HeartPulse, label: 'Wellbeing' },
+      ];
+    case 'leadership':
+      return [
+        { to: '/', icon: Home, label: 'Home' },
+        { to: '/org-health', icon: HeartPulse, label: 'Wellbeing' },
+        { to: '/anomalies', icon: AlertTriangle, label: 'Alerts' },
+        { to: '/audit-logs', icon: FileText, label: 'Audit' },
+      ];
+    case 'employee':
+      return [
+        { to: '/', icon: Home, label: 'Home' },
+        { to: '/feedback-session', icon: MessageSquare, label: 'Feedback' },
+        { to: '/employee/profile', icon: UserCircle, label: 'Profile' },
+      ];
+    default:
+      return [];
+  }
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { refreshData, employees } = useEmployees();
+  const { employees } = useEmployees();
   const { user, logout, token } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingSessionReviewCount, setPendingSessionReviewCount] = useState(0);
   const [upcomingSessionCount, setUpcomingSessionCount] = useState(0);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   const insightsEmployeeId = employees[0]?.id ?? 'emp-123';
-  const canSeeInsights = user?.role === 'manager' || user?.role === 'hr';
-  const insightsNav = canSeeInsights
-    ? [{ to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' }]
-    : [];
 
-  const navItems = [
-    ...CORE_NAV_ITEMS,
-    ...insightsNav,
-    ...(user ? ROLE_NAV_ITEMS[user.role] : []),
-  ] as NavItem[];
+  const navSections = useMemo<NavSection[]>(() => {
+    if (!user) return [];
+    return buildNavSections(user.role, insightsEmployeeId);
+  }, [user, insightsEmployeeId]);
+
+  const mobileNav = useMemo<NavItem[]>(() => {
+    if (!user) return [];
+    return buildMobileBottomNav(user.role);
+  }, [user]);
 
   useEffect(() => {
     const loadPendingCount = async () => {
-      if (!token || (user?.role !== 'hr' && user?.role !== 'leadership')) {
+      if (!token || user?.role !== 'hr') {
         setPendingSessionReviewCount(0);
         setUpcomingSessionCount(0);
         return;
       }
 
       try {
-        const payload = await protectedGetApi<{ count?: number; sessions?: Array<{ scheduled_date?: string; status?: string }> }>('/api/feedback/sessions/pending-review', token);
+        const payload = await protectedGetApi<{
+          count?: number;
+          sessions?: Array<{ scheduled_date?: string; status?: string }>;
+        }>('/api/feedback/sessions/pending-review', token);
         const sessions = payload?.sessions ?? [];
         setPendingSessionReviewCount(Number(payload?.count ?? sessions.length ?? 0));
 
@@ -91,15 +269,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     };
 
     void loadPendingCount();
-
-    const intervalId = window.setInterval(() => {
-      void loadPendingCount();
-    }, 60000);
-
-    const onFocus = () => {
-      void loadPendingCount();
-    };
-
+    const intervalId = window.setInterval(() => void loadPendingCount(), 60000);
+    const onFocus = () => void loadPendingCount();
     window.addEventListener('focus', onFocus);
     return () => {
       window.clearInterval(intervalId);
@@ -110,150 +281,149 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handler = (event: Event) => {
       event.preventDefault();
-      setDeferredPrompt(event as any);
+      const promptEvent = event as Partial<BeforeInstallPromptEvent>;
+      if (typeof promptEvent.prompt === 'function' && promptEvent.userChoice) {
+        setDeferredPrompt(promptEvent as BeforeInstallPromptEvent);
+      }
     };
-
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const navItemsWithBadges = useMemo(() => (
-    navItems.map((item) => {
-      if (item.to === '/hr/sessions-review') {
-        return { ...item, badgeCount: pendingSessionReviewCount };
-      }
-      if (item.to === '/hr/sessions-schedule') {
-        return { ...item, badgeCount: upcomingSessionCount };
-      }
-      return item;
-    })
-  ), [navItems, pendingSessionReviewCount, upcomingSessionCount]);
+  const navSectionsWithBadges = useMemo<NavSection[]>(() => {
+    return navSections.map((section) => ({
+      ...section,
+      items: section.items.map((item) => {
+        if (item.to === '/hr/sessions-review') {
+          return { ...item, badgeCount: pendingSessionReviewCount };
+        }
+        if (item.to === '/hr/sessions-schedule') {
+          return { ...item, badgeCount: upcomingSessionCount };
+        }
+        return item;
+      }),
+    }));
+  }, [navSections, pendingSessionReviewCount, upcomingSessionCount]);
+
+  const flatItemsForHeader = useMemo(() => navSectionsWithBadges.flatMap((s) => s.items), [
+    navSectionsWithBadges,
+  ]);
+
+  const homePath = user ? getRoleHomePath(user.role) : '/';
+
+  const pageTitle = useMemo(() => {
+    return resolvePageTitle(location.pathname, flatItemsForHeader, user?.role);
+  }, [location.pathname, flatItemsForHeader, user?.role]);
 
   return (
     <div className="flex min-h-screen w-full">
-      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
 
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r-2 border-foreground bg-card transition-transform duration-200 lg:static lg:translate-x-0 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="flex items-center gap-3 border-b-2 border-foreground px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center border-2 border-foreground bg-primary shadow-[2px_2px_0px_#000]">
-            <Brain className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold font-heading text-foreground">NOVA</h1>
-            <p className="text-xs text-muted-foreground">AI-Powered HR Analytics</p>
-          </div>
+      <aside
+        className={`app-sidebar group fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r-2 border-foreground bg-card transition-transform duration-200 lg:static lg:w-[88px] lg:overflow-hidden lg:translate-x-0 lg:transition-[width] lg:duration-200 lg:hover:w-64 lg:focus-within:w-64 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center gap-3 border-b-2 border-foreground px-5 py-5 lg:justify-center lg:px-0 lg:py-4 lg:group-hover:justify-start lg:group-hover:px-5 lg:group-focus-within:justify-start lg:group-focus-within:px-5">
+          <NavLink
+            to={homePath}
+            end
+            onClick={() => setSidebarOpen(false)}
+            className="flex min-w-0 flex-1 items-center gap-3 lg:flex-none lg:justify-center lg:gap-0 lg:group-hover:flex-1 lg:group-hover:justify-start lg:group-hover:gap-3 lg:group-focus-within:flex-1 lg:group-focus-within:justify-start lg:group-focus-within:gap-3"
+          >
+            <div className="flex h-9 w-9 items-center justify-center border-2 border-foreground bg-primary shadow-[2px_2px_0px_#000]">
+              <Brain className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div className="min-w-0 overflow-hidden transition-all duration-200 lg:max-w-0 lg:opacity-0 lg:group-hover:max-w-[10rem] lg:group-hover:opacity-100 lg:group-focus-within:max-w-[10rem] lg:group-focus-within:opacity-100">
+              <h1 className="text-sm font-bold font-heading text-foreground">NOVA</h1>
+              <p className="text-xs text-muted-foreground truncate">AI Workforce Pulse</p>
+            </div>
+          </NavLink>
           <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5 text-foreground" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
-          {navItemsWithBadges.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
-              }
+        <nav className="flex-1 space-y-4 overflow-y-auto p-3 lg:space-y-1 lg:p-2 lg:group-hover:space-y-4 lg:group-hover:p-3 lg:group-focus-within:space-y-4 lg:group-focus-within:p-3">
+          {navSectionsWithBadges.map((section) => (
+            <div
+              key={section.title}
+              className="space-y-1 lg:space-y-0.5 lg:group-hover:space-y-1 lg:group-focus-within:space-y-1"
             >
-              <item.icon className="h-4.5 w-4.5" />
-              <span>{item.label}</span>
-              {item.badgeCount !== undefined && item.badgeCount > 0 && (
-                <Badge variant="destructive" className="ml-auto text-[10px] px-1.5 py-0">
-                  {item.badgeCount}
-                </Badge>
-              )}
-            </NavLink>
+              <p className="overflow-hidden px-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition-all duration-200 lg:max-h-0 lg:opacity-0 lg:group-hover:max-h-6 lg:group-hover:opacity-100 lg:group-focus-within:max-h-6 lg:group-focus-within:opacity-100">
+                {section.title}
+              </p>
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    `sidebar-link lg:mx-auto lg:h-10 lg:w-10 lg:justify-center lg:gap-0 lg:px-0 lg:py-0 lg:group-hover:mx-0 lg:group-hover:h-auto lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:gap-3 lg:group-hover:px-3 lg:group-hover:py-2.5 lg:group-focus-within:mx-0 lg:group-focus-within:h-auto lg:group-focus-within:w-full lg:group-focus-within:justify-start lg:group-focus-within:gap-3 lg:group-focus-within:px-3 lg:group-focus-within:py-2.5 ${isActive ? 'sidebar-link-active' : ''}`
+                  }
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span className="overflow-hidden whitespace-nowrap transition-all duration-200 lg:max-w-0 lg:opacity-0 lg:group-hover:max-w-[10rem] lg:group-hover:opacity-100 lg:group-focus-within:max-w-[10rem] lg:group-focus-within:opacity-100">
+                    {item.label}
+                  </span>
+                  {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="ml-auto overflow-hidden text-[10px] transition-all duration-200 lg:max-w-0 lg:px-0 lg:opacity-0 lg:group-hover:max-w-8 lg:group-hover:px-1.5 lg:group-hover:opacity-100 lg:group-focus-within:max-w-8 lg:group-focus-within:px-1.5 lg:group-focus-within:opacity-100"
+                    >
+                      {item.badgeCount}
+                    </Badge>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
-
-        <div className="border-t-2 border-foreground p-3 space-y-2">
-          {user && (
-            <div className="px-2 py-2 border-2 border-foreground bg-muted text-xs">
-              <div className="flex items-center gap-2">
-                {user.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt={user.full_name}
-                    className="h-8 w-8 rounded-full border border-foreground object-cover"
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full border border-foreground bg-background flex items-center justify-center font-bold">
-                    {user.full_name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="font-bold truncate">{user.full_name}</p>
-                  <p className="text-muted-foreground truncate">{user.email}</p>
-                </div>
-              </div>
-              <p className="font-semibold uppercase mt-1">Role: {user.role}</p>
-            </div>
-          )}
-
-          <button
-            onClick={async () => {
-              refreshData();
-              if (token) {
-                try {
-                  await protectedPostApi('/api/feedback/sessions/seed-demo', token, {});
-                } catch {
-                  // Non-fatal: local UI regen still succeeds.
-                }
-              }
-            }}
-            className="sidebar-link w-full justify-center gap-2 hover:text-foreground"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Regenerate Demo Data</span>
-          </button>
-
-          <button
-            onClick={() => {
-              void logout();
-            }}
-            className="sidebar-link w-full justify-center gap-2 hover:text-foreground"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Logout</span>
-          </button>
-        </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0">
-        {/* Top bar */}
         <header className="flex items-center gap-3 border-b-2 border-foreground bg-card px-4 py-3 lg:px-6">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <h2 className="text-lg font-bold font-heading">
-              {navItemsWithBadges.find(i => i.to === location.pathname)?.label || 'Employee Insights'}
-            </h2>
+            <h2 className="text-lg font-bold font-heading">{pageTitle}</h2>
           </div>
           {user && (
-            <div className="flex items-center gap-2 rounded-full border border-foreground px-2 py-1">
+            <div className="flex items-center gap-2 border-2 border-foreground bg-card px-2 py-1 shadow-[2px_2px_0px_#000]">
               {user.avatar_url ? (
                 <img
                   src={user.avatar_url}
                   alt={user.full_name}
-                  className="h-7 w-7 rounded-full object-cover"
+                  className="h-6 w-6 border border-foreground object-cover"
                 />
               ) : (
-                <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                <div className="flex h-6 w-6 items-center justify-center border border-foreground bg-primary text-[10px] font-bold text-primary-foreground">
                   {user.full_name.charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className="hidden sm:inline text-xs font-medium max-w-[160px] truncate">{user.full_name}</span>
+              <span className="hidden sm:inline max-w-[140px] truncate text-xs font-bold">
+                {user.full_name}
+              </span>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="inline-flex items-center gap-1 border-2 border-foreground bg-[#FFE500] px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_#000]"
+              >
+                <LogOut className="h-3 w-3" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
             </div>
           )}
         </header>
@@ -274,18 +444,35 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <main className="flex-1 overflow-auto p-4 lg:p-6 pb-20 lg:pb-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
 
-        <nav className="fixed bottom-0 inset-x-0 z-30 border-t-2 border-foreground bg-card p-2 lg:hidden">
-          <div className="grid grid-cols-4 gap-2 text-xs">
-            <NavLink to="/" className="text-center py-2 rounded border border-transparent hover:border-foreground">Home</NavLink>
-            <NavLink to="/employees" className="text-center py-2 rounded border border-transparent hover:border-foreground">Alerts</NavLink>
-            <NavLink to="/feedback-session" className="text-center py-2 rounded border border-transparent hover:border-foreground">Feedback</NavLink>
-            <NavLink to="/your-data" className="text-center py-2 rounded border border-transparent hover:border-foreground">Profile</NavLink>
-          </div>
-        </nav>
+        {mobileNav.length > 0 && (
+          <nav className="fixed bottom-0 inset-x-0 z-30 border-t-2 border-foreground bg-card p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] lg:hidden">
+            <div
+              className={`grid gap-2 text-[11px] ${
+                mobileNav.length === 3 ? 'grid-cols-3' : 'grid-cols-4'
+              }`}
+            >
+              {mobileNav.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/' || item.to === '/your-data'}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center justify-center py-2 border-2 ${
+                      isActive
+                        ? 'border-foreground bg-[#FFE500] shadow-[2px_2px_0px_#000]'
+                        : 'border-transparent hover:border-foreground'
+                    }`
+                  }
+                >
+                  <item.icon className="h-3.5 w-3.5" />
+                  <span className="font-bold uppercase tracking-wider mt-0.5">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </nav>
+        )}
       </div>
     </div>
   );

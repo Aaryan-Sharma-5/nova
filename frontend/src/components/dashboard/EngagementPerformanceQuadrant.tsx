@@ -90,7 +90,7 @@ export default function EngagementPerformanceQuadrant() {
                 </div>
                 <div className="flex items-start justify-end p-4">
                   <div className="bg-green-100 border border-green-300 rounded-lg p-2">
-                    <p className="text-xs font-semibold text-green-800">⭐ Stars</p>
+                    <p className="text-xs font-semibold text-green-800">Stars</p>
                     <Badge variant="secondary" className="mt-1">{counts.stars}</Badge>
                   </div>
                 </div>

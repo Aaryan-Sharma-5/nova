@@ -128,7 +128,7 @@ export default function FeedbackSessionPage() {
       consented: false,
       consent_version: 'v1.0-dpdp-2023',
     });
-    setDeclinedMessage('Session marked as declined — your manager will be notified');
+    setDeclinedMessage('Session marked as declined and your manager will be notified');
   };
 
   const setupMedia = async () => {
@@ -336,7 +336,7 @@ export default function FeedbackSessionPage() {
             </p>
 
             <div className="rounded bg-blue-50 border border-blue-200 p-3 space-y-2 text-xs">
-              <p className="font-medium text-blue-900">🔒 Your privacy is protected:</p>
+              <p className="font-medium text-blue-900">Your privacy is protected:</p>
               <ul className="list-disc list-inside space-y-1 text-blue-800">
                 <li>Responses are confidential and seen by HR only</li>
                 <li>Recordings deleted after 90 days</li>
@@ -383,7 +383,7 @@ export default function FeedbackSessionPage() {
             </div>
             {livenessError && <p className="text-sm text-red-600">{livenessError}</p>}
             <Button onClick={startSession} disabled={!livenessPassed} className="bg-green-600 hover:bg-green-700">
-              Camera &amp; Mic verified — Start Session
+              Camera &amp; Mic verified - Start Session
             </Button>
           </CardContent>
         </Card>
@@ -407,7 +407,7 @@ export default function FeedbackSessionPage() {
                 <p className="text-xs text-muted-foreground">Question {questionIndex + 1} of {QUESTIONS.length}</p>
                 <p className="font-medium">{currentQuestion}</p>
                 <p className="text-sm text-muted-foreground">
-                  Take a moment to reflect on your honest response. No right or wrong answers — we value your perspective.
+                  Take a moment to reflect on your honest response. No right or wrong answers and we value your perspective.
                 </p>
                 <p className="text-sm">
                   Time remaining: <span className={`font-semibold ${timer < 20 ? 'text-red-600' : 'text-foreground'}`}>{timer}s</span>
@@ -443,7 +443,7 @@ export default function FeedbackSessionPage() {
                 </Alert>
                 <p className="text-sm">Session ID: <span className="font-mono">{activeSessionId}</span></p>
                 <div className="rounded bg-amber-50 border border-amber-200 p-3 space-y-1 text-xs text-amber-900">
-                  <p className="font-medium">📋 Next Steps:</p>
+                  <p className="font-medium">Next Steps:</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>HR review timeline: 3-5 business days</li>
                     <li>You'll see status updates in your dashboard</li>

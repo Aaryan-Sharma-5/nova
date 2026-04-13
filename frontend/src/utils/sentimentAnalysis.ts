@@ -281,11 +281,11 @@ export function getSentimentLabel(score: number): 'Positive' | 'Neutral' | 'Nega
 }
 
 export function getSentimentEmoji(score: number): string {
-  if (score > 0.5) return '😊';
-  if (score > 0.15) return '🙂';
-  if (score > -0.15) return '😐';
-  if (score > -0.5) return '😟';
-  return '😢';
+  if (score > 0.5) return 'Very Positive';
+  if (score > 0.15) return 'Positive';
+  if (score > -0.15) return 'Neutral';
+  if (score > -0.5) return 'Negative';
+  return 'Very Negative';
 }
 
 // Calculate urgency level from sentiment result
@@ -361,55 +361,55 @@ export function extractInsights(result: SentimentResult, text: string): string[]
   
   // Critical alerts
   if (result.metadata?.criticalIssue) {
-    insights.push('⚠️ CRITICAL: Potential legal/HR violation detected. Immediate escalation required.');
+    insights.push('CRITICAL: Potential legal/HR violation detected. Immediate escalation required.');
   }
   
   if (result.metadata?.mentalHealthConcern) {
-    insights.push('🆘 URGENT: Mental health concern identified. Employee may need crisis support.');
+    insights.push('URGENT: Mental health concern identified. Employee may need crisis support.');
   }
   
   if (result.metadata?.attritionRisk) {
-    insights.push('🚨 HIGH RISK: Employee expressing intent to leave. Retention intervention needed.');
+    insights.push('HIGH RISK: Employee expressing intent to leave. Retention intervention needed.');
   }
   
   // Specific issue detection
   if (lowerText.includes('manager') && result.score < -0.3) {
-    insights.push('👤 Manager relationship issue detected. Consider skip-level meeting.');
+    insights.push('Manager relationship issue detected. Consider skip-level meeting.');
   }
   
   if (lowerText.includes('workload') || lowerText.includes('overtime') || lowerText.includes('hours')) {
-    insights.push('⏰ Workload concern mentioned. Review project assignments and staffing.');
+    insights.push('Workload concern mentioned. Review project assignments and staffing.');
   }
   
   if (lowerText.includes('compensation') || lowerText.includes('pay') || lowerText.includes('salary')) {
-    insights.push('💰 Compensation mentioned. Consider salary review and market analysis.');
+    insights.push('Compensation mentioned. Consider salary review and market analysis.');
   }
   
   if (lowerText.includes('growth') || lowerText.includes('career') || lowerText.includes('promotion')) {
     if (result.score < 0) {
-      insights.push('📈 Career growth concern. Discuss development plan and advancement opportunities.');
+      insights.push('Career growth concern. Discuss development plan and advancement opportunities.');
     } else {
-      insights.push('✨ Positive career sentiment. Employee engaged with growth opportunities.');
+      insights.push('Positive career sentiment. Employee engaged with growth opportunities.');
     }
   }
   
   if (lowerText.includes('team') || lowerText.includes('colleague')) {
     if (result.score < 0) {
-      insights.push('👥 Team dynamics issue. May need team building or conflict resolution.');
+      insights.push('Team dynamics issue. May need team building or conflict resolution.');
     } else {
-      insights.push('🤝 Positive team sentiment. Strong collaborative environment.');
+      insights.push('Positive team sentiment. Strong collaborative environment.');
     }
   }
   
   if (lowerText.includes('recognition') || lowerText.includes('appreciated') || lowerText.includes('valued')) {
     if (result.score < 0) {
-      insights.push('🏆 Recognition gap. Employee may feel underappreciated. Increase acknowledgment.');
+      insights.push('Recognition gap. Employee may feel underappreciated. Increase acknowledgment.');
     }
   }
   
   // Positive reinforcements
   if (result.score > 0.5 && result.confidence > 70) {
-    insights.push('💚 Strong positive sentiment. Employee is highly engaged. Continue current approach.');
+    insights.push('Strong positive sentiment. Employee is highly engaged. Continue current approach.');
   }
   
   // Mixed signals
@@ -417,14 +417,14 @@ export function extractInsights(result: SentimentResult, text: string): string[]
   const hasNegativeKeywords = result.keywords.some(k => k.sentiment === 'negative');
   
   if (hasPositiveKeywords && hasNegativeKeywords && Math.abs(result.score) < 0.2) {
-    insights.push('🔄 Mixed signals detected. Deep dive conversation recommended to understand full context.');
+    insights.push('Mixed signals detected. Deep dive conversation recommended to understand full context.');
   }
   
   // Length-based insights
   if (result.metadata && result.metadata.textLength > 100) {
-    insights.push('📝 Detailed feedback provided. Employee is engaged in communication.');
+    insights.push('Detailed feedback provided. Employee is engaged in communication.');
   } else if (result.metadata && result.metadata.textLength < 20 && result.score < 0) {
-    insights.push('⚡ Brief negative feedback. May indicate disengagement or frustration.');
+    insights.push('Brief negative feedback. May indicate disengagement or frustration.');
   }
   
   return insights;

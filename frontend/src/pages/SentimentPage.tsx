@@ -111,7 +111,7 @@ export default function SentimentPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge variant="destructive" className="cursor-help">
-                  ⚠️ Sarcasm Detected
+                  Sarcasm Detected
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>

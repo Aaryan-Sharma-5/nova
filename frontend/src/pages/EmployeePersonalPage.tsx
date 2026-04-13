@@ -206,7 +206,7 @@ export default function EmployeePersonalPage() {
                       onClick={() => setManagerRatings((prev) => ({ ...prev, [key]: score }))}
                       className={`h-8 w-8 rounded border text-sm ${managerRatings[key] >= score ? "bg-amber-300 border-amber-500" : "bg-background"}`}
                     >
-                      ★
+                      {score}
                     </button>
                   ))}
                 </div>
@@ -230,21 +230,21 @@ export default function EmployeePersonalPage() {
       {pendingSession && (
         <Card className="p-4 border-amber-300 bg-amber-50">
           <p className="text-sm font-semibold text-amber-900">
-            📋 Mandatory feedback session due by {new Date(pendingSession.scheduled_date).toLocaleDateString()} {' '}
-            <a href={`/feedback/session/${pendingSession.id}`} className="underline">Begin Session →</a>
+            Mandatory feedback session due by {new Date(pendingSession.scheduled_date).toLocaleDateString()} {' '}
+            <a href={`/feedback/session/${pendingSession.id}`} className="underline">Begin Session</a>
           </p>
         </Card>
       )}
 
       {!pendingSession && latestSession?.status === "completed" && !latestSession.hr_reviewed && (
         <Card className="p-4 border-sky-300 bg-sky-50">
-          <p className="text-sm font-semibold text-sky-900">✓ Session submitted - under HR review</p>
+          <p className="text-sm font-semibold text-sky-900">Session submitted - under HR review</p>
         </Card>
       )}
 
       {!pendingSession && latestSession?.status === "completed" && latestSession.hr_reviewed && (
         <Card className="p-4 border-emerald-300 bg-emerald-50">
-          <p className="text-sm font-semibold text-emerald-900">✓ Feedback processed - thank you</p>
+          <p className="text-sm font-semibold text-emerald-900">Feedback processed - thank you</p>
         </Card>
       )}
 

@@ -119,7 +119,7 @@ const AnomalyIndicator: React.FC<AnomalyIndicatorProps> = ({
             }`}
           >
             <AlertTriangle className="w-4 h-4" />
-            {`⚠ ${anomalyCount} Anomal${anomalyCount === 1 ? 'y' : 'ies'} Detected`}
+            {`${anomalyCount} Anomal${anomalyCount === 1 ? 'y' : 'ies'} Detected`}
           </button>
           {expanded && (
             <div className="rounded border border-orange-200 bg-white p-3 space-y-2">

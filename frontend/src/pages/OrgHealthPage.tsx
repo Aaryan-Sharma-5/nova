@@ -29,6 +29,18 @@ import html2canvas from "html2canvas";
 import { useInterventionInsights } from "@/hooks/useInterventionInsights";
 import jsPDF from "jspdf";
 import BenchmarkBadge from "@/components/dashboard/BenchmarkBadge";
+import WeeklyBriefCard from "@/components/dashboard/WeeklyBriefCard";
+import AttritionPredictionTimeline from "@/components/dashboard/AttritionPredictionTimeline";
+import EmployeeTenureDistribution from "@/components/dashboard/EmployeeTenureDistribution";
+import EngagementPerformanceQuadrant from "@/components/dashboard/EngagementPerformanceQuadrant";
+import BurnoutHeatmap from "@/components/dashboard/BurnoutHeatmap";
+import BurnoutPropagationMap from "@/components/dashboard/BurnoutPropagationMap";
+import SkillsGapRadar from "@/components/dashboard/SkillsGapRadar";
+import CompensationEquityAnalysis from "@/components/dashboard/CompensationEquityAnalysis";
+import HiringFunnel from "@/components/dashboard/HiringFunnel";
+import AbsenteeismPatterns from "@/components/dashboard/AbsenteeismPatterns";
+import ManagerEffectivenessScorecard from "@/components/dashboard/ManagerEffectivenessScorecard";
+import { SentimentPieChart, PerformanceScatterPlot, DepartmentRiskHeatmap } from "@/components/dashboard/Charts";
 import { protectedGetApi } from "@/lib/api";
 
 type ImpactStep = {
@@ -425,12 +437,12 @@ export default function OrgHealthPage() {
 
   const getPriorityBadge = (urgency: string, rank: number) => {
     if (urgency === 'critical') {
-      return <Badge variant="destructive">#{rank} 🔴 Critical</Badge>;
+      return <Badge variant="destructive">#{rank} Critical</Badge>;
     }
     if (urgency === 'high') {
-      return <Badge className="bg-amber-500">#{rank} 🟡 High</Badge>;
+      return <Badge className="bg-amber-500">#{rank} High</Badge>;
     }
-    return <Badge className="bg-green-600">#{rank} 🟢 Medium</Badge>;
+    return <Badge className="bg-green-600">#{rank} Medium</Badge>;
   };
 
   const getRoiClass = (roiPercent: number) => {
@@ -498,6 +510,8 @@ export default function OrgHealthPage() {
       )}
 
       <div id="org-health-report" className="space-y-6">
+        <WeeklyBriefCard scope="org" />
+
         {/* Summary Scorecard */}
         <Card>
           <CardHeader>
@@ -787,7 +801,7 @@ export default function OrgHealthPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-green-50 rounded-lg">
-                  <p className="text-sm font-semibold text-green-800 mb-2">✅ Improvements</p>
+                  <p className="text-sm font-semibold text-green-800 mb-2">Improvements</p>
                   <ul className="text-sm space-y-1 text-green-700">
                     <li>• Operations sentiment up 4.2%</li>
                     <li>• Engineering performance up 3.1%</li>
@@ -796,7 +810,7 @@ export default function OrgHealthPage() {
                   </ul>
                 </div>
                 <div className="p-4 bg-red-50 rounded-lg">
-                  <p className="text-sm font-semibold text-red-800 mb-2">⚠️ Concerns</p>
+                  <p className="text-sm font-semibold text-red-800 mb-2">Concerns</p>
                   <ul className="text-sm space-y-1 text-red-700">
                     <li>• Sales attrition up 2.3%</li>
                     <li>• Burnout scores increased across 3 departments</li>
@@ -864,6 +878,31 @@ export default function OrgHealthPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Deep Analytics — charts moved off the HR dashboard live here */}
+        <div className="pt-2">
+          <h2 className="text-2xl font-bold font-heading uppercase tracking-wider text-foreground border-b-2 border-foreground pb-2 mb-4">
+            Deep Analytics
+          </h2>
+        </div>
+
+        <AttritionPredictionTimeline />
+        <EmployeeTenureDistribution />
+        <EngagementPerformanceQuadrant />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SentimentPieChart />
+          <PerformanceScatterPlot />
+        </div>
+
+        <BurnoutHeatmap />
+        <BurnoutPropagationMap />
+        <SkillsGapRadar />
+        <CompensationEquityAnalysis />
+        <HiringFunnel />
+        <AbsenteeismPatterns />
+        <ManagerEffectivenessScorecard />
+        <DepartmentRiskHeatmap />
       </div>
     </div>
   );

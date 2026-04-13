@@ -8,6 +8,13 @@ interface ProtectedRouteProps {
   allowedRoles?: UserRole[];
 }
 
+function roleHomePath(role: UserRole): string {
+  if (role === "employee") {
+    return "/your-data";
+  }
+  return "/";
+}
+
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { isLoading, isAuthenticated, user } = useAuth();
   const location = useLocation();
@@ -27,7 +34,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/forbidden" replace state={{ from: location.pathname }} />;
+    return (
+      <Navigate
+        to={roleHomePath(user.role)}
+        replace
+        state={{ deniedFrom: location.pathname }}
+      />
+    );
   }
 
   return <>{children}</>;

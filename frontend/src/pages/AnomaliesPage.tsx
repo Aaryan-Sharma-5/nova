@@ -106,7 +106,7 @@ export default function AnomaliesPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
-            {`⚠ ${rows.length} Anomal${rows.length === 1 ? 'y' : 'ies'} Detected`}
+            {`${rows.length} Anomal${rows.length === 1 ? 'y' : 'ies'} Detected`}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">

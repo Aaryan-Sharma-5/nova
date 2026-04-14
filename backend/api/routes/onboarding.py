@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import random
 import hashlib
+import random
+from typing import Any
 
 from fastapi import APIRouter, Depends
 
 from api.deps import require_role
+from core.employee_directory import get_employee_directory, get_employee_record
 from models.user import User, UserRole
 
 router = APIRouter(prefix="/api/employees", tags=["Onboarding"])
@@ -20,6 +22,9 @@ REQUIRED_DATA_FIELDS = [
     "feedback_submissions_count",
     "after_hours_sessions_weekly",
     "tenure_days",
+    "reports_to",
+    "org_level",
+    "title",
 ]
 
 
@@ -28,16 +33,23 @@ def _seed_from_employee(employee_id: str) -> int:
     return int(digest[:8], 16)
 
 
-def _build_employee_detail(employee_id: str) -> dict:
+def _build_employee_detail(employee_id: str) -> dict[str, Any]:
     seeded = random.Random(_seed_from_employee(employee_id))
-    role_options = ["Software Engineer", "Sales Executive", "HR Partner", "Designer", "Finance Analyst"]
-    department_options = ["Engineering", "Sales", "HR", "Design", "Finance", "Operations", "Marketing"]
+    base = get_employee_record(employee_id)
 
-    payload = {
-        "employee_id": employee_id,
-        "name": f"Demo {employee_id}",
-        "department": seeded.choice(department_options),
-        "role": seeded.choice(role_options),
+    if base is None:
+        base = {
+            "employee_id": employee_id,
+            "name": f"Employee {employee_id}",
+            "department": seeded.choice(["Engineering", "Sales", "HR", "Design", "Finance", "Operations"]),
+            "role": "Employee",
+            "title": "Employee",
+            "reports_to": None,
+            "org_level": 4,
+        }
+
+    payload: dict[str, Any] = {
+        **base,
         "attendance_rate": round(seeded.uniform(0.75, 1.0), 2),
         "avg_weekly_hours": round(seeded.uniform(38, 58), 1),
         "leaves_taken_30d": seeded.randint(0, 5),
@@ -52,6 +64,14 @@ def _build_employee_detail(employee_id: str) -> dict:
     payload["data_quality_score"] = round((present / len(REQUIRED_DATA_FIELDS)) * 100, 1)
     payload["data_quality_fields"] = REQUIRED_DATA_FIELDS
     return payload
+
+
+@router.get("")
+async def list_employees(
+    _current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP, UserRole.MANAGER])),
+) -> dict[str, Any]:
+    employees = [_build_employee_detail(record["employee_id"]) for record in get_employee_directory()]
+    return {"count": len(employees), "employees": employees}
 
 
 @router.get("/onboarding")

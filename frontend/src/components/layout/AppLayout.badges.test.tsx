@@ -30,7 +30,7 @@ vi.mock('@/contexts/EmployeeContext', () => ({
   useEmployees: () => ({
     refreshData: vi.fn(),
     employees: [
-      { id: 'EMP0001', name: 'Alex Chen' },
+      { id: 'NOVA-ENG001', name: 'Arjun Sharma' },
     ],
   }),
 }));

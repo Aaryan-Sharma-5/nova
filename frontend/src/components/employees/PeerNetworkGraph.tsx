@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { generateNetworkData, NetworkNode, NetworkLink } from "@/utils/mockAnalyticsData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,13 +7,28 @@ import { Badge } from "@/components/ui/badge";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import html2canvas from "html2canvas";
+import { useEmployees } from "@/contexts/EmployeeContext";
 
 export default function PeerNetworkGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [selectedDept, setSelectedDept] = useState<string>("all");
   const [hoveredNode, setHoveredNode] = useState<NetworkNode | null>(null);
-  const { nodes, links } = generateNetworkData();
+  const { employees } = useEmployees();
+  const { nodes, links } = useMemo(() => {
+    const roster = employees.slice(0, 15).map((employee) => ({
+      name: employee.name,
+      department: employee.department,
+    }));
+    return generateNetworkData(roster.length ? roster : undefined);
+  }, [employees]);
+
+  function shortLabel(fullName: string): string {
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 0) return fullName;
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+  }
 
   const metrics = (() => {
     const connectionCount = new Map<string, number>();
@@ -183,7 +198,7 @@ export default function PeerNetworkGraph() {
 
     // Add labels
     node.append("text")
-      .text((d: any) => d.name)
+      .text((d: any) => shortLabel(d.name))
       .attr("x", 0)
       .attr("y", (d: any) => -(15 + (d.influence / 100) * 20))
       .attr("text-anchor", "middle")

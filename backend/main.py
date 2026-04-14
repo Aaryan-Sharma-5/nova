@@ -27,6 +27,7 @@ from api.routes.benchmarks import router as benchmarks_router
 from api.routes.integrations import router as integrations_router
 from api.routes.manager_feedback import router as manager_feedback_router
 from api.routes.onboarding import router as onboarding_router
+from api.routes.org import router as org_router
 from api.routes.meetings import router as meetings_router
 from api.routes.messages import router as messages_router
 from api.routes.recognition import router as recognition_router
@@ -93,6 +94,7 @@ app.include_router(benchmarks_router)
 app.include_router(integrations_router)
 app.include_router(manager_feedback_router)
 app.include_router(onboarding_router)
+app.include_router(org_router)
 app.include_router(meetings_router)
 app.include_router(messages_router)
 app.include_router(recognition_router)

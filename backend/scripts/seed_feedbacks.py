@@ -154,7 +154,7 @@ def build_feedback_rows() -> list[dict[str, Any]]:
     for idx, text in enumerate(engineering_texts, start=1):
         rows.append(
             _make_feedback(
-                f"EMP10{idx:02d}",
+                f"NOVA-ENG{idx + 1:03d}",
                 "Engineering",
                 "pulse_survey" if idx <= 6 else "session_transcript",
                 text,
@@ -174,7 +174,7 @@ def build_feedback_rows() -> list[dict[str, Any]]:
     for idx, text in enumerate(sales_texts, start=1):
         rows.append(
             _make_feedback(
-                f"EMP20{idx:02d}",
+                f"NOVA-SAL{idx + 1:03d}",
                 "Sales",
                 "pulse_survey",
                 text,
@@ -193,7 +193,7 @@ def build_feedback_rows() -> list[dict[str, Any]]:
     for idx, text in enumerate(hr_texts, start=1):
         rows.append(
             _make_feedback(
-                f"EMP30{idx:02d}",
+                f"NOVA-HRD{idx + 1:03d}",
                 "HR",
                 "session_transcript" if idx == 3 else "pulse_survey",
                 text,
@@ -213,7 +213,7 @@ def build_feedback_rows() -> list[dict[str, Any]]:
     for idx, text in enumerate(design_texts, start=1):
         rows.append(
             _make_feedback(
-                f"EMP40{idx:02d}",
+                f"NOVA-DES{idx + 1:03d}",
                 "Design",
                 "pulse_survey",
                 text,
@@ -232,7 +232,7 @@ def build_feedback_rows() -> list[dict[str, Any]]:
     for idx, text in enumerate(finance_texts, start=1):
         rows.append(
             _make_feedback(
-                f"EMP50{idx:02d}",
+                f"NOVA-FIN{idx + 1:03d}",
                 "Finance",
                 "pulse_survey",
                 text,
@@ -299,7 +299,7 @@ def build_feedback_rows() -> list[dict[str, Any]]:
     for idx, (dept, ftype, text) in enumerate(remainder, start=1):
         rows.append(
             _make_feedback(
-                f"EMP90{idx:02d}",
+                f"NOVA-OPS{idx:03d}",
                 dept,
                 ftype,
                 text,

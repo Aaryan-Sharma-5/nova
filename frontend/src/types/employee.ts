@@ -4,6 +4,9 @@ export interface Employee {
   email: string;
   department: Department;
   role: string;
+  title?: string;
+  reportsTo?: string | null;
+  orgLevel?: 1 | 2 | 3 | 4;
   tenure: number; // months
   performanceScore: number; // 0-100
   engagementScore: number; // 0-100

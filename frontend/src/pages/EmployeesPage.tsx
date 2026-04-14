@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { List, Network } from 'lucide-react';
 import { EmployeeTable } from '@/components/employees/EmployeeTable';
 import PeerNetworkGraph from '@/components/employees/PeerNetworkGraph';
+import FocusedOrgTree from '@/components/org/FocusedOrgTree';
 
 export default function EmployeesPage() {
   return (
@@ -25,6 +26,14 @@ export default function EmployeesPage() {
       </div>
       <EmployeeTable />
       <PeerNetworkGraph />
+      <div className="flex items-center gap-4 pt-2">
+        <div className="h-px flex-1 bg-border" />
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+          Reporting Structure
+        </div>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+      <FocusedOrgTree />
     </div>
   );
 }

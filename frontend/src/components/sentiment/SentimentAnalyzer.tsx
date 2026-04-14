@@ -47,7 +47,7 @@ export function SentimentAnalyzer({ onResultChange }: SentimentAnalyzerProps) {
     }
 
     try {
-      const employeeId = employees[0]?.id ?? 'EMP0001';
+      const employeeId = employees[0]?.id ?? 'NOVA-ENG001';
       const requestUrl = API_BASE_URL ? `${API_BASE_URL}/api/ai/sentiment` : '/api/ai/sentiment';
       const response = await fetch(requestUrl, {
         method: 'POST',

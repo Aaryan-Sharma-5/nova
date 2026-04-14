@@ -47,6 +47,7 @@ export default function EmployeeProfilePage() {
   const [appraisalError, setAppraisalError] = useState<string | null>(null);
 
   const employee = employeeId ? getEmployee(employeeId) : undefined;
+  const manager = employee?.reportsTo ? getEmployee(employee.reportsTo) : undefined;
 
   useEffect(() => {
     const loadDetail = async () => {
@@ -145,6 +146,23 @@ export default function EmployeeProfilePage() {
                 <h1 className="text-2xl font-bold">{employee.name}</h1>
                 <p className="text-sm text-muted-foreground">{employee.role} · {employee.department}</p>
                 <p className="text-sm text-muted-foreground">{employee.email} · {employee.id}</p>
+                <div className="text-sm text-muted-foreground">
+                  {employee.reportsTo && manager ? (
+                    <span>
+                      Reports to: {' '}
+                      <button
+                        type="button"
+                        className="font-medium text-foreground underline-offset-4 hover:underline"
+                        onClick={() => navigate(`/employees/${manager.id}/profile`)}
+                      >
+                        {manager.name}
+                      </button>{' '}
+                      ({manager.id})
+                    </span>
+                  ) : (
+                    <span>Reports to: — (Organization Head)</span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2">

@@ -370,10 +370,16 @@ export const generateFlightRiskData = (employeeId: string): FlightRiskData => {
 };
 
 // Generate network graph data
-export const generateNetworkData = (): { nodes: NetworkNode[]; links: NetworkLink[] } => {
-  const names = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 
-    'Henry', 'Iris', 'Jack', 'Kate', 'Leo', 'Maya', 'Noah', 'Olivia'];
-  const departments = ['Engineering', 'Sales', 'Marketing', 'Operations'];
+export const generateNetworkData = (
+  employees?: Array<{ name: string; department: string }>,
+): { nodes: NetworkNode[]; links: NetworkLink[] } => {
+  const names = employees?.length
+    ? employees.map((employee) => employee.name)
+    : ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace',
+      'Henry', 'Iris', 'Jack', 'Kate', 'Leo', 'Maya', 'Noah', 'Olivia'];
+  const departments = employees?.length
+    ? employees.map((employee) => employee.department)
+    : ['Engineering', 'Sales', 'Marketing', 'Operations'];
   
   const nodes: NetworkNode[] = names.map((name, i) => ({
     id: `node-${i}`,

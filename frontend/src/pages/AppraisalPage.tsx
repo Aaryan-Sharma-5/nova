@@ -369,6 +369,7 @@ export default function AppraisalPage() {
                   const employeeName = item.employee?.name || item.employee_name || item.employee_id;
                   const employeeRole = item.employee?.role || item.employee_role || "Unknown role";
                   const department = item.employee?.department || item.department || "Unknown";
+                  const employeeId = item.employee?.id || item.employee_id;
                   return (
                     <tr key={item.id} className="border-t">
                       <td className="px-3 py-2">
@@ -378,7 +379,8 @@ export default function AppraisalPage() {
                           </div>
                           <div>
                             <p className="font-medium">{employeeName}</p>
-                            <p className="text-xs text-muted-foreground">{employeeRole}</p>
+                            <p className="text-xs text-muted-foreground">{employeeRole} · {department}</p>
+                            <p className="font-mono text-[10px] text-muted-foreground">{employeeId}</p>
                           </div>
                         </div>
                       </td>

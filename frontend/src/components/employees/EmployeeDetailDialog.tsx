@@ -6,6 +6,8 @@ import { getContributingFactors, generateInterventions } from '@/utils/riskCalcu
 import { getSentimentEmoji, getSentimentLabel } from '@/utils/sentimentAnalysis';
 import { AlertTriangle, Lightbulb, TrendingUp, Clock, Briefcase, Calendar } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useEmployees } from '@/contexts/EmployeeContext';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   employee: Employee | null;
@@ -13,7 +15,10 @@ interface Props {
 }
 
 export function EmployeeDetailDialog({ employee, onClose }: Props) {
+  const { getEmployee } = useEmployees();
+  const navigate = useNavigate();
   if (!employee) return null;
+  const manager = employee.reportsTo ? getEmployee(employee.reportsTo) : undefined;
 
   const factors = getContributingFactors(employee);
   const interventions = generateInterventions(
@@ -52,6 +57,23 @@ export function EmployeeDetailDialog({ employee, onClose }: Props) {
             <div>
               <h3 className="text-lg font-semibold">{employee.name}</h3>
               <p className="text-sm font-normal text-muted-foreground">{employee.role} · {employee.department}</p>
+              <p className="text-xs text-muted-foreground">
+                {employee.reportsTo && manager ? (
+                  <span>
+                    Reports to: {' '}
+                    <button
+                      type="button"
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                      onClick={() => navigate(`/employees/${manager.id}/profile`)}
+                    >
+                      {manager.name}
+                    </button>{' '}
+                    ({manager.id})
+                  </span>
+                ) : (
+                  <span>Reports to: — (Organization Head)</span>
+                )}
+              </p>
             </div>
           </DialogTitle>
         </DialogHeader>

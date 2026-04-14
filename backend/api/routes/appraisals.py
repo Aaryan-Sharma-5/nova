@@ -4,6 +4,7 @@ import hashlib
 import random
 from collections import Counter, defaultdict
 from datetime import datetime
+from functools import lru_cache
 from statistics import mean
 from typing import Any
 
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 
 from ai.appraisal_engine import AppraisalEngine
 from api.deps import require_role
+from core.employee_directory import get_employee_directory, get_employee_record
 from core.database import get_supabase_admin
 from models.user import User, UserRole
 
@@ -49,6 +51,48 @@ def _seed_from_employee(employee_id: str) -> int:
     return int(digest[:8], 16)
 
 
+@lru_cache(maxsize=1)
+def _appraisal_thresholds() -> tuple[float, float, float, float]:
+    scores: list[float] = []
+    for record in get_employee_directory():
+        profile = _resolve_employee_profile(record["employee_id"])
+        scores.append(engine.compute_scoring_matrix(profile).composite_appraisal_score)
+
+    if not scores:
+        return 80.0, 60.0, 40.0, 20.0
+
+    ordered = sorted(scores)
+
+    def percentile(pct: float) -> float:
+        if len(ordered) == 1:
+            return ordered[0]
+        rank = (len(ordered) - 1) * pct
+        lower = int(rank)
+        upper = min(lower + 1, len(ordered) - 1)
+        weight = rank - lower
+        return ordered[lower] * (1 - weight) + ordered[upper] * weight
+
+    return (
+        percentile(0.80),
+        percentile(0.60),
+        percentile(0.40),
+        percentile(0.20),
+    )
+
+
+def _category_for_score(score: float) -> str:
+    exceptional, high, meets, needs = _appraisal_thresholds()
+    if score >= exceptional:
+        return "Exceptional — Fast Track Promotion"
+    if score >= high:
+        return "High Performer — Standard Promotion + Raise"
+    if score >= meets:
+        return "Meets Expectations — Merit Increment"
+    if score >= needs:
+        return "Needs Improvement — PIP Consideration"
+    return "Critical — Intervention Required Before Review"
+
+
 def _resolve_feedback_signals(employee_id: str) -> tuple[int, bool, list[str]]:
     supabase = get_supabase_admin()
     positive_count = 0
@@ -83,14 +127,26 @@ def _resolve_feedback_signals(employee_id: str) -> tuple[int, bool, list[str]]:
 
 def _resolve_employee_profile(employee_id: str) -> dict[str, Any]:
     seeded = random.Random(_seed_from_employee(employee_id))
-    role_options = ["Software Engineer", "Sales Executive", "HR Partner", "Designer", "Finance Analyst"]
-    department_options = ["Engineering", "Sales", "HR", "Design", "Finance", "Operations", "Marketing", "Product"]
+    record = get_employee_record(employee_id)
+    if record is None:
+        record = {
+            "employee_id": employee_id,
+            "name": f"Employee {employee_id}",
+            "department": seeded.choice(["Engineering", "Sales", "HR", "Design", "Finance", "Operations"]),
+            "role": "Employee",
+            "title": "Employee",
+            "reports_to": None,
+            "org_level": 4,
+        }
 
     profile = {
         "employee_id": employee_id,
-        "name": f"Demo {employee_id}",
-        "department": seeded.choice(department_options),
-        "role": seeded.choice(role_options),
+        "name": record.get("name") or f"Employee {employee_id}",
+        "department": record.get("department") or "Engineering",
+        "role": record.get("role") or record.get("title") or "Employee",
+        "title": record.get("title") or record.get("role") or "Employee",
+        "reports_to": record.get("reports_to"),
+        "org_level": record.get("org_level", 4),
         "tenure_months": seeded.randint(6, 96),
         "performance_score": round(seeded.uniform(52, 96), 2),
         "engagement_score": round(seeded.uniform(45, 92), 2),
@@ -129,49 +185,16 @@ def _resolve_employee_profile(employee_id: str) -> dict[str, Any]:
 
 
 def _candidate_employee_ids_from_department(department: str) -> list[str]:
-    supabase = get_supabase_admin()
     candidates: set[str] = set()
 
-    try:
-        rows = (
-            supabase.table("employee_feedbacks")
-            .select("employee_id")
-            .eq("department", department)
-            .limit(500)
-            .execute()
-            .data
-        ) or []
-        for row in rows:
-            emp = row.get("employee_id")
-            if emp:
-                candidates.add(str(emp))
-    except Exception:
-        pass
-
-    try:
-        users = (
-            supabase.table("users")
-            .select("email")
-            .eq("department", department)
-            .eq("role", "employee")
-            .limit(500)
-            .execute()
-            .data
-        ) or []
-        for row in users:
-            email = row.get("email")
-            if email:
-                candidates.add(str(email))
-    except Exception:
-        pass
+    for record in get_employee_directory():
+        if str(record.get("department") or "") == department:
+            candidates.add(str(record.get("employee_id") or ""))
 
     if candidates:
         return sorted(candidates)
 
-    # Fallback deterministic employee IDs for demo runs.
-    dep_seed = int(hashlib.sha256(department.encode("utf-8")).hexdigest()[:8], 16)
-    rnd = random.Random(dep_seed)
-    return [f"EMP{rnd.randint(1000, 9999)}" for _ in range(12)]
+    return []
 
 
 def _save_suggestion_row(suggestion: dict[str, Any]) -> dict[str, Any]:
@@ -231,6 +254,7 @@ async def generate_for_employee(
     _appraisals_table()
     employee_data = _resolve_employee_profile(employee_id)
     suggestion = await engine.generate_suggestion(employee_data)
+    suggestion["category"] = _category_for_score(float(suggestion.get("composite_score") or 0.0))
     saved = _save_suggestion_row(suggestion)
     return _enrich_for_response(saved)
 
@@ -260,6 +284,8 @@ async def generate_batch(
         raise HTTPException(status_code=400, detail="No employees resolved for batch generation")
 
     suggestions = await engine.batch_generate(employee_ids, resolver=_resolve_employee_profile)
+    for suggestion in suggestions:
+        suggestion["category"] = _category_for_score(float(suggestion.get("composite_score") or 0.0))
 
     saved_rows = [_save_suggestion_row(suggestion) for suggestion in suggestions]
     return {

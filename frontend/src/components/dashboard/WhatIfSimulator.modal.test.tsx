@@ -21,7 +21,7 @@ describe('WhatIfSimulator modal behavior', () => {
       <WhatIfSimulator
         open
         onOpenChange={onOpenChange}
-        employeeId="EMP0001"
+        employeeId="NOVA-ENG001"
       />,
     );
 

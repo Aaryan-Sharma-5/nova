@@ -1,26 +1,159 @@
 import { Employee, Department, TimePoint } from '@/types/employee';
 import { calculateBurnoutRisk, calculateAttritionRisk } from './riskCalculation';
 
-const FIRST_NAMES = [
-  'Alex', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn',
-  'Sasha', 'Drew', 'Jamie', 'Reese', 'Cameron', 'Dakota', 'Hayden', 'Emerson',
-  'Kai', 'Rowan', 'Sage', 'Phoenix', 'Blake', 'Finley', 'Harper', 'Peyton',
-  'Aria', 'Noel', 'River', 'Skyler', 'Charlie', 'Ellis', 'Lennox', 'Marlowe',
-  'Remy', 'Shiloh', 'Tatum', 'Wren', 'Zion', 'Arden', 'Baylor', 'Cruz',
-  'Devin', 'Eden', 'Frankie', 'Gray', 'Haven', 'Indigo', 'Jules', 'Kit',
-  'Lane', 'Milan', 'Nico', 'Oakley', 'Parker', 'Rory', 'Sterling', 'Val',
+const EMPLOYEE_SEEDS: Array<{ department: Department; names: string[] }> = [
+  {
+    department: 'Engineering',
+    names: [
+      'Arjun Sharma', 'Priya Patel', 'Rohan Mehta', 'Sneha Iyer', 'Vikram Nair',
+      'Ananya Krishnan', 'Karan Malhotra', 'Divya Reddy', 'Rahul Gupta', 'Pooja Joshi',
+      'Aditya Verma', 'Meera Pillai', 'Siddharth Rao', 'Kavya Menon', 'Nikhil Desai',
+      'Riya Bose', 'Manish Kumar', 'Tanvi Shah', 'Abhishek Tiwari', 'Deepika Nambiar',
+    ],
+  },
+  {
+    department: 'Sales',
+    names: [
+      'Suresh Venkatesh', 'Priyanka Chatterjee', 'Amit Sinha', 'Sunita Kulkarni', 'Rajesh Pandey',
+      'Nandini Bhatt', 'Gaurav Aggarwal', 'Shruti Kaur', 'Vivek Saxena', 'Pallavi Jain',
+      'Harish Murthy', 'Kritika Dubey', 'Sanjay Hegde', 'Roshni Puri', 'Varun Chandra',
+      'Ishaan Trivedi', 'Neha Mishra', 'Kunal Bhatia', 'Swati Ghosh', 'Mohan Lal',
+    ],
+  },
+  {
+    department: 'HR',
+    names: [
+      'Lakshmi Subramaniam', 'Ashish Kapoor', 'Madhu Nair', 'Ravi Shankar', 'Geeta Pillai',
+      'Pranav Dixit', 'Shweta Jaiswal', 'Naresh Chaudhary', 'Anjali Menon', 'Dinesh Mahajan',
+      'Usha Rani', 'Sushil Tomar', 'Rekha Bajaj', 'Arun Varghese', 'Poonam Srivastava',
+      'Girish Patil', 'Seema Khanna', 'Bhavesh Parekh', 'Hema Shetty', 'Tarun Rastogi',
+    ],
+  },
+  {
+    department: 'Design',
+    names: [
+      'Nidhi Oberoi', 'Samir Deshpande', 'Poornima Krishnaswamy', 'Chirag Thakkar', 'Aarti Goswami',
+      'Rohit Banerjee', 'Smita Naik', 'Yash Agarwal', 'Preethi Suresh', 'Akash Jha',
+      'Vandana Raman', 'Saurabh Vyas', 'Lalitha Pillai', 'Mihir Gandhi', 'Falguni Shah',
+    ],
+  },
+  {
+    department: 'Finance',
+    names: [
+      'Ramesh Iyer', 'Sudha Krishnamurthy', 'Pavan Reddy', 'Chitra Nambiar', 'Sunil Dube',
+      'Anita Sood', 'Manoj Tripathi', 'Kavitha Balakrishnan', 'Sachin Wagh', 'Jyoti Chauhan',
+      'Hemant Pathak', 'Radha Gopal', 'Nitin Kulkarni', 'Shobha Hegde', 'Dilip Sawant',
+      'Madhuri Apte', 'Bhaskar Rao', 'Sundar Mani', 'Karuna Devi', 'Prakash Nayak',
+    ],
+  },
+  {
+    department: 'Operations',
+    names: [
+      'Alpesh Modi', 'Vaishali Pawar', 'Rajendra Solanki', 'Urvashi Mehrotra', 'Ajay Thakur',
+    ],
+  },
 ];
 
-const LAST_NAMES = [
-  'Chen', 'Smith', 'Brown', 'Lee', 'Davis', 'Garcia', 'Wilson', 'Anderson',
-  'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Moore',
-  'Taylor', 'Clark', 'Lewis', 'Robinson', 'Walker', 'Young', 'King', 'Wright',
-  'Lopez', 'Hill', 'Scott', 'Green', 'Adams', 'Baker', 'Nelson', 'Carter',
-  'Mitchell', 'Perez', 'Roberts', 'Turner', 'Phillips', 'Campbell', 'Parker',
-  'Evans', 'Edwards', 'Collins', 'Stewart', 'Sanchez', 'Morris', 'Rogers',
-];
+const DEPARTMENT_CODES: Record<Department, string> = {
+  Engineering: 'ENG',
+  Sales: 'SAL',
+  Marketing: 'MKT',
+  HR: 'HRD',
+  Operations: 'OPS',
+  Finance: 'FIN',
+  Product: 'PRD',
+  Design: 'DES',
+};
 
-const DEPARTMENTS: Department[] = ['Engineering', 'Sales', 'Marketing', 'HR', 'Operations', 'Finance', 'Product', 'Design'];
+const DEPARTMENT_ROLES: Record<Department, string[]> = {
+  Engineering: ['Software Engineer', 'Senior Engineer', 'Tech Lead', 'DevOps Engineer', 'QA Engineer'],
+  Sales: ['Account Executive', 'Sales Manager', 'SDR', 'Enterprise AE', 'Sales Ops'],
+  Marketing: ['Marketing Manager', 'Content Strategist', 'Growth Analyst', 'Brand Designer', 'SEO Specialist'],
+  HR: ['HR Business Partner', 'Recruiter', 'People Ops Manager', 'L&D Specialist', 'HRIS Analyst'],
+  Operations: ['Operations Manager', 'Business Analyst', 'Project Manager', 'Process Engineer', 'Supply Chain Analyst'],
+  Finance: ['Financial Analyst', 'Controller', 'Accountant', 'FP&A Manager', 'Tax Specialist'],
+  Product: ['Product Manager', 'Product Designer', 'UX Researcher', 'Data Analyst', 'Scrum Master'],
+  Design: ['UI Designer', 'UX Designer', 'Design Lead', 'Visual Designer', 'Motion Designer'],
+};
+
+const DEPARTMENT_MANAGER_IDS: Record<Department, number[]> = {
+  Engineering: [5, 9, 13],
+  Sales: [5, 9, 13],
+  Marketing: [5, 9, 13],
+  HR: [5, 9, 13],
+  Operations: [1],
+  Finance: [5, 9, 13],
+  Product: [5, 9, 13],
+  Design: [5, 9],
+};
+
+function getEmployeeId(department: Department, index: number): string {
+  return `NOVA-${DEPARTMENT_CODES[department]}${String(index).padStart(3, '0')}`;
+}
+
+function getEmail(name: string): string {
+  return `${name.toLowerCase().replace(/\s+/g, '.')}@company.com`;
+}
+
+function getTitle(department: Department, index: number, totalInDepartment: number): string {
+  if (department === 'Engineering') {
+    if (index === 1) return 'Chief Executive Officer';
+    if (index === totalInDepartment) return 'VP Engineering';
+    if (DEPARTMENT_MANAGER_IDS.Engineering.includes(index)) return 'Engineering Manager';
+  }
+
+  if (department !== 'Engineering' && index === 1) {
+    if (department === 'Sales') return 'VP Sales';
+    if (department === 'HR') return 'VP HR';
+    if (department === 'Design') return 'VP Design';
+    if (department === 'Finance') return 'VP Finance & Ops';
+    if (department === 'Operations') return 'Operations Manager';
+  }
+
+  if (DEPARTMENT_MANAGER_IDS[department].includes(index)) {
+    if (department === 'Operations') return 'Operations Manager';
+    return `${department} Manager`;
+  }
+
+  return DEPARTMENT_ROLES[department][(index - 1) % DEPARTMENT_ROLES[department].length];
+}
+
+function getReportsTo(department: Department, index: number, totalInDepartment: number): string {
+  const rootId = getEmployeeId('Engineering', 1);
+  const vpId = department === 'Engineering' ? getEmployeeId('Engineering', totalInDepartment) : getEmployeeId(department, 1);
+  if (department === 'Engineering') {
+    if (index === 1) return '';
+    if (index === totalInDepartment) return rootId;
+    if (DEPARTMENT_MANAGER_IDS.Engineering.includes(index)) return vpId;
+  } else if (department === 'Operations') {
+    if (index === 1) return getEmployeeId('Finance', 1);
+  } else {
+    if (index === 1) return rootId;
+    if (DEPARTMENT_MANAGER_IDS[department].includes(index)) return rootId;
+  }
+
+  const managerIds = DEPARTMENT_MANAGER_IDS[department]
+    .filter((managerIndex) => managerIndex <= totalInDepartment)
+    .map((managerIndex) => getEmployeeId(department, managerIndex));
+
+  const directReports = Array.from({ length: totalInDepartment }, (_, offset) => offset + 1)
+    .filter((candidateIndex) => {
+      if (department === 'Engineering') return candidateIndex !== 1 && candidateIndex !== totalInDepartment && !DEPARTMENT_MANAGER_IDS.Engineering.includes(candidateIndex);
+      if (department === 'Operations') return candidateIndex !== 1;
+      return candidateIndex !== 1 && !DEPARTMENT_MANAGER_IDS[department].includes(candidateIndex);
+    });
+
+  const position = directReports.indexOf(index);
+  if (position >= 0 && managerIds.length > 0) {
+    return managerIds[position % managerIds.length];
+  }
+
+  if (department === 'Operations') {
+    return getEmployeeId('Operations', 1);
+  }
+
+  return department === 'Engineering' ? vpId : rootId;
+}
 
 const ROLES: Record<Department, string[]> = {
   Engineering: ['Software Engineer', 'Senior Engineer', 'Tech Lead', 'DevOps Engineer', 'QA Engineer'],
@@ -118,7 +251,6 @@ function generateFeedback(sentimentScore: number): string[] {
 
 export function generateEmployees(count: number = 100): Employee[] {
   const employees: Employee[] = [];
-  const usedNames = new Set<string>();
   const onboardingSlots = [
     { index: 0, department: 'Engineering', flags: ['Integration Risk'] },
     { index: 1, department: 'Engineering', flags: ['Ramp Risk'] },
@@ -132,112 +264,130 @@ export function generateEmployees(count: number = 100): Employee[] {
   const onboardingMap = new Map<number, { department: Department; flags: string[] }>(
     onboardingSlots.map((slot) => [slot.index, { department: slot.department as Department, flags: [...slot.flags] }]),
   );
+  let sequenceIndex = 0;
 
-  for (let i = 0; i < count; i++) {
-    let name: string;
-    do {
-      name = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
-    } while (usedNames.has(name));
-    usedNames.add(name);
+  for (const seedGroup of EMPLOYEE_SEEDS) {
+    const { department, names } = seedGroup;
+    const totalInDepartment = names.length;
 
-    const forcedOnboarding = onboardingMap.get(i);
-    const department = forcedOnboarding?.department ?? pick(DEPARTMENTS);
-    const role = pick(ROLES[department]);
-    const tenure = forcedOnboarding ? randInt(1, 2) : randInt(4, 72);
+    for (let deptIndex = 1; deptIndex <= names.length; deptIndex += 1) {
+      if (sequenceIndex >= count) break;
 
-    // Create correlated scores
-    const baseWellbeing = Math.random(); // 0=poor, 1=great
-    const performanceScore = Math.round(rand(50, 100) * (0.5 + baseWellbeing * 0.5));
-    const engagementScore = Math.round(rand(30, 100) * (0.3 + baseWellbeing * 0.7));
-    const sentimentScore = Math.round((baseWellbeing * 2 - 1 + (Math.random() - 0.5) * 0.5) * 100) / 100;
-    const clampedSentiment = Math.max(-1, Math.min(1, sentimentScore));
+      const name = names[deptIndex - 1];
+      const employeeId = getEmployeeId(department, deptIndex);
+      const forcedOnboarding = onboardingMap.get(sequenceIndex);
+      const role = pick(ROLES[department]);
+      const title = getTitle(department, deptIndex, totalInDepartment);
+      const reportsTo = getReportsTo(department, deptIndex, totalInDepartment);
+      const tenure = forcedOnboarding ? randInt(1, 2) : randInt(4, 72);
 
-    const workHoursPerWeek = Math.round(rand(35, 55));
-    const projectLoad = randInt(1, 6);
-    const absenceDays = baseWellbeing < 0.3 ? randInt(5, 15) : randInt(0, 6);
+      // Create correlated scores
+      const baseWellbeing = Math.random(); // 0=poor, 1=great
+      const performanceScore = Math.round(rand(50, 100) * (0.5 + baseWellbeing * 0.5));
+      const engagementScore = Math.round(rand(30, 100) * (0.3 + baseWellbeing * 0.7));
+      const sentimentScore = Math.round((baseWellbeing * 2 - 1 + (Math.random() - 0.5) * 0.5) * 100) / 100;
+      const clampedSentiment = Math.max(-1, Math.min(1, sentimentScore));
 
-    const perfTrend = baseWellbeing < 0.3 ? rand(-15, -5) : rand(-3, 10);
-    const performanceHistory = generateTimeHistory(12, performanceScore, 8, perfTrend);
-    const sentimentHistory = generateTimeHistory(12, clampedSentiment * 50 + 50, 10, baseWellbeing < 0.3 ? -10 : 5).map(p => ({
-      ...p,
-      score: Math.round((p.score / 50 - 1) * 100) / 100,
-    }));
+      const workHoursPerWeek = Math.round(rand(35, 55));
+      const projectLoad = randInt(1, 6);
+      const absenceDays = baseWellbeing < 0.3 ? randInt(5, 15) : randInt(0, 6);
 
-    const perfDecline = perfTrend < -5 ? Math.abs(perfTrend) / 20 : 0;
-    const absenceRate = absenceDays / 15;
-    const perfStagnation = Math.abs(perfTrend) < 3 ? 0.5 : perfTrend < -5 ? 0.8 : 0.1;
+      const perfTrend = baseWellbeing < 0.3 ? rand(-15, -5) : rand(-3, 10);
+      const performanceHistory = generateTimeHistory(12, performanceScore, 8, perfTrend);
+      const sentimentHistory = generateTimeHistory(12, clampedSentiment * 50 + 50, 10, baseWellbeing < 0.3 ? -10 : 5).map((point) => ({
+        ...point,
+        score: Math.round((point.score / 50 - 1) * 100) / 100,
+      }));
 
-    const burnoutRisk = calculateBurnoutRisk(workHoursPerWeek, clampedSentiment, perfDecline, absenceRate);
-    const attritionRisk = calculateAttritionRisk(clampedSentiment, engagementScore, tenure, perfStagnation);
+      const perfDecline = perfTrend < -5 ? Math.abs(perfTrend) / 20 : 0;
+      const absenceRate = absenceDays / 15;
+      const perfStagnation = Math.abs(perfTrend) < 3 ? 0.5 : perfTrend < -5 ? 0.8 : 0.1;
 
-    const lastAssessmentDate = new Date();
-    lastAssessmentDate.setDate(lastAssessmentDate.getDate() - randInt(1, 45));
+      const burnoutRisk = calculateBurnoutRisk(workHoursPerWeek, clampedSentiment, perfDecline, absenceRate);
+      const attritionRisk = calculateAttritionRisk(clampedSentiment, engagementScore, tenure, perfStagnation);
 
-    const employeeId = `EMP${(i + 1).toString().padStart(4, '0')}`;
-    const seeded = seededRandom(seedFromId(employeeId));
-    const attendanceRate = Number((0.75 + seeded() * 0.25).toFixed(2));
-    const avgWeeklyHours = Number((38 + seeded() * 20).toFixed(1));
-    const leavesTaken30d = Math.floor(seeded() * 6);
-    const kpiScore = Number((0.4 + seeded() * 0.6).toFixed(2));
-    const lastOneOnOneDaysAgo = 3 + Math.floor(seeded() * 43);
-    const feedbackSubmissionsCount = Math.floor(seeded() * 9);
-    const afterHoursSessionsWeekly = Math.floor(seeded() * 7);
-    const tenureDays = forcedOnboarding
-      ? 7 + Math.floor(seeded() * 79)
-      : 90 + Math.floor(seeded() * 1711);
-    const peerConnectionCount = 1 + Math.floor(seeded() * 8);
+      const lastAssessmentDate = new Date();
+      lastAssessmentDate.setDate(lastAssessmentDate.getDate() - randInt(1, 45));
 
-    const onboardingFlags = forcedOnboarding ? forcedOnboarding.flags : [];
-    const adjustedPeerConnections = onboardingFlags.includes('Integration Risk') ? Math.min(peerConnectionCount, 2) : peerConnectionCount;
-    const adjustedKpi = onboardingFlags.includes('Ramp Risk') ? Math.min(kpiScore, 0.49) : kpiScore;
-    const adjustedOneOnOne = onboardingFlags.includes('Isolation Risk') ? Math.max(lastOneOnOneDaysAgo, 21) : lastOneOnOneDaysAgo;
+      const seeded = seededRandom(seedFromId(employeeId));
+      const attendanceRate = Number((0.75 + seeded() * 0.25).toFixed(2));
+      const avgWeeklyHours = Number((38 + seeded() * 20).toFixed(1));
+      const leavesTaken30d = Math.floor(seeded() * 6);
+      const kpiScore = Number((0.4 + seeded() * 0.6).toFixed(2));
+      const lastOneOnOneDaysAgo = 3 + Math.floor(seeded() * 43);
+      const feedbackSubmissionsCount = Math.floor(seeded() * 9);
+      const afterHoursSessionsWeekly = Math.floor(seeded() * 7);
+      const tenureDays = forcedOnboarding
+        ? 7 + Math.floor(seeded() * 79)
+        : 90 + Math.floor(seeded() * 1711);
+      const peerConnectionCount = 1 + Math.floor(seeded() * 8);
 
-    const qualityFields = [
-      attendanceRate,
-      avgWeeklyHours,
-      leavesTaken30d,
-      adjustedKpi,
-      adjustedOneOnOne,
-      feedbackSubmissionsCount,
-      afterHoursSessionsWeekly,
-      tenureDays,
-    ];
-    const nonNullCount = qualityFields.filter((value) => value !== null && value !== undefined).length;
-    const dataQualityScore = Math.round((nonNullCount / qualityFields.length) * 100);
+      const onboardingFlags = forcedOnboarding ? forcedOnboarding.flags : [];
+      const adjustedPeerConnections = onboardingFlags.includes('Integration Risk') ? Math.min(peerConnectionCount, 2) : peerConnectionCount;
+      const adjustedKpi = onboardingFlags.includes('Ramp Risk') ? Math.min(kpiScore, 0.49) : kpiScore;
+      const adjustedOneOnOne = onboardingFlags.includes('Isolation Risk') ? Math.max(lastOneOnOneDaysAgo, 21) : lastOneOnOneDaysAgo;
 
-    employees.push({
-      id: employeeId,
-      name,
-      email: `${name.toLowerCase().replace(' ', '.')}@company.com`,
-      department,
-      role,
-      tenure,
-      performanceScore: Math.max(0, Math.min(100, performanceScore)),
-      engagementScore: Math.max(0, Math.min(100, engagementScore)),
-      sentimentScore: clampedSentiment,
-      burnoutRisk,
-      attritionRisk,
-      workHoursPerWeek,
-      projectLoad,
-      absenceDays,
-      lastAssessment: lastAssessmentDate.toISOString().split('T')[0],
-      recentFeedback: generateFeedback(clampedSentiment),
-      performanceHistory,
-      sentimentHistory,
-      isOnboarding: tenureDays < 90,
-      onboardingDay: Math.min(89, tenureDays),
-      onboardingFlags,
-      attendanceRate,
-      avgWeeklyHours,
-      leavesTaken30d,
-      kpiScore: adjustedKpi,
-      lastOneOnOneDaysAgo: adjustedOneOnOne,
-      feedbackSubmissionsCount,
-      afterHoursSessionsWeekly,
-      tenureDays,
-      peerConnectionCount: adjustedPeerConnections,
-      dataQualityScore,
-    });
+      const qualityFields = [
+        attendanceRate,
+        avgWeeklyHours,
+        leavesTaken30d,
+        adjustedKpi,
+        adjustedOneOnOne,
+        feedbackSubmissionsCount,
+        afterHoursSessionsWeekly,
+        tenureDays,
+      ];
+      const nonNullCount = qualityFields.filter((value) => value !== null && value !== undefined).length;
+      const dataQualityScore = Math.round((nonNullCount / qualityFields.length) * 100);
+
+      employees.push({
+        id: employeeId,
+        name,
+        email: getEmail(name),
+        department,
+        role,
+        title,
+        reportsTo,
+        orgLevel:
+          department === 'Engineering' && deptIndex === 1
+            ? 1
+            : department === 'Operations' && deptIndex === 1
+              ? 3
+            : ((department === 'Engineering' && deptIndex === totalInDepartment) || (department !== 'Engineering' && deptIndex === 1))
+              ? 2
+              : (DEPARTMENT_MANAGER_IDS[department].includes(deptIndex) || (department === 'Operations' && deptIndex === 1))
+                ? 3
+                : 4,
+        tenure,
+        performanceScore: Math.max(0, Math.min(100, performanceScore)),
+        engagementScore: Math.max(0, Math.min(100, engagementScore)),
+        sentimentScore: clampedSentiment,
+        burnoutRisk,
+        attritionRisk,
+        workHoursPerWeek,
+        projectLoad,
+        absenceDays,
+        lastAssessment: lastAssessmentDate.toISOString().split('T')[0],
+        recentFeedback: generateFeedback(clampedSentiment),
+        performanceHistory,
+        sentimentHistory,
+        isOnboarding: tenureDays < 90,
+        onboardingDay: Math.min(89, tenureDays),
+        onboardingFlags,
+        attendanceRate,
+        avgWeeklyHours,
+        leavesTaken30d,
+        kpiScore: adjustedKpi,
+        lastOneOnOneDaysAgo: adjustedOneOnOne,
+        feedbackSubmissionsCount,
+        afterHoursSessionsWeekly,
+        tenureDays,
+        peerConnectionCount: adjustedPeerConnections,
+        dataQualityScore,
+      });
+
+      sequenceIndex += 1;
+    }
   }
 
   return employees;

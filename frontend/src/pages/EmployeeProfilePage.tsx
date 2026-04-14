@@ -12,6 +12,7 @@ import { protectedGetApi, protectedPostApi } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppraisalSuggestion } from "@/types/appraisal";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { clearAgentContext, patchAgentContext } from "@/lib/agentBus";
 
 type EmployeeDetailResponse = {
   employee_id: string;
@@ -50,6 +51,18 @@ export default function EmployeeProfilePage() {
 
   const employee = employeeId ? getEmployee(employeeId) : undefined;
   const manager = employee?.reportsTo ? getEmployee(employee.reportsTo) : undefined;
+
+  useEffect(() => {
+    if (!employeeId) return;
+    patchAgentContext({
+      currently_viewed_employee_id: employeeId,
+      currently_viewed_employee_name: employee?.name ?? null,
+      selected_department: employee?.department ?? null,
+    });
+    return () => {
+      clearAgentContext();
+    };
+  }, [employeeId, employee?.name, employee?.department]);
 
   useEffect(() => {
     const loadDetail = async () => {

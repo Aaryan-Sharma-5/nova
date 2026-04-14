@@ -7,8 +7,12 @@ registered by importing them below.
 
 from __future__ import annotations
 
+from ai.agents.appraisal_agent import AppraisalAgent
 from ai.agents.base_agent import BaseAgent
+from ai.agents.employee_agent import EmployeeAgent
+from ai.agents.feedback_agent import FeedbackAgent
 from ai.agents.general_agent import GeneralNovaAgent
+from ai.agents.workforce_overview_agent import WorkforceOverviewAgent
 
 
 PAGE_TO_AGENT: dict[str, str] = {
@@ -27,6 +31,10 @@ FALLBACK_AGENT_ID = "general_nova_agent"
 def _build_registry() -> dict[str, BaseAgent]:
     registry: dict[str, BaseAgent] = {}
     registry[FALLBACK_AGENT_ID] = GeneralNovaAgent()
+    registry["workforce_overview_agent"] = WorkforceOverviewAgent()
+    registry["employee_intelligence_agent"] = EmployeeAgent()
+    registry["appraisal_agent"] = AppraisalAgent()
+    registry["feedback_agent"] = FeedbackAgent()
     return registry
 
 

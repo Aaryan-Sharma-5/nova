@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
-import { MessageSquareText, Lightbulb, Search, Loader2 } from "lucide-react";
+import { MessageSquareText, Lightbulb, Search, Loader2, Mic } from "lucide-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { patchAgentContext, requestOpenAssistant } from "@/lib/agentBus";
 import {
   Bar,
   BarChart,
@@ -426,11 +427,48 @@ export default function HRFeedbackPage() {
     return Math.round(orgStats.sarcasm_rate * orgStats.total_feedbacks);
   }, [orgStats]);
 
+  useEffect(() => {
+    patchAgentContext({
+      active_filters: {
+        departments: selectedDepartments,
+        types: selectedTypes,
+        sentiment: sentimentFilter,
+        anonymous_only: anonymousOnly,
+        date_preset: datePreset,
+        search,
+      },
+      selected_feedback_ids: Array.from(selectedIds),
+      batch_analysis_result: batchResult?.batch_summary ?? null,
+    });
+  }, [
+    selectedDepartments,
+    selectedTypes,
+    sentimentFilter,
+    anonymousOnly,
+    datePreset,
+    search,
+    selectedIds,
+    batchResult,
+  ]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <MessageSquareText className="h-5 w-5 text-primary" />
-        <h2 className="text-2xl font-bold">HR Feedback Analyzer</h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <MessageSquareText className="h-5 w-5 text-primary" />
+          <h2 className="text-2xl font-bold">HR Feedback Analyzer</h2>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() =>
+            requestOpenAssistant({
+              suggestedQuestion: "What are employees most concerned about?",
+              autoStart: true,
+            })
+          }
+        >
+          <Mic className="mr-1 h-4 w-4" /> Ask AI
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">

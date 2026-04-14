@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Bot, Mic, Minus, Send, Volume2, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Bot, CalendarCheck, Mic, Minus, Send, Volume2, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { protectedPostApi } from '@/lib/api';
+import {
+  dispatchScheduleOneOnOne,
+  getAgentContext,
+  subscribeOpenAssistant,
+} from '@/lib/agentBus';
 
 type ChatRole = 'user' | 'assistant' | 'system';
 
@@ -11,6 +16,7 @@ type ChatMessage = {
   role: ChatRole;
   content: string;
   agentId?: string;
+  actions?: SuggestedAction[];
 };
 
 type SuggestedAction = {
@@ -82,6 +88,7 @@ function getSpeechRecognitionCtor(): { new (): SpeechRecognitionLike } | null {
 export function VoiceAssistant() {
   const { token, isAuthenticated, user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -194,6 +201,7 @@ export function VoiceAssistant() {
             context_data: {
               user_name: user?.full_name,
               user_role: user?.role,
+              ...getAgentContext(),
             },
           },
         );
@@ -203,6 +211,7 @@ export function VoiceAssistant() {
           role: 'assistant',
           content: response.reply,
           agentId: response.agent_id,
+          actions: response.suggested_actions || [],
         });
 
         speak(response.reply, () => {
@@ -326,6 +335,32 @@ export function VoiceAssistant() {
     };
   }, [stopSpeaking]);
 
+  // External "Ask AI" trigger from per-page shortcut buttons.
+  useEffect(() => {
+    return subscribeOpenAssistant(({ suggestedQuestion, autoStart }) => {
+      setOpen(true);
+      if (suggestedQuestion) {
+        setInputValue(suggestedQuestion);
+      }
+      if (autoStart && speechSupported) {
+        setTimeout(() => startListening(), 80);
+      }
+    });
+  }, [speechSupported, startListening]);
+
+  const handleAction = useCallback(
+    (action: SuggestedAction) => {
+      if (action.action_type === 'navigate') {
+        navigate(action.route);
+        return;
+      }
+      if (action.action_type === 'schedule-1on1') {
+        dispatchScheduleOneOnOne(action.route);
+      }
+    },
+    [navigate],
+  );
+
   if (!isAuthenticated) return null;
 
   const micLabel =
@@ -427,12 +462,34 @@ export function VoiceAssistant() {
                         <Bot className="h-3.5 w-3.5" />
                       </div>
                     )}
-                    <div
-                      className={`max-w-[78%] border-2 border-foreground px-2.5 py-1.5 text-xs leading-snug whitespace-pre-wrap ${
-                        isUser ? 'bg-[#F5C518] text-black' : 'bg-white text-black'
-                      }`}
-                    >
-                      {m.content}
+                    <div className="flex max-w-[78%] flex-col gap-1">
+                      <div
+                        className={`border-2 border-foreground px-2.5 py-1.5 text-xs leading-snug whitespace-pre-wrap ${
+                          isUser ? 'bg-[#F5C518] text-black' : 'bg-white text-black'
+                        }`}
+                      >
+                        {m.content}
+                      </div>
+                      {!isUser && m.actions && m.actions.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {m.actions.map((action, idx) => {
+                            const isSchedule = action.action_type === 'schedule-1on1';
+                            return (
+                              <button
+                                key={`${m.id}-act-${idx}`}
+                                type="button"
+                                onClick={() => handleAction(action)}
+                                className={`inline-flex items-center gap-1 border-2 border-foreground px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] ${
+                                  isSchedule ? 'bg-[#F5C518] text-black' : 'bg-white text-black'
+                                }`}
+                              >
+                                {isSchedule && <CalendarCheck className="h-3 w-3" />}
+                                {action.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

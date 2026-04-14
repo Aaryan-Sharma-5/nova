@@ -122,15 +122,25 @@ class BaseAgent:
     def _parse_actions(reply: str) -> tuple[str, list[dict[str, str]]]:
         actions: list[dict[str, str]] = []
         for match in _ACTION_PATTERN.finditer(reply):
-            route = match.group(1).strip()
-            if not route:
+            token = match.group(1).strip()
+            if not token:
                 continue
-            actions.append(
-                {
-                    "label": f"Go to {route}",
-                    "route": route,
-                    "action_type": "navigate",
-                }
-            )
+            if token.startswith("schedule-1on1:"):
+                employee_id = token.split(":", 1)[1].strip()
+                actions.append(
+                    {
+                        "label": f"Schedule 1:1 with {employee_id}",
+                        "route": employee_id,
+                        "action_type": "schedule-1on1",
+                    }
+                )
+            else:
+                actions.append(
+                    {
+                        "label": f"Go to {token}",
+                        "route": token,
+                        "action_type": "navigate",
+                    }
+                )
         cleaned = _ACTION_PATTERN.sub("", reply).strip()
         return cleaned, actions

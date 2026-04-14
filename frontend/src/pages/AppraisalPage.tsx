@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
-import { ClipboardList, Check, ArrowUpCircle, CircleDashed } from "lucide-react";
+import { ClipboardList, Check, ArrowUpCircle, CircleDashed, Mic } from "lucide-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { patchAgentContext, requestOpenAssistant } from "@/lib/agentBus";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { protectedGetApi, protectedPostApi } from "@/lib/api";
@@ -153,6 +154,16 @@ export default function AppraisalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, page, filterDepartment, filterCategory, filterPromotionEligible, filterReviewFlag, filterStatus]);
 
+  useEffect(() => {
+    patchAgentContext({
+      selected_department: filterDepartment || null,
+      currently_reviewed_employee_id: selectedSuggestion?.employee_id || null,
+      appraisal_filter_active: Boolean(
+        filterDepartment || filterCategory || filterPromotionEligible || filterReviewFlag || filterStatus,
+      ),
+    });
+  }, [filterDepartment, filterCategory, filterPromotionEligible, filterReviewFlag, filterStatus, selectedSuggestion]);
+
   const sortedItems = useMemo(() => {
     const copy = [...items];
     copy.sort((a, b) => {
@@ -289,7 +300,20 @@ export default function AppraisalPage() {
         <CardHeader className="space-y-3">
           <CardTitle className="flex items-center justify-between gap-2">
             <span>Appraisal Suggestions</span>
-            <Button variant="outline" onClick={exportPdf}>Export Appraisal Report</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={exportPdf}>Export Appraisal Report</Button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  requestOpenAssistant({
+                    suggestedQuestion: "Summarize this appraisal cycle",
+                    autoStart: true,
+                  })
+                }
+              >
+                <Mic className="mr-1 h-4 w-4" /> Ask AI
+              </Button>
+            </div>
           </CardTitle>
 
           <div className="grid grid-cols-1 gap-2 md:grid-cols-5">

@@ -36,6 +36,10 @@ from api.routes.org_tree import router as org_tree_router
 from api.routes.hr_feedback import router as hr_feedback_router
 from api.routes.appraisals import router as appraisals_router
 from api.routes.voice_agent import router as voice_agent_router
+from api.routes.webhooks import router as webhooks_router
+from api.routes.task_assignments import router as task_assignments_router
+from api.routes.job_board import router as job_board_router
+from api.routes.work_profiles import router as work_profiles_router
 
 # Configure logging
 logging.basicConfig(
@@ -104,6 +108,10 @@ app.include_router(org_tree_router)
 app.include_router(hr_feedback_router)
 app.include_router(appraisals_router)
 app.include_router(voice_agent_router)
+app.include_router(webhooks_router)
+app.include_router(task_assignments_router)
+app.include_router(job_board_router)
+app.include_router(work_profiles_router)
 
 
 _SENSITIVE_GET_PREFIXES = (
@@ -120,6 +128,9 @@ _SENSITIVE_GET_PREFIXES = (
     "/api/ai/retention-risk",
     "/api/ai/performance-prediction",
     "/api/ai/sentiment",
+    "/api/work-profiles",
+    "/api/task-assignments",
+    "/api/job-board",
 )
 
 

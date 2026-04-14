@@ -25,6 +25,9 @@ const HRSessionsSchedulerPage = lazy(() => import("./pages/HRSessionsSchedulerPa
 const HRFeedbackPage = lazy(() => import("./pages/HRFeedbackPage"));
 const AppraisalPage = lazy(() => import("./pages/AppraisalPage"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
+const TaskAssignmentsPage = lazy(() => import("./pages/TaskAssignmentsPage"));
+const JobBoardPage = lazy(() => import("./pages/JobBoardPage"));
+const WorkProfilesPage = lazy(() => import("./pages/WorkProfilesPage"));
 const EmployeeProfilePage = lazy(() => import("./pages/EmployeeProfilePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const InsightsDashboard = lazy(() => import("@/features/insights/InsightsDashboard").then((module) => ({ default: module.InsightsDashboard })));
@@ -183,6 +186,36 @@ const App = () => (
                   <ProtectedRoute allowedRoles={["hr"]}>
                     <AppLayout>
                       <IntegrationsPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/task-assignments"
+                element={
+                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                    <AppLayout>
+                      <TaskAssignmentsPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/job-board"
+                element={
+                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                    <AppLayout>
+                      <JobBoardPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/work-profiles"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <WorkProfilesPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }

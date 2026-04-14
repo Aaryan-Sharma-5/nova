@@ -1,0 +1,91 @@
+name: NOVA Commit Analysis
+
+# This action runs on every push and sends the commit diff to NOVA
+# so that employee work profiles are automatically updated.
+#
+# Setup:
+# 1. Add NOVA_WEBHOOK_URL as a repository secret (Settings → Secrets → Actions)
+#    Value: https://your-nova-backend.com/api/webhook/github
+# 2. The pusher's GitHub username must be linked to a NOVA employee in Work Profiles.
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - "feature/**"
+      - "fix/**"
+
+jobs:
+  notify-nova:
+    name: Send commit diff to NOVA
+    runs-on: ubuntu-latest
+    if: ${{ secrets.NOVA_WEBHOOK_URL != '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need at least 2 commits to generate a diff
+
+      - name: Build diff payload and notify NOVA
+        env:
+          NOVA_WEBHOOK_URL: ${{ secrets.NOVA_WEBHOOK_URL }}
+        run: |
+          # Get the diff for the latest commit
+          DIFF=$(git diff HEAD~1 HEAD -- . 2>/dev/null || git show HEAD --stat 2>/dev/null || echo "")
+          COMMIT_HASH=$(git rev-parse HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -c 500)
+          AUTHOR_NAME=$(git log -1 --pretty=%an)
+          AUTHOR_EMAIL=$(git log -1 --pretty=%ae)
+          PUSHER="${GITHUB_ACTOR}"
+          REPO="${GITHUB_REPOSITORY##*/}"
+          REF="${GITHUB_REF}"
+
+          # Escape the diff for JSON (replace special chars)
+          DIFF_ESCAPED=$(echo "$DIFF" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+
+          PAYLOAD=$(cat <<EOF
+          {
+            "ref": "${REF}",
+            "pusher": {
+              "name": "${PUSHER}",
+              "email": "${AUTHOR_EMAIL}"
+            },
+            "repository": {
+              "name": "${REPO}",
+              "html_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            },
+            "commits": [
+              {
+                "id": "${COMMIT_HASH}",
+                "message": $(echo "${COMMIT_MSG}" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))"),
+                "author": {
+                  "name": "${AUTHOR_NAME}",
+                  "email": "${AUTHOR_EMAIL}"
+                },
+                "diff": ${DIFF_ESCAPED},
+                "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              }
+            ]
+          }
+          EOF
+          )
+
+          echo "Sending commit analysis to NOVA..."
+          HTTP_STATUS=$(curl -s -o /tmp/nova_response.txt -w "%{http_code}" \
+            -X POST "${NOVA_WEBHOOK_URL}" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -d "${PAYLOAD}")
+
+          echo "HTTP Status: ${HTTP_STATUS}"
+          cat /tmp/nova_response.txt || true
+
+          if [[ "${HTTP_STATUS}" =~ ^2 ]]; then
+            echo "✅ NOVA notified successfully"
+          else
+            echo "⚠️ NOVA notification returned ${HTTP_STATUS} — check webhook URL and employee GitHub linking"
+            exit 0  # Don't fail the build for webhook issues
+          fi

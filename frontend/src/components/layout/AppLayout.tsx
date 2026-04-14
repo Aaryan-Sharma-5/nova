@@ -20,6 +20,9 @@ import {
   Home,
   LayoutGrid,
   Network,
+  GitCommit,
+  Briefcase,
+  ListChecks,
 } from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useEffect, useMemo, useState } from 'react';
@@ -130,6 +133,14 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           ],
         },
         {
+          title: 'Talent Pipeline',
+          items: [
+            { to: '/task-assignments', icon: ListChecks, label: 'Task Assignments' },
+            { to: '/job-board', icon: Briefcase, label: 'Job Board' },
+            { to: '/work-profiles', icon: GitCommit, label: 'Work Profiles' },
+          ],
+        },
+        {
           title: 'Admin',
           items: [
             { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
@@ -176,6 +187,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
             { to: '/your-data', icon: UserCircle, label: 'Your Data' },
             { to: '/employees/org-tree', icon: Network, label: 'Org Tree' },
             { to: '/feedback-session', icon: MessageSquare, label: 'Feedback Session' },
+            { to: '/work-profiles', icon: GitCommit, label: 'My Work Profile' },
             { to: '/employee/profile', icon: ShieldCheck, label: 'Privacy & Profile' },
           ],
         },
@@ -228,6 +240,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [pendingSessionReviewCount, setPendingSessionReviewCount] = useState(0);
   const [upcomingSessionCount, setUpcomingSessionCount] = useState(0);
   const [draftAppraisalCount, setDraftAppraisalCount] = useState(0);
+  const [pendingAssignmentCount, setPendingAssignmentCount] = useState(0);
+  const [pendingJobCount, setPendingJobCount] = useState(0);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showDemoBanner, setShowDemoBanner] = useState(true);
 
@@ -287,8 +301,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         } catch {
           setDraftAppraisalCount(0);
         }
+
+        try {
+          const ac = await protectedGetApi<{ count?: number }>('/api/task-assignments/pending-count', token);
+          setPendingAssignmentCount(Number(ac?.count ?? 0));
+        } catch {
+          setPendingAssignmentCount(0);
+        }
+
+        try {
+          const jc = await protectedGetApi<{ count?: number }>('/api/job-board/limbo-count', token);
+          setPendingJobCount(Number(jc?.count ?? 0));
+        } catch {
+          setPendingJobCount(0);
+        }
       } else {
         setDraftAppraisalCount(0);
+        setPendingAssignmentCount(0);
+        setPendingJobCount(0);
       }
     };
 
@@ -327,10 +357,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         if (item.to === '/hr/appraisals') {
           return { ...item, badgeCount: draftAppraisalCount };
         }
+        if (item.to === '/task-assignments') {
+          return { ...item, badgeCount: pendingAssignmentCount };
+        }
+        if (item.to === '/job-board') {
+          return { ...item, badgeCount: pendingJobCount };
+        }
         return item;
       }),
     }));
-  }, [navSections, pendingSessionReviewCount, upcomingSessionCount, draftAppraisalCount]);
+  }, [navSections, pendingSessionReviewCount, upcomingSessionCount, draftAppraisalCount, pendingAssignmentCount, pendingJobCount]);
 
   const flatItemsForHeader = useMemo(() => navSectionsWithBadges.flatMap((s) => s.items), [
     navSectionsWithBadges,

@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Home,
   LayoutGrid,
+  Network,
 } from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useEffect, useMemo, useState } from 'react';
@@ -98,6 +99,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           title: 'My Team',
           items: [
             { to: '/employees', icon: Users, label: 'Team Roster' },
+            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
             { to: '/sentiment', icon: MessageSquare, label: 'Team Sentiment' },
             { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
             { to: '/anomalies', icon: AlertTriangle, label: 'Risk Alerts' },
@@ -118,6 +120,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           title: 'People',
           items: [
             { to: '/employees', icon: Users, label: 'Employees' },
+            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
             { to: '/hr/feedback-analyzer', icon: MessageSquareText, label: 'Feedback Analyzer' },
             { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
@@ -154,6 +157,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           title: 'Analytics',
           items: [
             { to: '/employees', icon: Users, label: 'Workforce' },
+            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
             { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
             { to: '/hr/appraisals', icon: ClipboardList, label: 'Appraisals' },
@@ -176,6 +180,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           items: [
             { to: '/', icon: Home, label: 'Home' },
             { to: '/your-data', icon: UserCircle, label: 'Your Data' },
+            { to: '/employees/org-tree', icon: Network, label: 'Org Tree' },
             { to: '/feedback-session', icon: MessageSquare, label: 'Feedback Session' },
             { to: '/employee/profile', icon: ShieldCheck, label: 'Privacy & Profile' },
           ],

@@ -31,6 +31,7 @@ from api.routes.meetings import router as meetings_router
 from api.routes.messages import router as messages_router
 from api.routes.recognition import router as recognition_router
 from api.routes.departments import router as departments_router
+from api.routes.org_tree import router as org_tree_router
 from api.routes.hr_feedback import router as hr_feedback_router
 from api.routes.appraisals import router as appraisals_router
 
@@ -96,6 +97,7 @@ app.include_router(meetings_router)
 app.include_router(messages_router)
 app.include_router(recognition_router)
 app.include_router(departments_router)
+app.include_router(org_tree_router)
 app.include_router(hr_feedback_router)
 app.include_router(appraisals_router)
 

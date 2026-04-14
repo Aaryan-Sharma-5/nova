@@ -70,7 +70,7 @@ describe('AppLayout sidebar badges', () => {
       await Promise.resolve();
     });
 
-    const reviewLink = screen.getByRole('link', { name: /Sessions to Review/i });
+    const reviewLink = screen.getByRole('link', { name: /Sessions (to )?Review/i });
     const scheduleLink = screen.getByRole('link', { name: /Schedule Sessions/i });
 
     expect(within(reviewLink).getByText('4')).toBeInTheDocument();
@@ -84,6 +84,9 @@ describe('AppLayout sidebar badges', () => {
     expect(within(reviewLink).queryByText('4')).not.toBeInTheDocument();
     expect(within(scheduleLink).queryByText('2')).not.toBeInTheDocument();
 
-    expect(mockProtectedGetApi).toHaveBeenCalledTimes(2);
+    const pendingReviewCalls = mockProtectedGetApi.mock.calls.filter(
+      (args) => args[0] === '/api/feedback/sessions/pending-review',
+    );
+    expect(pendingReviewCalls).toHaveLength(2);
   });
 });

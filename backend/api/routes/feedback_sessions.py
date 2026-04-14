@@ -58,6 +58,25 @@ def _is_missing_feedback_sessions_table(exc: Exception) -> bool:
     return "PGRST205" in text and "feedback_sessions" in text
 
 
+def _is_supabase_connectivity_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    connectivity_markers = (
+        "getaddrinfo failed",
+        "temporary failure in name resolution",
+        "name or service not known",
+        "nodename nor servname provided",
+        "httpx.connecterror",
+        "httpcore.connecterror",
+        "connecterror",
+        "errno 11001",
+    )
+    return any(marker in text for marker in connectivity_markers)
+
+
+def _should_use_local_feedback_fallback(exc: Exception) -> bool:
+    return _is_missing_feedback_sessions_table(exc) or _is_supabase_connectivity_error(exc)
+
+
 def _local_insert_sessions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     inserted: list[dict[str, Any]] = []
     for row in rows:
@@ -121,7 +140,7 @@ def _session_or_404(session_id: str) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Session not found")
         return rows[0]
     except Exception as exc:
-        if not _is_missing_feedback_sessions_table(exc):
+        if not _should_use_local_feedback_fallback(exc):
             raise
         row = _local_get_session(session_id)
         if not row:
@@ -319,8 +338,12 @@ async def schedule_feedback_session(
         result = supabase.table("feedback_sessions").insert(rows).execute()
         sessions = result.data or []
     except Exception as exc:
-        if not _is_missing_feedback_sessions_table(exc):
+        if not _should_use_local_feedback_fallback(exc):
             raise
+        logger.warning(
+            "Feedback schedule using local fallback due to Supabase unavailability: %s",
+            exc,
+        )
         sessions = _local_insert_sessions(rows)
 
     response = {
@@ -369,8 +392,13 @@ async def get_my_feedback_sessions(
         logger.info("Feedback sessions served for employee=%s count=%d", current_user.email, len(sessions))
         return {"sessions": sessions}
     except Exception as exc:
-        if not _is_missing_feedback_sessions_table(exc):
+        if not _should_use_local_feedback_fallback(exc):
             raise
+        logger.warning(
+            "Feedback /my using local fallback for employee=%s due to Supabase unavailability: %s",
+            current_user.email,
+            exc,
+        )
         sessions = _local_sessions_for_employee(current_user.email)
         logger.warning(
             "Feedback sessions fallback storage used for employee=%s count=%d",
@@ -584,7 +612,7 @@ async def hr_ingest_feedback_results(
     try:
         supabase.table("feedback_sessions").update(updates).eq("id", session_id).execute()
     except Exception as exc:
-        if not _is_missing_feedback_sessions_table(exc):
+        if not _should_use_local_feedback_fallback(exc):
             raise
         _local_update_session(session_id, updates)
 
@@ -623,8 +651,12 @@ async def list_sessions_pending_review(
         )
         data = rows.data or []
     except Exception as exc:
-        if not _is_missing_feedback_sessions_table(exc):
+        if not _should_use_local_feedback_fallback(exc):
             raise
+        logger.warning(
+            "Pending review using local fallback due to Supabase unavailability: %s",
+            exc,
+        )
         data = _local_pending_sessions()
 
     response = {
@@ -657,7 +689,7 @@ async def flag_session_follow_up(
         )
         session_payload = (updated.data or [])[0] if updated.data else {"id": session_id}
     except Exception as exc:
-        if not _is_missing_feedback_sessions_table(exc):
+        if not _should_use_local_feedback_fallback(exc):
             raise
         local = _local_update_session(session_id, {"emotion_analysis": emotion_analysis})
         session_payload = local or {"id": session_id}
@@ -789,7 +821,7 @@ async def seed_demo_feedback_sessions(
             response = supabase.table("feedback_sessions").insert({**row, "is_mandatory": True, "created_at": now.isoformat()}).execute()
             inserted.extend(response.data or [])
         except Exception as exc:
-            if _is_missing_feedback_sessions_table(exc):
+            if _should_use_local_feedback_fallback(exc):
                 inserted.extend(_local_insert_sessions([{**row, "is_mandatory": True, "created_at": now.isoformat()}]))
                 continue
             continue

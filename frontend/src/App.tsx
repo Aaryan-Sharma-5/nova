@@ -19,6 +19,8 @@ import EmployeePersonalPage from "./pages/EmployeePersonalPage";
 import FeedbackSessionPage from "./pages/FeedbackSessionPage";
 import HRSessionsReviewPage from "./pages/HRSessionsReviewPage";
 import HRSessionsSchedulerPage from "./pages/HRSessionsSchedulerPage";
+import HRFeedbackPage from "./pages/HRFeedbackPage";
+import AppraisalPage from "./pages/AppraisalPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import EmployeeProfilePage from "./pages/EmployeeProfilePage";
 import NotFound from "./pages/NotFound";
@@ -131,6 +133,26 @@ const App = () => (
                   <ProtectedRoute allowedRoles={["hr"]}>
                     <AppLayout>
                       <HRSessionsSchedulerPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/hr/feedback-analyzer"
+                element={
+                  <ProtectedRoute allowedRoles={["hr"]}>
+                    <AppLayout>
+                      <HRFeedbackPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/hr/appraisals"
+                element={
+                  <ProtectedRoute allowedRoles={["hr", "leadership"]}>
+                    <AppLayout>
+                      <AppraisalPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }

@@ -113,4 +113,19 @@ export async function protectedPostApi<T>(
   });
 }
 
+export async function protectedPatchApi<T>(
+  path: string,
+  token: string,
+  payload: unknown,
+): Promise<T> {
+  return apiRequest<T>(path, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 export { API_BASE_URL };

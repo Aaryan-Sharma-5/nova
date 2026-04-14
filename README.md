@@ -183,6 +183,7 @@ Risk Score = (
 - ✅ **Peer Network Graph** - D3.js force-directed graph
 - ✅ **Jira Health Panel** - Objective delivery signals with privacy framing
 - ✅ **Onboarding Watch** - HR-focused new-joiner risk card with baseline tooltip
+- ✅ **HR Feedback Analyzer** - Three-column analysis workspace (filters, feedback queue, batch/single AI analysis)
 - ✅ **How You Compare** - Benchmark badge + industry comparison section
 - ✅ **Explainability Drawers** - Score-level factor contributions across key cards/charts
 
@@ -197,6 +198,7 @@ Risk Score = (
 - ✅ **HR Session Queue** - Sessions to Review now tracks scheduled, in-progress, and completed-not-reviewed states
 - ✅ **Employee Action Channels** - Internal messages, recognitions, and manager 1:1 scheduling integrated end-to-end
 - ✅ **Manager 360 Feedback Loop** - Anonymous upward ratings + trend and improvement suggestions
+- ✅ **Feedback-to-Appraisal Bridge** - Deep-analyzed feedback can be pushed into appraisal context queue
 
 ### 🔐 **Security & Access Control**
 - ✅ **Role-Based Access** (RBAC) - HR, Manager, Leadership, Employee roles
@@ -222,6 +224,7 @@ Risk Score = (
 - ✅ **Scroll-Safe What-If Modal** - Fixed header, backdrop close, and 90vh scrollable simulator body for full-content reachability
 - ✅ **Employee Profile Data Sources Tab** - Fetches server-side employee detail payload including computed `data_quality_score`
 - ✅ **Jira Demo Configure Modal** - Test connection simulation + persisted demo-connected status updates in Integrations UI
+- ✅ **Role-Aware Sentiment Navigation** - HR sees Feedback Analyzer while Leadership retains Sentiment Analyzer
 
 ---
 
@@ -329,6 +332,7 @@ Risk Score = (
 | `/employees` | Employee table and drill-in entrypoint | Manager, HR, Leadership |
 | `/employees/:employeeId/profile` | Employee profile with Data Sources tab and explainability links | Manager, HR, Leadership |
 | `/insights/:employeeId` | AI insights dashboard with composite risk and card-level analysis | HR, Manager |
+| `/hr/feedback-analyzer` | HR Feedback Analyzer (batch + deep feedback intelligence) | HR |
 | `/hr/sessions-schedule` | Schedule mandatory sessions (single employee or department) | HR, Leadership |
 | `/hr/sessions-review` | Session queue and HR review/ingestion workflow | HR, Leadership |
 | `/anomalies` | Full anomalies list panel with View Employee navigation | Manager, HR, Leadership |
@@ -393,6 +397,16 @@ POST   /api/feedback/sessions/{session_id}/flag-follow-up  Mark session follow-u
 POST   /api/feedback/sessions/seed-demo                  Seed mixed-state demo sessions
 POST   /api/feedback/manager/{manager_id}     Anonymous upward manager feedback submission
 GET    /api/managers/{id}/360-scores          Aggregated manager 360 trends + suggestion
+```
+
+### HR Feedback Analyzer
+```
+GET    /api/hr/feedbacks                         Paginated feedback list with filters (dept/type/sentiment/date/search/anonymous)
+POST   /api/hr/feedbacks/analyze-batch           Batch AI analysis + org-theme frequency + sarcasm/critical summary
+POST   /api/hr/feedbacks/analyze-single/{id}     Deep single-feedback analysis (sarcasm, emotions, key phrases, risk, HR action)
+GET    /api/hr/feedbacks/org-themes              Org-wide theme distribution and sentiment/sarcasm aggregates
+POST   /api/hr/feedbacks/appraisal-context/{id}  Add analyzed feedback into employee appraisal context queue
+POST   /api/hr/feedbacks/bootstrap               One-click self-heal: migration check + schema reload + optional seed
 ```
 
 ### Employee Action APIs
@@ -511,6 +525,7 @@ cp .env.example .env
 # 001_create_users_table.sql
 # 002_create_interventions_table.sql
 # 003_create_employee_feedback_table.sql
+# 004_employee_feedbacks.sql
 # feedback_sessions.sql
 # 004_employee_actions_tables.sql
 # 005_feedback_sessions_status_update.sql
@@ -518,6 +533,8 @@ cp .env.example .env
 # Optional scripted helpers (reads backend/.env):
 # python scripts/apply_feedback_sessions_migration.py
 # python scripts/apply_employee_actions_migration.py
+# python scripts/apply_employee_feedbacks_migration.py
+# python scripts/seed_feedbacks.py
 ```
 
 ### Frontend Setup
@@ -564,8 +581,19 @@ Lightweight integration coverage now includes:
 python scripts/verify_feedback_tables.py
 python scripts/verify_employee_action_tables.py
 ```
+- HR Feedback Analyzer specific fix path:
+```bash
+python scripts/apply_employee_feedbacks_migration.py
+python scripts/seed_feedbacks.py
+```
 
-**2. Frontend cannot reach backend (NetworkError / fetch failed / empty panels)**
+**2. HR Feedback Analyzer still says table unavailable after migration**
+- Cause: PostgREST schema cache delay (table exists in SQL but REST path has stale schema snapshot).
+- Fix options:
+  - Restart backend and retry.
+  - Use the bootstrap endpoint once (HR role): `POST /api/hr/feedbacks/bootstrap`.
+
+**3. Frontend cannot reach backend (NetworkError / fetch failed / empty panels)**
 - Symptom: scheduling, review, or insights requests fail despite backend running.
 - Fix: confirm frontend `.env` uses the backend host and port actually running locally:
 ```bash
@@ -573,19 +601,19 @@ VITE_API_BASE_URL=http://localhost:8000
 ```
 - Then restart the frontend dev server after changing `.env`.
 
-**3. Session Queue not updating after scheduling**
+**4. Session Queue not updating after scheduling**
 - Symptom: a session is scheduled successfully but does not appear in Sessions to Review.
 - Checks:
   - Verify `feedback_sessions` rows are being created in Supabase.
   - Confirm signed-in role can access HR/leadership review surfaces.
   - Ensure the app is not calling a stale origin (all review calls should use the shared API client and `VITE_API_BASE_URL`).
 
-**4. Reminder send errors after successful scheduling**
+**5. Reminder send errors after successful scheduling**
 - Symptom: reminder call fails, but the session appears scheduled.
 - Cause: `internal_messages` table missing or policy issue.
 - Fix: apply `004_employee_actions_tables.sql` and re-test reminder send.
 
-**5. Composite risk shows 0% unexpectedly**
+**6. Composite risk shows 0% unexpectedly**
 - Context: anomaly composite can be 0% when no significant anomalies are detected.
 - Current behavior: UI falls back to baseline composite risk (workload/sentiment/performance/engagement model) when anomaly composite has no signal.
 - If still 0%: inspect input histories (sentiment/performance/engagement) for the selected employee and verify data generation/API payloads are non-empty.
@@ -604,6 +632,13 @@ python -m uvicorn main:app --reload --port 8000
 
 ✅ Backend runs at: `http://localhost:8000`  
 📖 API docs at: `http://localhost:8000/docs`
+
+If you need to bootstrap HR feedback analyzer data in one go (HR-ready local demo state):
+```powershell
+cd "C:\path\to\NOVA\backend"
+python scripts/apply_employee_feedbacks_migration.py
+python scripts/seed_feedbacks.py
+```
 
 ### Start Frontend
 
@@ -685,6 +720,9 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - What-if simulator modal UX hardening (scrollable body, fixed header, backdrop dismiss, close control)
 - Integrations page Jira demo configuration flow with test connection simulation and connected-state update
 - Lightweight frontend integration tests for sidebar polling and modal behavior
+- HR Feedback Analyzer page with three-column UX, sentiment/sarcasm-aware cards, and batch/deep Groq analysis flows
+- `employee_feedbacks` schema migration + realistic 50-row seed script with precomputed sentiment/emotion/theme fields
+- Feedback Analyzer bootstrap endpoint for migration/seed/schema-cache self-healing in non-primed environments
 
 ### 🔄 **In Progress**
 - ML feature importance visualization
@@ -737,6 +775,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - **Integration Guide**: [backend/INTEGRATION_GUIDE.md](backend/INTEGRATION_GUIDE.md)
 - **Quick Start**: [QUICK_START.md](QUICK_START.md)
 - **Team Checklist**: [TEAM_INTEGRATION_CHECKLIST.md](TEAM_INTEGRATION_CHECKLIST.md)
+- **Feedback Analyzer setup scripts**: [backend/scripts/apply_employee_feedbacks_migration.py](backend/scripts/apply_employee_feedbacks_migration.py), [backend/scripts/seed_feedbacks.py](backend/scripts/seed_feedbacks.py)
 
 ---
 

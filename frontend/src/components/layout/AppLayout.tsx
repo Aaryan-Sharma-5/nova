@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   MessageSquare,
+  MessageSquareText,
   Brain,
   Menu,
   X,
@@ -118,7 +119,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           items: [
             { to: '/employees', icon: Users, label: 'Employees' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
-            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
+            { to: '/hr/feedback-analyzer', icon: MessageSquareText, label: 'Feedback Analyzer' },
             { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
             { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
           ],
@@ -126,6 +127,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Operations',
           items: [
+            { to: '/hr/appraisals', icon: ClipboardList, label: 'Appraisals' },
             { to: '/hr/sessions-schedule', icon: CalendarClock, label: 'Schedule Sessions' },
             { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions Review' },
           ],
@@ -153,7 +155,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           items: [
             { to: '/employees', icon: Users, label: 'Workforce' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
-            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment' },
+            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
+            { to: '/hr/appraisals', icon: ClipboardList, label: 'Appraisals' },
             { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
             { to: '/leadership/roi-analytics', icon: LineChart, label: 'ROI Analytics' },
           ],
@@ -225,6 +228,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingSessionReviewCount, setPendingSessionReviewCount] = useState(0);
   const [upcomingSessionCount, setUpcomingSessionCount] = useState(0);
+  const [draftAppraisalCount, setDraftAppraisalCount] = useState(0);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   const insightsEmployeeId = employees[0]?.id ?? 'emp-123';
@@ -241,33 +245,50 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const loadPendingCount = async () => {
-      if (!token || user?.role !== 'hr') {
+      if (!token || !user?.role) {
         setPendingSessionReviewCount(0);
         setUpcomingSessionCount(0);
+        setDraftAppraisalCount(0);
         return;
       }
 
-      try {
-        const payload = await protectedGetApi<{
-          count?: number;
-          sessions?: Array<{ scheduled_date?: string; status?: string }>;
-        }>('/api/feedback/sessions/pending-review', token);
-        const sessions = payload?.sessions ?? [];
-        setPendingSessionReviewCount(Number(payload?.count ?? sessions.length ?? 0));
+      if (user.role === 'hr') {
+        try {
+          const payload = await protectedGetApi<{
+            count?: number;
+            sessions?: Array<{ scheduled_date?: string; status?: string }>;
+          }>('/api/feedback/sessions/pending-review', token);
+          const sessions = payload?.sessions ?? [];
+          setPendingSessionReviewCount(Number(payload?.count ?? sessions.length ?? 0));
 
-        const now = new Date();
-        const next7 = new Date(now);
-        next7.setDate(now.getDate() + 7);
-        const upcoming = sessions.filter((session) => {
-          const status = (session.status || '').toLowerCase();
-          if (status !== 'scheduled' && status !== 'in_progress') return false;
-          const dt = session.scheduled_date ? new Date(session.scheduled_date) : null;
-          return Boolean(dt && dt >= now && dt <= next7);
-        }).length;
-        setUpcomingSessionCount(upcoming);
-      } catch {
+          const now = new Date();
+          const next7 = new Date(now);
+          next7.setDate(now.getDate() + 7);
+          const upcoming = sessions.filter((session) => {
+            const status = (session.status || '').toLowerCase();
+            if (status !== 'scheduled' && status !== 'in_progress') return false;
+            const dt = session.scheduled_date ? new Date(session.scheduled_date) : null;
+            return Boolean(dt && dt >= now && dt <= next7);
+          }).length;
+          setUpcomingSessionCount(upcoming);
+        } catch {
+          setPendingSessionReviewCount(0);
+          setUpcomingSessionCount(0);
+        }
+      } else {
         setPendingSessionReviewCount(0);
         setUpcomingSessionCount(0);
+      }
+
+      if (user.role === 'hr' || user.role === 'leadership') {
+        try {
+          const summary = await protectedGetApi<{ draft_count?: number }>('/api/appraisals/summary', token);
+          setDraftAppraisalCount(Number(summary?.draft_count ?? 0));
+        } catch {
+          setDraftAppraisalCount(0);
+        }
+      } else {
+        setDraftAppraisalCount(0);
       }
     };
 
@@ -303,10 +324,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         if (item.to === '/hr/sessions-schedule') {
           return { ...item, badgeCount: upcomingSessionCount };
         }
+        if (item.to === '/hr/appraisals') {
+          return { ...item, badgeCount: draftAppraisalCount };
+        }
         return item;
       }),
     }));
-  }, [navSections, pendingSessionReviewCount, upcomingSessionCount]);
+  }, [navSections, pendingSessionReviewCount, upcomingSessionCount, draftAppraisalCount]);
 
   const flatItemsForHeader = useMemo(() => navSectionsWithBadges.flatMap((s) => s.items), [
     navSectionsWithBadges,
@@ -371,7 +395,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     `sidebar-link lg:mx-auto lg:h-11 lg:w-11 lg:justify-center lg:gap-0 lg:px-0 lg:py-0 lg:group-hover:mx-0 lg:group-hover:h-auto lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:gap-3 lg:group-hover:px-3 lg:group-hover:py-2.5 lg:group-focus-within:mx-0 lg:group-focus-within:h-auto lg:group-focus-within:w-full lg:group-focus-within:justify-start lg:group-focus-within:gap-3 lg:group-focus-within:px-3 lg:group-focus-within:py-2.5 ${isActive ? 'sidebar-link-active' : ''}`
                   }
                 >
-                  <item.icon className="h-4 w-4" />
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    <item.icon className="h-4 w-4 shrink-0" />
+                  </span>
                   <span className="overflow-hidden whitespace-nowrap transition-all duration-200 lg:max-w-0 lg:opacity-0 lg:group-hover:max-w-[10rem] lg:group-hover:opacity-100 lg:group-focus-within:max-w-[10rem] lg:group-focus-within:opacity-100">
                     {item.label}
                   </span>

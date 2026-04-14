@@ -8,8 +8,9 @@ import { useEmployees } from "@/contexts/EmployeeContext";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 import { useAuth } from "@/contexts/AuthContext";
-import { protectedGetApi } from "@/lib/api";
+import { protectedGetApi, protectedPostApi } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppraisalSuggestion } from "@/types/appraisal";
 
 type EmployeeDetailResponse = {
   employee_id: string;
@@ -37,10 +38,13 @@ function scoreColor(value: number): string {
 export default function EmployeeProfilePage() {
   const { employeeId } = useParams<{ employeeId: string }>();
   const { getEmployee } = useEmployees();
-  const { token } = useAuth();
+  const { token, hasRole } = useAuth();
   const navigate = useNavigate();
   const [employeeDetail, setEmployeeDetail] = useState<EmployeeDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [latestAppraisal, setLatestAppraisal] = useState<AppraisalSuggestion | null>(null);
+  const [appraisalLoading, setAppraisalLoading] = useState(false);
+  const [appraisalError, setAppraisalError] = useState<string | null>(null);
 
   const employee = employeeId ? getEmployee(employeeId) : undefined;
 
@@ -64,6 +68,44 @@ export default function EmployeeProfilePage() {
 
     void loadDetail();
   }, [employeeId, token]);
+
+  useEffect(() => {
+    const loadLatestAppraisal = async () => {
+      if (!employeeId || !token || !hasRole(["hr", "leadership"])) {
+        setLatestAppraisal(null);
+        setAppraisalError(null);
+        return;
+      }
+
+      setAppraisalLoading(true);
+      setAppraisalError(null);
+      try {
+        const payload = await protectedGetApi<AppraisalSuggestion>(`/api/appraisals/suggestions/${employeeId}/latest`, token);
+        setLatestAppraisal(payload);
+      } catch (error) {
+        setLatestAppraisal(null);
+        setAppraisalError(error instanceof Error ? error.message : "No appraisal suggestion yet");
+      } finally {
+        setAppraisalLoading(false);
+      }
+    };
+
+    void loadLatestAppraisal();
+  }, [employeeId, token, hasRole]);
+
+  const handleGenerateAppraisal = async () => {
+    if (!employeeId || !token) return;
+    setAppraisalLoading(true);
+    setAppraisalError(null);
+    try {
+      const generated = await protectedPostApi<AppraisalSuggestion>(`/api/appraisals/generate/${employeeId}`, token, {});
+      setLatestAppraisal(generated);
+    } catch (error) {
+      setAppraisalError(error instanceof Error ? error.message : "Unable to generate appraisal");
+    } finally {
+      setAppraisalLoading(false);
+    }
+  };
 
   const overview = useMemo(() => {
     if (!employee) return [];
@@ -121,6 +163,7 @@ export default function EmployeeProfilePage() {
           <TabsTrigger value="jira">Jira Signals</TabsTrigger>
           <TabsTrigger value="interventions">Interventions</TabsTrigger>
           <TabsTrigger value="sessions">Feedback Sessions</TabsTrigger>
+          <TabsTrigger value="appraisal">Appraisal</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -228,6 +271,65 @@ export default function EmployeeProfilePage() {
             <CardHeader><CardTitle>Feedback Sessions</CardTitle></CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">Session schedule/review status is shown in the employee dashboard and sessions APIs.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="appraisal">
+          <Card>
+            <CardHeader>
+              <CardTitle>Appraisal</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {!hasRole(["hr", "leadership"]) && (
+                <p className="text-sm text-muted-foreground">Appraisal actions are available to HR and Leadership roles.</p>
+              )}
+
+              {hasRole(["hr", "leadership"]) && appraisalLoading && (
+                <div className="space-y-2">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              )}
+
+              {hasRole(["hr", "leadership"]) && !appraisalLoading && !latestAppraisal && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">No appraisal suggestion exists for this employee yet.</p>
+                  {appraisalError && <p className="text-xs text-muted-foreground">{appraisalError}</p>}
+                  <Button onClick={() => void handleGenerateAppraisal()}>Generate Appraisal</Button>
+                </div>
+              )}
+
+              {hasRole(["hr", "leadership"]) && !appraisalLoading && latestAppraisal && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge>{latestAppraisal.status}</Badge>
+                    <Badge>{Math.round(latestAppraisal.composite_score)} score</Badge>
+                    <Badge>{latestAppraisal.category}</Badge>
+                  </div>
+
+                  {latestAppraisal.status === "finalized" && latestAppraisal.hr_decision && (
+                    <div className="rounded border-l-4 border-emerald-500 bg-emerald-50 p-3">
+                      <p className="text-xs font-semibold uppercase text-emerald-700">Finalized HR Decision</p>
+                      <p className="text-sm mt-1 text-emerald-900">{latestAppraisal.hr_decision}</p>
+                    </div>
+                  )}
+
+                  {latestAppraisal.status !== "finalized" && (
+                    <div className="rounded border-l-4 border-primary bg-muted/40 p-3">
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">AI Suggestion</p>
+                      <p className="text-sm mt-1">{latestAppraisal.summary}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => void handleGenerateAppraisal()}>Regenerate</Button>
+                    <Button onClick={() => navigate(`/hr/appraisals?employeeId=${employee.id}`)}>
+                      Review in Appraisal Module →
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

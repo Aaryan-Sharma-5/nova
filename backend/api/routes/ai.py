@@ -217,7 +217,11 @@ async def ask_nova_endpoint(
     messages = [
         {
             "role": "system",
-            "content": "You are NOVA, an HR analytics assistant. Answer clearly and concisely.",
+            "content": (
+                "You are NOVA, an HR analytics assistant. Answer clearly and concisely. "
+                "Return plain text only (no markdown). Do not use symbols like **, __, #, or bullet markers. "
+                "Use a short opening sentence followed by a numbered list with each item on a new line."
+            ),
         },
         {
             "role": "user",

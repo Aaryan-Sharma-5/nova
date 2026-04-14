@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   MessageSquare,
+  MessageSquareText,
   Brain,
   Menu,
   X,
@@ -116,7 +117,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           title: 'People',
           items: [
             { to: '/employees', icon: Users, label: 'Employees' },
-            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
+            { to: '/hr/feedback-analyzer', icon: MessageSquareText, label: 'Feedback Analyzer' },
             { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
             { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
           ],
@@ -150,7 +151,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           title: 'Analytics',
           items: [
             { to: '/employees', icon: Users, label: 'Workforce' },
-            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment' },
+            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
             { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
             { to: '/leadership/roi-analytics', icon: LineChart, label: 'ROI Analytics' },
           ],
@@ -368,7 +369,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     `sidebar-link lg:mx-auto lg:h-11 lg:w-11 lg:justify-center lg:gap-0 lg:px-0 lg:py-0 lg:group-hover:mx-0 lg:group-hover:h-auto lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:gap-3 lg:group-hover:px-3 lg:group-hover:py-2.5 lg:group-focus-within:mx-0 lg:group-focus-within:h-auto lg:group-focus-within:w-full lg:group-focus-within:justify-start lg:group-focus-within:gap-3 lg:group-focus-within:px-3 lg:group-focus-within:py-2.5 ${isActive ? 'sidebar-link-active' : ''}`
                   }
                 >
-                  <item.icon className="h-4 w-4" />
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    <item.icon className="h-4 w-4 shrink-0" />
+                  </span>
                   <span className="overflow-hidden whitespace-nowrap transition-all duration-200 lg:max-w-0 lg:opacity-0 lg:group-hover:max-w-[10rem] lg:group-hover:opacity-100 lg:group-focus-within:max-w-[10rem] lg:group-focus-within:opacity-100">
                     {item.label}
                   </span>

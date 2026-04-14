@@ -30,6 +30,7 @@ from api.routes.onboarding import router as onboarding_router
 from api.routes.meetings import router as meetings_router
 from api.routes.messages import router as messages_router
 from api.routes.recognition import router as recognition_router
+from api.routes.hr_feedback import router as hr_feedback_router
 
 # Configure logging
 logging.basicConfig(
@@ -92,6 +93,7 @@ app.include_router(onboarding_router)
 app.include_router(meetings_router)
 app.include_router(messages_router)
 app.include_router(recognition_router)
+app.include_router(hr_feedback_router)
 
 
 _SENSITIVE_GET_PREFIXES = (

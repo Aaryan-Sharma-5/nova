@@ -191,15 +191,33 @@
     }
 
     .app-sidebar:not(:hover):not(:focus-within) nav {
-      display: grid;
-      justify-items: center;
-      align-content: start;
-      gap: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
       padding: 8px 0;
     }
 
     .app-sidebar:not(:hover):not(:focus-within) nav > div {
-      display: contents;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .app-sidebar:not(:hover):not(:focus-within) nav > div + div {
+      margin-top: 0 !important;
+    }
+
+    .app-sidebar:not(:hover):not(:focus-within) nav > div > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 0 !important;
+    }
+
+    .app-sidebar:not(:hover):not(:focus-within) nav > div > .sidebar-link {
+      margin-top: 0 !important;
     }
 
     .app-sidebar:not(:hover):not(:focus-within) nav > div > p {
@@ -212,28 +230,43 @@
       border-left-width: 0;
       width: 44px;
       height: 44px;
-      margin-left: auto;
-      margin-right: auto;
+      margin: 0;
       padding: 0;
-      justify-content: center;
-      align-items: center;
+      display: grid;
+      place-items: center;
       gap: 0;
       min-width: 44px;
       min-height: 44px;
+      line-height: 0;
+    }
+
+    .app-sidebar:not(:hover):not(:focus-within) .sidebar-link svg {
+      display: block;
+      margin: 0;
+      width: 16px;
+      height: 16px;
+    }
+
+    .app-sidebar:not(:hover):not(:focus-within) .sidebar-link > span:first-child {
+      width: 16px;
+      height: 16px;
+      display: grid;
+      place-items: center;
+      line-height: 0;
     }
 
     .app-sidebar:not(:hover):not(:focus-within) .sidebar-link-active {
       border-left-width: 0;
       width: 44px;
       height: 44px;
-      margin-left: auto;
-      margin-right: auto;
+      margin: 0;
       padding: 0;
       border: 2px solid hsl(var(--foreground));
-      box-shadow: var(--shadow-sm);
-      justify-content: center;
-      align-items: center;
+      box-shadow: none;
+      display: grid;
+      place-items: center;
       gap: 0;
+      line-height: 0;
     }
   }
 

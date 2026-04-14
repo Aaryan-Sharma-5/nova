@@ -4,6 +4,7 @@ import { protectedGetApi } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 type AuditLogItem = {
   id: string;
@@ -23,6 +24,7 @@ type AuditLogResponse = {
 };
 
 export default function AuditLogPage() {
+  useDocumentTitle('NOVA — Audit Logs');
   const { token } = useAuth();
   const [rows, setRows] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(false);

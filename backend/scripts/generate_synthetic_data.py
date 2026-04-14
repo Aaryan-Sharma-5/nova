@@ -8,8 +8,13 @@ roster and NOVA IDs.
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 import random
+import sys
 from typing import Dict, List, Optional
+
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from core.employee_directory import get_employee_directory
 

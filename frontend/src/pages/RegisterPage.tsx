@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/auth";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export default function RegisterPage() {
+  useDocumentTitle('NOVA — Create Account');
   const { register, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({

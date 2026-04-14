@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from pathlib import Path
+import sys
+
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from core.database import get_supabase_admin
 

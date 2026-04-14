@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/contexts/AuthContext";
 import { protectedGetApi, protectedPostApi } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 interface PersonalDataResponse {
   employee_id: string;
@@ -44,6 +45,7 @@ function levelColor(level: string): string {
 }
 
 export default function EmployeePersonalPage() {
+  useDocumentTitle('NOVA — Your Data');
   const { token } = useAuth();
 
   const [data, setData] = useState<PersonalDataResponse | null>(null);

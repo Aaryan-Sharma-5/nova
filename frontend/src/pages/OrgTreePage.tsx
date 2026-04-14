@@ -3,6 +3,7 @@ import * as d3 from 'd3';
 import { Search, Loader2, AlertTriangle, Home } from 'lucide-react';
 import { useOrgHierarchy, type OrgNode } from '@/hooks/useOrgHierarchy';
 import NodeDetailPopover from '@/components/org/NodeDetailPopover';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import {
   Select,
   SelectContent,
@@ -92,6 +93,7 @@ function nodeFillColor(node: OrgNode, riskOverlay: boolean, highlighted: boolean
 }
 
 export default function OrgTreePage() {
+  useDocumentTitle('NOVA — Org Tree');
   const [rootId, setRootId] = useState<string | null>(null);
   const { data, stats, loading, error } = useOrgHierarchy(rootId);
   const svgRef = useRef<SVGSVGElement>(null);

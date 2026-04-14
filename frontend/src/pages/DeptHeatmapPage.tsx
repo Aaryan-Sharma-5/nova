@@ -12,6 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 const DIMENSION_LABELS: Record<EfficiencyDimension, string> = {
   avg_performance: 'Avg Performance',
@@ -72,6 +73,7 @@ function overallEfficiency(
 }
 
 export default function DeptHeatmapPage() {
+  useDocumentTitle('NOVA — Department Heatmap');
   const { data, loading, error } = useDepartmentHeatmap();
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [sortByEfficiency, setSortByEfficiency] = useState(false);

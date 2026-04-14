@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { protectedGetApi } from '@/lib/api';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 const QUESTIONS = [
   'Walk us through how your last two weeks at work have felt overall.',
@@ -28,6 +29,7 @@ type FeedbackSession = {
 };
 
 export default function FeedbackSessionPage() {
+  useDocumentTitle('NOVA — Feedback Session');
   const { token } = useAuth();
   const { sessionId } = useParams<{ sessionId: string }>();
   const [stage, setStage] = useState<Stage>('consent');

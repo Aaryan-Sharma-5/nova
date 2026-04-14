@@ -35,6 +35,7 @@ from api.routes.departments import router as departments_router
 from api.routes.org_tree import router as org_tree_router
 from api.routes.hr_feedback import router as hr_feedback_router
 from api.routes.appraisals import router as appraisals_router
+from api.routes.voice_agent import router as voice_agent_router
 
 # Configure logging
 logging.basicConfig(
@@ -102,6 +103,7 @@ app.include_router(departments_router)
 app.include_router(org_tree_router)
 app.include_router(hr_feedback_router)
 app.include_router(appraisals_router)
+app.include_router(voice_agent_router)
 
 
 _SENSITIVE_GET_PREFIXES = (

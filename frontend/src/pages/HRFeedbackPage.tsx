@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
 import { MessageSquareText, Lightbulb, Search, Loader2 } from "lucide-react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   Bar,
   BarChart,
@@ -165,6 +166,7 @@ function markKeyPhrases(text: string, phrases: string[]): string {
 }
 
 export default function HRFeedbackPage() {
+  useDocumentTitle('NOVA — Feedback Analyzer');
   const { token } = useAuth();
   const { toast } = useToast();
 

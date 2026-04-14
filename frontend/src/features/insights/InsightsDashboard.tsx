@@ -11,6 +11,7 @@ import { PerformanceCard } from "./PerformanceCard";
 import { RetentionRiskCard } from "./RetentionRiskCard";
 import { SentimentCard } from "./SentimentCard";
 import { useInsights } from "./hooks/useInsights";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 function InsightSkeleton() {
   return (
@@ -30,6 +31,7 @@ function InsightSkeleton() {
 }
 
 export function InsightsDashboard() {
+  useDocumentTitle('NOVA — AI Insights');
   const { employeeId } = useParams();
   const { data, loading, error } = useInsights(employeeId);
   const { getEmployee } = useEmployees();

@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export default function IntegrationsPage() {
+  useDocumentTitle('NOVA — Integrations');
   const { token } = useAuth();
   const [status, setStatus] = useState<any>({});
   const [jiraBaseUrl, setJiraBaseUrl] = useState("");

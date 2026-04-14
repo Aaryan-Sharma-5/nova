@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { protectedGetApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 interface BackendEndpointPageProps {
   title: string;
@@ -10,6 +11,7 @@ interface BackendEndpointPageProps {
 }
 
 export default function BackendEndpointPage({ title, endpoint, description }: BackendEndpointPageProps) {
+  useDocumentTitle(`NOVA — ${title}`);
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

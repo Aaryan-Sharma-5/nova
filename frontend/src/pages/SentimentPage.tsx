@@ -16,6 +16,7 @@ import {
   Tooltip as RechartsTooltip,
 } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 const EMOTION_DIMENSIONS = [
   'stress',
@@ -29,6 +30,7 @@ const EMOTION_DIMENSIONS = [
 const EMOTION_SHIFT_THRESHOLD = 0.3;
 
 export default function SentimentPage() {
+  useDocumentTitle('NOVA — Sentiment Analyzer');
   const [latestResult, setLatestResult] = useState<SentimentResult | null>(null);
 
   const radarData = useMemo(() => {

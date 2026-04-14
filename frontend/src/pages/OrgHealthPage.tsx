@@ -42,6 +42,7 @@ import AbsenteeismPatterns from "@/components/dashboard/AbsenteeismPatterns";
 import ManagerEffectivenessScorecard from "@/components/dashboard/ManagerEffectivenessScorecard";
 import { SentimentPieChart, PerformanceScatterPlot, DepartmentRiskHeatmap } from "@/components/dashboard/Charts";
 import { protectedGetApi } from "@/lib/api";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 type ImpactStep = {
   name: string;
@@ -170,11 +171,41 @@ function ExplainableValue({
   );
 }
 
+function formatRelativeTime(from: Date, to: Date): string {
+  const diffMs = to.getTime() - from.getTime();
+  const minutes = Math.max(0, Math.floor(diffMs / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes === 1) return '1 minute ago';
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours === 1) return '1 hour ago';
+  if (hours < 24) return `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? '1 day ago' : `${days} days ago`;
+}
+
 export default function OrgHealthPage() {
-  const { token, hasRole } = useAuth();
+  useDocumentTitle('NOVA — Workforce Overview');
+  const { token, hasRole, user } = useAuth();
   const { employees } = useEmployees();
   const [anonymizeEmployees, setAnonymizeEmployees] = useState(false);
   const healthScore = calculateWorkforceHealthScore();
+  const [computedAt] = useState<Date>(() => new Date());
+  const [now, setNow] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const todayLabel = now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const lastUpdatedLabel = formatRelativeTime(computedAt, now);
+  const greetingName = user?.full_name?.split(' ')[0] || user?.full_name || 'there';
   const managers = generateManagerScores();
   const attrition = generateAttritionForecast();
   const tenure = generateTenureDistribution();
@@ -493,14 +524,9 @@ export default function OrgHealthPage() {
       {/* Header with Actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Organization Wellbeing Report</h1>
-          <p className="text-muted-foreground mt-1">
-            Generated on {new Date().toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </p>
+          <h1 className="text-3xl font-bold">Welcome back, {greetingName}</h1>
+          <p className="text-muted-foreground mt-1">{todayLabel}</p>
+          <p className="text-sm font-semibold mt-2">Organization Wellbeing Report</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setAnonymizeEmployees(!anonymizeEmployees)}>
@@ -539,7 +565,10 @@ export default function OrgHealthPage() {
         {/* Summary Scorecard */}
         <Card>
           <CardHeader>
-            <CardTitle>Executive Summary Scorecard</CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle>Executive Summary Scorecard</CardTitle>
+              <span className="text-xs text-muted-foreground">Last updated: {lastUpdatedLabel}</span>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-5 gap-4">

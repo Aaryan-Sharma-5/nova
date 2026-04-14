@@ -48,20 +48,22 @@ type BeforeInstallPromptEvent = Event & {
 
 const ROLE_HOME_PATH: Record<UserRole, string> = {
   employee: '/',
-  manager: '/',
-  hr: '/',
-  leadership: '/',
+  manager: '/org-health',
+  hr: '/org-health',
+  leadership: '/org-health',
 };
 
 function getRoleHomePath(role: UserRole): string {
-  return ROLE_HOME_PATH[role] ?? '/';
+  return ROLE_HOME_PATH[role] ?? '/org-health';
 }
 
 function resolvePageTitle(pathname: string, navItems: NavItem[], role?: UserRole): string {
-  if (pathname === '/') {
+  if (pathname === '/dashboard') {
     if (role === 'manager') return 'Dashboard';
     if (role === 'hr') return 'Dashboard';
     if (role === 'leadership') return 'Executive Pulse';
+  }
+  if (pathname === '/') {
     if (role === 'employee') return 'Home';
   }
 
@@ -91,8 +93,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Overview',
           items: [
-            { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-            { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Health' },
+            { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
           ],
         },
         {
@@ -110,35 +112,27 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
     case 'hr':
       return [
         {
-          title: 'Overview',
+          title: 'Workspace',
           items: [
-            { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-            { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
-          ],
-        },
-        {
-          title: 'People',
-          items: [
+            { to: '/org-health', icon: HeartPulse, label: 'Org Health' },
+            { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { to: '/employees', icon: Users, label: 'Employees' },
-            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
             { to: '/hr/feedback-analyzer', icon: MessageSquareText, label: 'Feedback Analyzer' },
-            { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
-            { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
-          ],
-        },
-        {
-          title: 'Operations',
-          items: [
             { to: '/hr/appraisals', icon: ClipboardList, label: 'Appraisals' },
+            { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
+            { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
+            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
+            { to: '/hr/org-risk-distribution', icon: ShieldCheck, label: 'HR API' },
             { to: '/hr/sessions-schedule', icon: CalendarClock, label: 'Schedule Sessions' },
-            { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions Review' },
+            { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions to Review' },
+            { to: '/integrations', icon: Settings2, label: 'Integrations' },
           ],
         },
         {
           title: 'Admin',
           items: [
-            { to: '/integrations', icon: Settings2, label: 'Integrations' },
+            { to: '/anomalies', icon: AlertTriangle, label: 'Anomaly Alerts' },
             { to: '/audit-logs', icon: FileText, label: 'Audit Logs' },
           ],
         },
@@ -149,8 +143,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Overview',
           items: [
-            { to: '/', icon: LayoutDashboard, label: 'Executive Pulse' },
-            { to: '/org-health', icon: HeartPulse, label: 'Org Wellbeing' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Health' },
+            { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Pulse' },
           ],
         },
         {
@@ -196,22 +190,22 @@ function buildMobileBottomNav(role: UserRole): NavItem[] {
   switch (role) {
     case 'manager':
       return [
-        { to: '/', icon: Home, label: 'Home' },
+        { to: '/org-health', icon: Home, label: 'Home' },
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { to: '/employees', icon: Users, label: 'Team' },
         { to: '/anomalies', icon: AlertTriangle, label: 'Alerts' },
-        { to: '/org-health', icon: HeartPulse, label: 'Wellbeing' },
       ];
     case 'hr':
       return [
-        { to: '/', icon: Home, label: 'Home' },
+        { to: '/org-health', icon: Home, label: 'Home' },
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { to: '/employees', icon: Users, label: 'People' },
         { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions' },
-        { to: '/org-health', icon: HeartPulse, label: 'Wellbeing' },
       ];
     case 'leadership':
       return [
-        { to: '/', icon: Home, label: 'Home' },
-        { to: '/org-health', icon: HeartPulse, label: 'Wellbeing' },
+        { to: '/org-health', icon: Home, label: 'Home' },
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { to: '/anomalies', icon: AlertTriangle, label: 'Alerts' },
         { to: '/audit-logs', icon: FileText, label: 'Audit' },
       ];

@@ -3,8 +3,10 @@ import { List, Network } from 'lucide-react';
 import { EmployeeTable } from '@/components/employees/EmployeeTable';
 import PeerNetworkGraph from '@/components/employees/PeerNetworkGraph';
 import FocusedOrgTree from '@/components/org/FocusedOrgTree';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function EmployeesPage() {
+  useDocumentTitle('NOVA — Employee Intelligence');
   return (
     <div className="space-y-6">
       <div className="flex justify-end">

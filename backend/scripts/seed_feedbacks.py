@@ -1,16 +1,21 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from random import Random
+import sys
 from typing import Any
 from urllib.parse import urlparse
+
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from dotenv import load_dotenv
 import os
 
 from postgrest.exceptions import APIError
 
-from core.database import get_supabase_admin
+from core.database import get_supabase_admin, get_supabase_hostname, is_supabase_host_resolvable
 
 try:
     import psycopg2
@@ -137,7 +142,7 @@ def _make_feedback(
 
 def build_feedback_rows() -> list[dict[str, Any]]:
     rnd = Random(42)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     rows: list[dict[str, Any]] = []
 
     # Engineering: 8 (5 workload stress, 2 positive culture, 1 sarcastic process)
@@ -320,8 +325,37 @@ def build_feedback_rows() -> list[dict[str, Any]]:
     return rows
 
 
+def _is_dns_connectivity_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    markers = (
+        "getaddrinfo failed",
+        "could not translate host name",
+        "name or service not known",
+        "temporary failure in name resolution",
+        "nodename nor servname provided",
+        "httpx.connecterror",
+        "httpcore.connecterror",
+        "connecterror",
+        "errno 11001",
+    )
+    return any(marker in text for marker in markers)
+
+
+def _dns_help_message(hostname: str) -> str:
+    return (
+        f"Unable to resolve Supabase host '{hostname}'. "
+        "Fix local DNS first, then rerun the script. "
+        "Recommended: set adapter DNS to 1.1.1.1 and 8.8.8.8, run 'ipconfig /flushdns', "
+        "and verify with 'Resolve-DnsName <hostname>'."
+    )
+
+
 def seed_feedbacks() -> int:
     load_dotenv()
+    supabase_host = get_supabase_hostname()
+    if not is_supabase_host_resolvable():
+        raise RuntimeError(_dns_help_message(supabase_host))
+
     supabase = get_supabase_admin()
     rows = build_feedback_rows()
 
@@ -339,6 +373,8 @@ def seed_feedbacks() -> int:
     except APIError as exc:
         message = str(exc)
         if "PGRST205" not in message and "employee_feedbacks" not in message:
+            if _is_dns_connectivity_error(exc):
+                raise RuntimeError(_dns_help_message(supabase_host)) from exc
             raise
 
         if psycopg2 is None or Json is None:
@@ -354,14 +390,20 @@ def seed_feedbacks() -> int:
             ) from exc
 
         project_ref = urlparse(supabase_url).netloc.split(".")[0]
-        conn = psycopg2.connect(
-            host=f"db.{project_ref}.supabase.co",
-            dbname="postgres",
-            user="postgres",
-            password=db_password,
-            port=5432,
-            sslmode="require",
-        )
+        db_host = f"db.{project_ref}.supabase.co"
+        try:
+            conn = psycopg2.connect(
+                host=db_host,
+                dbname="postgres",
+                user="postgres",
+                password=db_password,
+                port=5432,
+                sslmode="require",
+            )
+        except Exception as db_exc:
+            if _is_dns_connectivity_error(db_exc):
+                raise RuntimeError(_dns_help_message(db_host)) from db_exc
+            raise
         try:
             with conn:
                 with conn.cursor() as cur:
@@ -392,6 +434,10 @@ def seed_feedbacks() -> int:
             return len(rows)
         finally:
             conn.close()
+    except Exception as exc:
+        if _is_dns_connectivity_error(exc):
+            raise RuntimeError(_dns_help_message(supabase_host)) from exc
+        raise
 
 
 if __name__ == "__main__":

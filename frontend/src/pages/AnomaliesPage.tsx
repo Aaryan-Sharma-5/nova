@@ -7,6 +7,7 @@ import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { protectedPostApi } from '@/lib/api';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 type AnomalyResult = {
   employeeId: string;
@@ -32,6 +33,7 @@ const severityClass: Record<string, string> = {
 };
 
 export default function AnomaliesPage() {
+  useDocumentTitle('NOVA — Anomaly Alerts');
   const { employees } = useEmployees();
   const { token } = useAuth();
   const [loading, setLoading] = useState(false);

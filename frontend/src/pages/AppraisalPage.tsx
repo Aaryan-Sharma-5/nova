@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import { ClipboardList, Check, ArrowUpCircle, CircleDashed } from "lucide-react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { protectedGetApi, protectedPostApi } from "@/lib/api";
@@ -72,6 +73,7 @@ function statusLabel(status: string): string {
 }
 
 export default function AppraisalPage() {
+  useDocumentTitle('NOVA — Appraisal Cycle');
   const { token, user } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();

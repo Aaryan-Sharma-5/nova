@@ -2,8 +2,10 @@ import { Button } from '@/components/ui/button';
 import SessionReviewPanel from '@/components/hr/SessionReviewPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { protectedPostApi } from '@/lib/api';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function HRSessionsReviewPage() {
+  useDocumentTitle('NOVA — Sessions to Review');
   const { token } = useAuth();
 
   return (

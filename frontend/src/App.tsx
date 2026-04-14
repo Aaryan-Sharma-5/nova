@@ -1,12 +1,13 @@
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { EmployeeProvider } from "@/contexts/EmployeeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
+import { useAuth } from "@/contexts/AuthContext";
 import EmployeesPage from "./pages/EmployeesPage";
 import SentimentPage from "./pages/SentimentPage";
 import OrgHealthPage from "./pages/OrgHealthPage";
@@ -28,8 +29,15 @@ import { InsightsDashboard } from "@/features/insights/InsightsDashboard";
 import AnomaliesPage from "./pages/AnomaliesPage";
 import DeptHeatmapPage from "./pages/DeptHeatmapPage";
 import OrgTreePage from "./pages/OrgTreePage";
+import VoiceAssistant from "@/components/voice/VoiceAssistant";
 
 const queryClient = new QueryClient();
+
+function RoleHomeRedirect() {
+  const { user } = useAuth();
+  if (user?.role === 'employee') return <Navigate to="/your-data" replace />;
+  return <Navigate to="/org-health" replace />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -50,6 +58,14 @@ const App = () => (
 
               <Route
                 path="/"
+                element={
+                  <ProtectedRoute>
+                    <RoleHomeRedirect />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <AppLayout>
@@ -300,6 +316,7 @@ const App = () => (
                 }
               />
             </Routes>
+            <VoiceAssistant />
           </BrowserRouter>
         </EmployeeProvider>
       </AuthProvider>

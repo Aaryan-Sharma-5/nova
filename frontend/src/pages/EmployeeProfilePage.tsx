@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { protectedGetApi, protectedPostApi } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppraisalSuggestion } from "@/types/appraisal";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 type EmployeeDetailResponse = {
   employee_id: string;
@@ -36,6 +37,7 @@ function scoreColor(value: number): string {
 }
 
 export default function EmployeeProfilePage() {
+  useDocumentTitle('NOVA — Employee Profile');
   const { employeeId } = useParams<{ employeeId: string }>();
   const { getEmployee } = useEmployees();
   const { token, hasRole } = useAuth();

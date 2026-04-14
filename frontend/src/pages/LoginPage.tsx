@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export default function LoginPage() {
+  useDocumentTitle('NOVA — Sign In');
   const { login, signInWithGoogle, completeGoogleSignIn, isAuthenticated, isLoading } = useAuth();
   const isGoogleConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
   const [email, setEmail] = useState("hr.admin@company.com");

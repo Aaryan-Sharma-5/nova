@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -9,6 +10,7 @@ from statistics import mean
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from postgrest.exceptions import APIError
 from pydantic import BaseModel
 
 from ai.appraisal_engine import AppraisalEngine
@@ -19,6 +21,7 @@ from models.user import User, UserRole
 
 router = APIRouter(prefix="/api/appraisals", tags=["Appraisals"])
 engine = AppraisalEngine()
+logger = logging.getLogger(__name__)
 
 
 class GenerateBatchRequest(BaseModel):
@@ -32,17 +35,72 @@ class UpdateSuggestionRequest(BaseModel):
     status: str | None = None
 
 
+def _is_missing_appraisals_table(exc: Exception) -> bool:
+    if isinstance(exc, APIError):
+        payload = exc.args[0] if exc.args and isinstance(exc.args[0], dict) else {}
+        code = str(payload.get("code") or "")
+        message = str(payload.get("message") or "")
+        if code == "PGRST205" and "appraisal_suggestions" in message:
+            return True
+    text = str(exc)
+    return "PGRST205" in text and "appraisal_suggestions" in text
+
+
+def _is_supabase_connectivity_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    connectivity_markers = (
+        "getaddrinfo failed",
+        "temporary failure in name resolution",
+        "name or service not known",
+        "nodename nor servname provided",
+        "httpx.connecterror",
+        "httpcore.connecterror",
+        "connecterror",
+        "errno 11001",
+    )
+    return any(marker in text for marker in connectivity_markers)
+
+
+def _empty_summary(*, storage_unavailable: bool = False, reason: str | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "total_reviewed": 0,
+        "promotion_eligible_count": 0,
+        "pip_count": 0,
+        "fast_track_count": 0,
+        "category_distribution": {},
+        "avg_composite_score": 0.0,
+        "dept_breakdown": {},
+        "draft_count": 0,
+    }
+    if storage_unavailable:
+        payload["storage_unavailable"] = True
+        if reason:
+            payload["reason"] = reason
+    return payload
+
+
 def _appraisals_table() -> Any:
     supabase = get_supabase_admin()
     try:
         supabase.table("appraisal_suggestions").select("id").limit(1).execute()
         return supabase.table("appraisal_suggestions")
     except Exception as exc:
+        if _is_supabase_connectivity_error(exc):
+            logger.warning("Supabase connectivity issue while resolving appraisal table: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="Supabase is unreachable (DNS/network). Verify SUPABASE_URL and local DNS settings.",
+            ) from exc
+        if _is_missing_appraisals_table(exc):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "appraisal_suggestions table is unavailable. Run backend/database/005_appraisals.sql first."
+                ),
+            ) from exc
         raise HTTPException(
             status_code=503,
-            detail=(
-                "appraisal_suggestions table is unavailable. Run backend/database/005_appraisals.sql first."
-            ),
+            detail="Appraisals storage is unavailable.",
         ) from exc
 
 
@@ -418,20 +476,17 @@ async def latest_for_employee(
 async def appraisal_summary(
     _current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP])),
 ) -> dict[str, Any]:
-    table = _appraisals_table()
-    response = table.select("composite_score,category,review_flag,promotion_eligible,status,department").execute()
+    try:
+        table = _appraisals_table()
+        response = table.select("composite_score,category,review_flag,promotion_eligible,status,department").execute()
+    except HTTPException as exc:
+        if exc.status_code == 503:
+            return _empty_summary(storage_unavailable=True, reason=str(exc.detail))
+        raise
+
     rows = response.data or []
     if not rows:
-        return {
-            "total_reviewed": 0,
-            "promotion_eligible_count": 0,
-            "pip_count": 0,
-            "fast_track_count": 0,
-            "category_distribution": {},
-            "avg_composite_score": 0.0,
-            "dept_breakdown": {},
-            "draft_count": 0,
-        }
+        return _empty_summary()
 
     category_distribution: Counter[str] = Counter()
     dept_breakdown: dict[str, Counter[str]] = defaultdict(Counter)

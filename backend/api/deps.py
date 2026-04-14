@@ -3,7 +3,12 @@ from typing import List, Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from core.security import decode_access_token
-from core.database import get_supabase_admin, get_supabase_oauth_user
+from core.database import (
+    get_supabase_admin,
+    get_supabase_hostname,
+    get_supabase_oauth_user,
+    is_supabase_host_resolvable,
+)
 from models.user import User, UserInDB, UserRole
 
 logger = logging.getLogger(__name__)
@@ -11,6 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # bcrypt hash for plaintext "secret" used by SQL seed/demo credentials.
 DEMO_SECRET_HASH = "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"
+_SUPABASE_DNS_WARNING_EMITTED = False
 
 
 def _get_demo_user(email: str) -> Optional[UserInDB]:
@@ -40,6 +46,23 @@ def _get_demo_user(email: str) -> Optional[UserInDB]:
 def get_user_by_email(email: str) -> Optional[UserInDB]:
     """Get user from Supabase database by email."""
     normalized_email = email.strip().lower()
+
+    # If local DNS cannot resolve the Supabase host, skip network calls and
+    # immediately use local demo fallback (if configured).
+    if not is_supabase_host_resolvable():
+        global _SUPABASE_DNS_WARNING_EMITTED
+        if not _SUPABASE_DNS_WARNING_EMITTED:
+            logger.error(
+                "❌ Supabase host is not resolvable via local DNS: %s",
+                get_supabase_hostname(),
+            )
+            _SUPABASE_DNS_WARNING_EMITTED = True
+        demo_user = _get_demo_user(normalized_email)
+        if demo_user:
+            logger.warning("⚠️ Using local demo auth fallback for email=%s", normalized_email)
+            return demo_user
+        return None
+
     try:
         supabase = get_supabase_admin()
         response = supabase.table("users").select("*").eq("email", normalized_email).execute()

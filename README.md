@@ -859,7 +859,7 @@ We believe organizations can predict and prevent employee burnout before it happ
 
 - **Issues**: GitHub Issues
 - **Discussions**: GitHub Discussions
-- **Email**: support@nova-analytics.com
+- **Email**: agnivkdutta@gmail.com
 - **Live Demo**: https://nova-two-woad.vercel.app/
 
 ---

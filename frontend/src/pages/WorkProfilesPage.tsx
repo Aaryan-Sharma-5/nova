@@ -21,6 +21,9 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { API_BASE_URL } from "@/lib/api";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   Github,
   Code2,
@@ -31,12 +34,16 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Pencil,
+  Save,
+  Link,
 } from "lucide-react";
 
 interface WorkProfile {
   id: string;
   employee_email: string;
   github_username: string | null;
+  jira_account_id: string | null;
   skills: string[];
   total_commits: number;
   avg_code_quality: number;
@@ -90,13 +97,27 @@ export default function WorkProfilesPage() {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkSuccess, setLinkSuccess] = useState("");
 
+  const [jiraAccountId, setJiraAccountId] = useState("");
+  const [jiraTarget, setJiraTarget] = useState("");
+  const [linkingJira, setLinkingJira] = useState(false);
+  const [jiraSuccess, setJiraSuccess] = useState("");
+
+  // HR edit state (inside sheet)
+  const [editMode, setEditMode] = useState(false);
+  const [editGithub, setEditGithub] = useState("");
+  const [editJira, setEditJira] = useState("");
+  const [editSkills, setEditSkills] = useState("");
+  const [editSummary, setEditSummary] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
   const authHeader = { Authorization: `Bearer ${token}` };
 
   const fetchProfiles = useCallback(async () => {
     setLoading(true);
     try {
       const endpoint = isHROrAbove ? "/api/work-profiles" : "/api/work-profiles/me";
-      const res = await fetch(endpoint, { headers: authHeader });
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, { headers: authHeader });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       if (isHROrAbove) {
@@ -118,12 +139,18 @@ export default function WorkProfilesPage() {
   const openProfile = async (p: WorkProfile) => {
     setSelectedProfile(p);
     setSheetOpen(true);
+    setEditMode(false);
+    setSaveMsg("");
+    setEditGithub(p.github_username ?? "");
+    setEditSkills((p.skills ?? []).join(", "));
+    setEditSummary(p.profile_summary ?? "");
+    setEditJira(p.jira_account_id ?? "");
     setCommitsLoading(true);
     try {
       const endpoint = isHROrAbove
         ? `/api/work-profiles/${encodeURIComponent(p.employee_email)}/commits`
         : "/api/work-profiles/me/commits";
-      const res = await fetch(endpoint, { headers: authHeader });
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, { headers: authHeader });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setCommits(data.commits ?? []);
@@ -134,30 +161,96 @@ export default function WorkProfilesPage() {
     }
   };
 
+  const saveProfile = async () => {
+    if (!selectedProfile) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      const payload: Record<string, unknown> = {};
+      if (editGithub !== (selectedProfile.github_username ?? "")) payload.github_username = editGithub;
+      if (editJira !== (selectedProfile.jira_account_id ?? "")) payload.jira_account_id = editJira;
+      const newSkills = editSkills.split(",").map((s) => s.trim()).filter(Boolean);
+      if (JSON.stringify(newSkills) !== JSON.stringify(selectedProfile.skills ?? [])) payload.skills = newSkills;
+      if (editSummary !== (selectedProfile.profile_summary ?? "")) payload.profile_summary = editSummary;
+
+      if (Object.keys(payload).length === 0) { setSaveMsg("No changes to save."); return; }
+
+      const res = await fetch(`${API_BASE_URL}/api/work-profiles/${encodeURIComponent(selectedProfile.employee_email)}`, {
+        method: "PATCH",
+        headers: { ...authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        let detail = "Save failed";
+        try { detail = (await res.json()).detail || detail; } catch { /* empty */ }
+        throw new Error(detail);
+      }
+      setSaveMsg("Saved.");
+      setEditMode(false);
+      await fetchProfiles();
+      // Refresh selected profile data
+      setSelectedProfile((prev) => prev ? {
+        ...prev,
+        github_username: editGithub || null,
+        skills: editSkills.split(",").map((s) => s.trim()).filter(Boolean),
+        profile_summary: editSummary,
+      } : prev);
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const linkGitHub = async () => {
     setLinking(true);
     setLinkSuccess("");
     try {
       const body: Record<string, string> = { github_username: gitHubUsername };
       if (isHROrAbove && linkTarget) body.target_email = linkTarget;
-      const res = await fetch("/api/work-profiles/register-github", {
+      const res = await fetch(`${API_BASE_URL}/api/work-profiles/register-github`, {
         method: "POST",
         headers: { ...authHeader, "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed");
+        let detail = "Failed";
+        try { detail = (await res.json()).detail || detail; } catch { /* empty body */ }
+        throw new Error(detail);
       }
       const data = await res.json();
-      setLinkSuccess(`GitHub username linked to ${data.employee_email}`);
-      setGitHubUsername("");
-      setLinkTarget("");
+      setLinkSuccess(`Saved. GitHub username linked to ${data.employee_email}`);
       await fetchProfiles();
     } catch (e: unknown) {
       setLinkSuccess(`Error: ${e instanceof Error ? e.message : "Failed"}`);
     } finally {
       setLinking(false);
+    }
+  };
+
+  const linkJira = async () => {
+    setLinkingJira(true);
+    setJiraSuccess("");
+    try {
+      const body: Record<string, string> = { jira_account_id: jiraAccountId };
+      if (isHROrAbove && jiraTarget) body.target_email = jiraTarget;
+      const res = await fetch(`${API_BASE_URL}/api/work-profiles/register-jira`, {
+        method: "POST",
+        headers: { ...authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        let detail = "Failed";
+        try { detail = (await res.json()).detail || detail; } catch { /* empty */ }
+        throw new Error(detail);
+      }
+      const data = await res.json();
+      setJiraSuccess(`Saved. JIRA account linked to ${data.employee_email}`);
+      await fetchProfiles();
+    } catch (e: unknown) {
+      setJiraSuccess(`Error: ${e instanceof Error ? e.message : "Failed"}`);
+    } finally {
+      setLinkingJira(false);
     }
   };
 
@@ -185,66 +278,135 @@ export default function WorkProfilesPage() {
         </div>
 
         <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="border-2 border-foreground shadow-[2px_2px_0px_#000] gap-2">
-              <Github className="h-4 w-4" />
-              Link GitHub Account
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+          <Button
+            className="border-2 border-foreground shadow-[2px_2px_0px_#000] gap-2"
+            onClick={() => {
+              // Pre-fill with the current user's existing values
+              const myProfile = profiles.find((p) => p.employee_email === user?.email);
+              setGitHubUsername(myProfile?.github_username ?? "");
+              setJiraAccountId(myProfile?.jira_account_id ?? "");
+              setLinkTarget("");
+              setJiraTarget("");
+              setLinkSuccess("");
+              setJiraSuccess("");
+              setLinkDialogOpen(true);
+            }}
+          >
+            <Link className="h-4 w-4" />
+            Link Accounts
+          </Button>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Link GitHub Username</DialogTitle>
+              <DialogTitle>Link External Accounts</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <p className="text-sm text-muted-foreground">
-                Linking a GitHub username allows NOVA to automatically build your skill profile
-                from commit activity via the GitHub webhook.
-              </p>
-              {isHROrAbove && (
-                <div>
-                  <Label>Employee Email (leave blank for yourself)</Label>
-                  <Input
-                    value={linkTarget}
-                    onChange={(e) => setLinkTarget(e.target.value)}
-                    placeholder="employee@company.com"
-                    className="border-2 border-foreground mt-1"
-                  />
-                </div>
-              )}
-              <div>
-                <Label>GitHub Username</Label>
-                <Input
-                  value={gitHubUsername}
-                  onChange={(e) => setGitHubUsername(e.target.value)}
-                  placeholder="octocat"
-                  className="border-2 border-foreground mt-1"
-                />
-              </div>
-              {linkSuccess && (
-                <p className={`text-sm font-medium ${linkSuccess.startsWith("Error") ? "text-destructive" : "text-emerald-700"}`}>
-                  {linkSuccess}
-                </p>
-              )}
-              <Button
-                className="w-full border-2 border-foreground shadow-[2px_2px_0px_#000]"
-                onClick={linkGitHub}
-                disabled={linking || !gitHubUsername.trim()}
-              >
-                {linking ? "Linking…" : "Link GitHub"}
-              </Button>
+            <div className="space-y-5 py-2">
 
-              <div className="rounded border border-muted bg-muted/30 p-3 text-xs space-y-1">
-                <p className="font-semibold">GitHub Webhook Setup</p>
-                <p className="text-muted-foreground">
-                  Add this URL as a webhook in your GitHub repo settings:
+              {/* ── GitHub section ── */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Github className="h-4 w-4" />
+                  <p className="font-semibold text-sm">GitHub</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  NOVA analyses your commits to build a skill profile automatically.
                 </p>
-                <code className="block font-mono bg-background border border-muted px-2 py-1 rounded break-all">
-                  {window.location.origin}/api/webhook/github
-                </code>
-                <p className="text-muted-foreground mt-1">
-                  Content type: <code>application/json</code> · Events: <code>push</code>
-                </p>
+                {isHROrAbove && (
+                  <div>
+                    <Label className="text-xs">Employee Email (leave blank for yourself)</Label>
+                    <Input
+                      value={linkTarget}
+                      onChange={(e) => setLinkTarget(e.target.value)}
+                      placeholder="employee@company.com"
+                      className="border-2 border-foreground mt-1 h-8 text-sm"
+                    />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs">GitHub Username</Label>
+                  <Input
+                    value={gitHubUsername}
+                    onChange={(e) => setGitHubUsername(e.target.value)}
+                    placeholder="octocat"
+                    className="border-2 border-foreground mt-1 h-8 text-sm"
+                  />
+                  {profiles.find(p => p.employee_email === user?.email)?.github_username && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Currently saved: <span className="font-mono font-medium">{profiles.find(p => p.employee_email === user?.email)?.github_username}</span>
+                    </p>
+                  )}
+                </div>
+                {linkSuccess && (
+                  <p className={`text-xs font-medium ${linkSuccess.startsWith("Error") ? "text-destructive" : "text-emerald-700"}`}>
+                    {linkSuccess}
+                  </p>
+                )}
+                <Button
+                  className="w-full border-2 border-foreground shadow-[2px_2px_0px_#000]"
+                  onClick={linkGitHub}
+                  disabled={linking || !gitHubUsername.trim()}
+                >
+                  {linking ? "Linking…" : "Link GitHub"}
+                </Button>
+                <div className="rounded border border-muted bg-muted/30 p-3 text-xs space-y-1">
+                  <p className="font-semibold">Webhook Setup</p>
+                  <code className="block font-mono bg-background border border-muted px-2 py-1 rounded break-all">
+                    {window.location.origin}/api/webhook/github
+                  </code>
+                  <p className="text-muted-foreground">Content type: <code>application/json</code> · Event: <code>push</code></p>
+                </div>
               </div>
+
+              <Separator />
+
+              {/* ── JIRA section ── */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded text-[10px]">J</span>
+                  <p className="font-semibold text-sm">JIRA</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  When a task is approved on NOVA, it will be automatically assigned to you on JIRA.
+                  Find your Account ID in JIRA: <span className="font-mono">Profile → Account ID</span> (the long string in the URL).
+                </p>
+                {isHROrAbove && (
+                  <div>
+                    <Label className="text-xs">Employee Email (leave blank for yourself)</Label>
+                    <Input
+                      value={jiraTarget}
+                      onChange={(e) => setJiraTarget(e.target.value)}
+                      placeholder="employee@company.com"
+                      className="border-2 border-foreground mt-1 h-8 text-sm"
+                    />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs">JIRA Account ID</Label>
+                  <Input
+                    value={jiraAccountId}
+                    onChange={(e) => setJiraAccountId(e.target.value)}
+                    placeholder="712020:abc123..."
+                    className="border-2 border-foreground mt-1 h-8 text-sm font-mono"
+                  />
+                  {profiles.find(p => p.employee_email === user?.email)?.jira_account_id && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Currently saved: <span className="font-mono font-medium">{profiles.find(p => p.employee_email === user?.email)?.jira_account_id}</span>
+                    </p>
+                  )}
+                </div>
+                {jiraSuccess && (
+                  <p className={`text-xs font-medium ${jiraSuccess.startsWith("Error") ? "text-destructive" : "text-emerald-700"}`}>
+                    {jiraSuccess}
+                  </p>
+                )}
+                <Button
+                  className="w-full border-2 border-foreground shadow-[2px_2px_0px_#000]"
+                  onClick={linkJira}
+                  disabled={linkingJira || !jiraAccountId.trim()}
+                >
+                  {linkingJira ? "Linking…" : "Link JIRA Account"}
+                </Button>
+              </div>
+
             </div>
           </DialogContent>
         </Dialog>
@@ -327,7 +489,7 @@ export default function WorkProfilesPage() {
       )}
 
       {/* Profile detail sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet open={sheetOpen} onOpenChange={(open) => { setSheetOpen(open); if (!open) { setEditMode(false); setSaveMsg(""); } }}>
         <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
           {selectedProfile && (
             <>
@@ -338,12 +500,20 @@ export default function WorkProfilesPage() {
                 </SheetTitle>
                 <div>
                   <p className="font-semibold text-sm">{selectedProfile.employee_email}</p>
-                  {selectedProfile.github_username && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                      <Github className="h-3 w-3" />
-                      {selectedProfile.github_username}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-3 mt-0.5">
+                    {selectedProfile.github_username && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Github className="h-3 w-3" />
+                        {selectedProfile.github_username}
+                      </div>
+                    )}
+                    {selectedProfile.jira_account_id && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span className="text-[9px] font-bold bg-blue-600 text-white px-1 py-0.5 rounded">J</span>
+                        <span className="font-mono truncate max-w-[140px]">{selectedProfile.jira_account_id}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </SheetHeader>
 
@@ -361,21 +531,95 @@ export default function WorkProfilesPage() {
                 ))}
               </div>
 
-              {/* Skills */}
+              {/* Skills — view or edit depending on mode */}
               <div className="mb-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Skills</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedProfile.skills.length === 0 ? (
-                    <span className="text-xs text-muted-foreground">No skills detected yet.</span>
-                  ) : (
-                    selectedProfile.skills.map((s) => (
-                      <span key={s} className="text-xs border border-foreground px-2 py-0.5 font-medium bg-card">
-                        {s}
-                      </span>
-                    ))
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Skills</p>
+                  {isHROrAbove && !editMode && (
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setEditMode(true)}>
+                      <Pencil className="h-3 w-3 mr-1" /> Edit Profile
+                    </Button>
                   )}
                 </div>
+                {!editMode ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProfile.skills.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">No skills detected yet.</span>
+                    ) : (
+                      selectedProfile.skills.map((s) => (
+                        <span key={s} className="text-xs border border-foreground px-2 py-0.5 font-medium bg-card">
+                          {s}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                ) : null}
               </div>
+
+              {/* HR edit panel */}
+              {isHROrAbove && editMode && (
+                <div className="mb-4 border-2 border-foreground p-3 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Edit Profile</p>
+                  <div>
+                    <Label className="text-xs">GitHub Username</Label>
+                    <Input
+                      value={editGithub}
+                      onChange={(e) => setEditGithub(e.target.value)}
+                      placeholder="octocat"
+                      className="border-2 border-foreground mt-1 h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">JIRA Account ID</Label>
+                    <Input
+                      value={editJira}
+                      onChange={(e) => setEditJira(e.target.value)}
+                      placeholder="712020:abc123..."
+                      className="border-2 border-foreground mt-1 h-8 text-sm font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Skills <span className="text-muted-foreground font-normal">(comma-separated — embeddings regenerated on save)</span></Label>
+                    <Input
+                      value={editSkills}
+                      onChange={(e) => setEditSkills(e.target.value)}
+                      placeholder="Python, FastAPI, React"
+                      className="border-2 border-foreground mt-1 h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Profile Summary</Label>
+                    <Textarea
+                      value={editSummary}
+                      onChange={(e) => setEditSummary(e.target.value)}
+                      placeholder="Brief description of this employee's technical profile…"
+                      className="border-2 border-foreground mt-1 text-sm"
+                      rows={3}
+                    />
+                  </div>
+                  {saveMsg && (
+                    <p className={`text-xs font-medium ${saveMsg === "Saved." ? "text-emerald-700" : "text-destructive"}`}>
+                      {saveMsg}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setEditMode(false); setSaveMsg(""); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="border-2 border-foreground shadow-[2px_2px_0px_#000]"
+                      onClick={saveProfile}
+                      disabled={saving}
+                    >
+                      <Save className="h-3.5 w-3.5 mr-1" />
+                      {saving ? "Saving…" : "Save Changes"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Separator className="my-4" />
 
               {/* Commits */}
               <div>

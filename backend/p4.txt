@@ -1,0 +1,81 @@
+INFO:     127.0.0.1:47762 - "GET /api/feedback/sessions/pending-review HTTP/1.1" 200 OK
+2026-04-16 00:17:47,726 - main - INFO - ➡️ [5a73007d] GET /api/appraisals/summary from 127.0.0.1
+2026-04-16 00:17:47,906 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:47,907 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:47,907 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/appraisals/summary
+2026-04-16 00:17:48,022 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/appraisal_suggestions?select=id&limit=1 "HTTP/2 200 OK"
+2026-04-16 00:17:48,220 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/appraisal_suggestions?select=composite_score%2Ccategory%2Creview_flag%2Cpromotion_eligible%2Cstatus%2Cdepartment "HTTP/2 200 OK"
+2026-04-16 00:17:48,222 - main - INFO - ⬅️ [5a73007d] GET /api/appraisals/summary -> 200 in 495.97ms
+INFO:     127.0.0.1:47762 - "GET /api/appraisals/summary HTTP/1.1" 200 OK
+2026-04-16 00:17:48,231 - main - INFO - ➡️ [fe25882c] GET /api/task-assignments/pending-count from 127.0.0.1
+2026-04-16 00:17:48,387 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:48,389 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:48,390 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/task-assignments/pending-count
+2026-04-16 00:17:48,511 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/jira_task_assignments?select=id&status=eq.pending "HTTP/2 200 OK"
+2026-04-16 00:17:48,512 - main - INFO - ⬅️ [fe25882c] GET /api/task-assignments/pending-count -> 200 in 280.91ms
+2026-04-16 00:17:48,632 - httpx - INFO - HTTP Request: POST https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/audit_log "HTTP/2 201 Created"
+INFO:     127.0.0.1:47762 - "GET /api/task-assignments/pending-count HTTP/1.1" 200 OK
+2026-04-16 00:17:48,643 - main - INFO - ➡️ [f6aff2ee] GET /api/job-board/limbo-count from 127.0.0.1
+2026-04-16 00:17:48,781 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:48,782 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:48,782 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/job-board/limbo-count
+2026-04-16 00:17:48,905 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/job_postings?select=id&status=eq.limbo "HTTP/2 200 OK"
+2026-04-16 00:17:48,906 - main - INFO - ⬅️ [f6aff2ee] GET /api/job-board/limbo-count -> 200 in 263.66ms
+2026-04-16 00:17:49,019 - httpx - INFO - HTTP Request: POST https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/audit_log "HTTP/2 201 Created"
+INFO:     127.0.0.1:47762 - "GET /api/job-board/limbo-count HTTP/1.1" 200 OK
+2026-04-16 00:17:50,777 - main - INFO - ➡️ [614520d2] GET /api/feedback/sessions/pending-review from 127.0.0.1
+2026-04-16 00:17:50,936 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:50,936 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:50,937 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/feedback/sessions/pending-review
+2026-04-16 00:17:50,937 - api.routes.feedback_sessions - INFO - Pending review requested by=hr.admin@company.com
+2026-04-16 00:17:51,058 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/feedback_sessions?select=id%2C%20employee_id%2C%20department%2C%20scheduled_date%2C%20status%2C%20hr_reviewed%2C%20created_at%2C%20emotion_analysis%2C%20derived_scores&status=in.%28scheduled%2Cin_progress%2Ccompleted%29&hr_reviewed=eq.False&order=scheduled_date "HTTP/2 200 OK"
+2026-04-16 00:17:51,060 - api.routes.feedback_sessions - INFO - Pending review served for=hr.admin@company.com count=10
+2026-04-16 00:17:51,061 - main - INFO - ⬅️ [614520d2] GET /api/feedback/sessions/pending-review -> 200 in 284.11ms
+INFO:     127.0.0.1:47762 - "GET /api/feedback/sessions/pending-review HTTP/1.1" 200 OK
+2026-04-16 00:17:51,088 - main - INFO - ➡️ [f10a4208] GET /api/appraisals/summary from 127.0.0.1
+2026-04-16 00:17:51,274 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:51,276 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:51,276 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/appraisals/summary
+2026-04-16 00:17:51,393 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/appraisal_suggestions?select=id&limit=1 "HTTP/2 200 OK"
+2026-04-16 00:17:51,512 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/appraisal_suggestions?select=composite_score%2Ccategory%2Creview_flag%2Cpromotion_eligible%2Cstatus%2Cdepartment "HTTP/2 200 OK"
+2026-04-16 00:17:51,514 - main - INFO - ⬅️ [f10a4208] GET /api/appraisals/summary -> 200 in 425.75ms
+INFO:     127.0.0.1:47762 - "GET /api/appraisals/summary HTTP/1.1" 200 OK
+2026-04-16 00:17:51,518 - main - INFO - ➡️ [bd491211] GET /api/task-assignments/pending-count from 127.0.0.1
+2026-04-16 00:17:51,652 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:51,653 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:51,653 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/task-assignments/pending-count
+2026-04-16 00:17:51,773 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/jira_task_assignments?select=id&status=eq.pending "HTTP/2 200 OK"
+2026-04-16 00:17:51,774 - main - INFO - ⬅️ [bd491211] GET /api/task-assignments/pending-count -> 200 in 255.63ms
+2026-04-16 00:17:51,891 - httpx - INFO - HTTP Request: POST https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/audit_log "HTTP/2 201 Created"
+INFO:     127.0.0.1:47762 - "GET /api/task-assignments/pending-count HTTP/1.1" 200 OK
+2026-04-16 00:17:51,902 - main - INFO - ➡️ [d773186a] GET /api/job-board/limbo-count from 127.0.0.1
+2026-04-16 00:17:52,063 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:52,064 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:52,065 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/job-board/limbo-count
+2026-04-16 00:17:52,178 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/job_postings?select=id&status=eq.limbo "HTTP/2 200 OK"
+2026-04-16 00:17:52,179 - main - INFO - ⬅️ [d773186a] GET /api/job-board/limbo-count -> 200 in 277.65ms
+2026-04-16 00:17:52,310 - httpx - INFO - HTTP Request: POST https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/audit_log "HTTP/2 201 Created"
+INFO:     127.0.0.1:47762 - "GET /api/job-board/limbo-count HTTP/1.1" 200 OK
+2026-04-16 00:17:52,595 - main - INFO - ➡️ [812aba43] OPTIONS /api/task-assignments/553ce42a-c431-4589-b0ea-192376932546/approve from 127.0.0.1
+2026-04-16 00:17:52,596 - main - INFO - ⬅️ [812aba43] OPTIONS /api/task-assignments/553ce42a-c431-4589-b0ea-192376932546/approve -> 200 in 0.62ms
+INFO:     127.0.0.1:47762 - "OPTIONS /api/task-assignments/553ce42a-c431-4589-b0ea-192376932546/approve HTTP/1.1" 200 OK
+2026-04-16 00:17:52,599 - main - INFO - ➡️ [7f5b815b] POST /api/task-assignments/553ce42a-c431-4589-b0ea-192376932546/approve from 127.0.0.1
+2026-04-16 00:17:52,722 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:52,724 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:52,725 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=POST /api/task-assignments/553ce42a-c431-4589-b0ea-192376932546/approve
+2026-04-16 00:17:52,858 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/jira_task_assignments?select=%2A&id=eq.553ce42a-c431-4589-b0ea-192376932546 "HTTP/2 200 OK"
+2026-04-16 00:17:52,984 - httpx - INFO - HTTP Request: PATCH https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/jira_task_assignments?id=eq.553ce42a-c431-4589-b0ea-192376932546 "HTTP/2 200 OK"
+2026-04-16 00:17:53,101 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/employee_work_profiles?select=jira_account_id&employee_email=eq.employee%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:53,731 - httpx - INFO - HTTP Request: PUT https://yourcompany.atlassian.net/rest/api/3/issue/KAN-9/assignee "HTTP/1.1 404 Not Found"
+2026-04-16 00:17:53,732 - ai.jira_client - WARNING - JIRA assign failed for KAN-9 (accountId=712020:d00fe2fb-ca3d-4b4f-8581-b01e692a78a1): HTTP 404 — {"errorMessages":["Issue does not exist or you do not have permission to see it."],"errors":{}}
+2026-04-16 00:17:53,732 - main - INFO - ⬅️ [7f5b815b] POST /api/task-assignments/553ce42a-c431-4589-b0ea-192376932546/approve -> 200 in 1132.95ms
+INFO:     127.0.0.1:47762 - "POST /api/task-assignments/553ce42a-c431-4589-b0ea-192376932546/approve HTTP/1.1" 200 OK
+2026-04-16 00:17:53,736 - main - INFO - ➡️ [099d73d8] GET /api/task-assignments from 127.0.0.1
+2026-04-16 00:17:53,872 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-16 00:17:53,874 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-16 00:17:53,874 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/task-assignments
+2026-04-16 00:17:54,039 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/jira_task_assignments?select=%2A&order=created_at.desc&status=eq.pending "HTTP/2 200 OK"
+2026-04-16 00:17:54,040 - main - INFO - ⬅️ [099d73d8] GET /api/task-assignments -> 200 in 304.27ms
+2026-04-16 00:17:54,162 - httpx - INFO - HTTP Request: POST https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/audit_log "HTTP/2 201 Created"
+INFO:     127.0.0.1:47762 - "GET /api/task-assignments?status=pending HTTP/1.1" 200 OK
+

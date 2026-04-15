@@ -1,0 +1,10 @@
+b1e/reassign HTTP/1.1" 200 OK
+2026-04-15 23:46:48,171 - main - INFO - ➡️ [50212547] GET /api/task-assignments from 127.0.0.1
+2026-04-15 23:46:48,317 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/users?select=%2A&email=eq.hr.admin%40company.com "HTTP/2 200 OK"
+2026-04-15 23:46:48,319 - api.deps - INFO - ✅ Authenticated user from token: hr.admin@company.com (role=hr)
+2026-04-15 23:46:48,319 - api.deps - INFO - ✅ [RBAC] Access granted - User: hr.admin@company.com (Role: hr) route=GET /api/task-assignments
+2026-04-15 23:46:48,610 - httpx - INFO - HTTP Request: GET https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/jira_task_assignments?select=%2A&order=created_at.desc&status=eq.pending "HTTP/2 200 OK"
+2026-04-15 23:46:48,612 - main - INFO - ⬅️ [50212547] GET /api/task-assignments -> 200 in 440.74ms
+2026-04-15 23:46:48,766 - httpx - INFO - HTTP Request: POST https://ildptkfdtiuerugcubzs.supabase.co/rest/v1/audit_log "HTTP/2 201 Created"
+INFO:     127.0.0.1:59884 - "GET /api/task-assignments?status=pending HTTP/1.1" 200 OK
+

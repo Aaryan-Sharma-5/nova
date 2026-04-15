@@ -47,9 +47,17 @@ def _get_setting(sb, key: str, default: Any = None) -> Any:
 
 
 def _get_all_work_profiles(sb) -> list[dict]:
+    """Return all work profiles enriched with full_name from the users table."""
     try:
         r = sb.table("employee_work_profiles").select("*").execute()
-        return r.data or []
+        profiles = r.data or []
+        if profiles:
+            emails = [p["employee_email"] for p in profiles]
+            users_r = sb.table("users").select("email,full_name").in_("email", emails).execute()
+            name_map = {u["email"]: u.get("full_name") or "" for u in (users_r.data or [])}
+            for p in profiles:
+                p["full_name"] = name_map.get(p["employee_email"], "")
+        return profiles
     except Exception:
         return []
 
@@ -185,6 +193,14 @@ async def _handle_issue_created(data: dict, sb) -> dict:
             "job_posting_id": posting_id,
         }
 
+    # Resolve display name — LLM may return null if profile had no full_name
+    if not selected_name:
+        try:
+            ur = sb.table("users").select("full_name").eq("email", selected_email).execute()
+            selected_name = (ur.data[0].get("full_name") or selected_email) if ur.data else selected_email
+        except Exception:
+            selected_name = selected_email
+
     # 6. Create assignment record in limbo
     best = next((c for c in candidates if (c.get("employee_email") or c.get("email")) == selected_email), candidates[0])
     match_score = best.get("match_score", confidence)
@@ -272,9 +288,11 @@ async def _handle_push(data: dict) -> dict:
     if not github_username:
         return {"status": "ignored", "reason": "no_github_username"}
 
-    # Look up employee by github_username
+    # Look up employee by github_username (case-insensitive — GitHub usernames
+    # are case-preserving but case-insensitive, so "AnamayNarkar" and
+    # "anamaynarkar" must both match whatever the employee registered).
     try:
-        r = sb.table("employee_work_profiles").select("*").eq("github_username", github_username).execute()
+        r = sb.table("employee_work_profiles").select("*").ilike("github_username", github_username).execute()
         profile = r.data[0] if r.data else None
     except Exception:
         profile = None

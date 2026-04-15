@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     PORT: int = 8000
     ORG_SECTOR: str = "IT Services"
 
+    # JIRA Integration
+    JIRA_BASE_URL: str = ""
+    JIRA_EMAIL: str = ""
+    JIRA_API_TOKEN: str = ""
+
     # Optional ML feature explainability source configuration
     ML_FEATURE_TABLE: str = ""
     ML_FEATURE_EMPLOYEE_KEY: str = "employee_id"

@@ -118,8 +118,8 @@ async def update_job_posting(
         r = sb.table("job_postings").select("status").eq("id", posting_id).execute()
         if not r.data:
             raise HTTPException(status_code=404, detail="Not found")
-        if r.data[0]["status"] not in ("limbo",):
-            raise HTTPException(status_code=400, detail="Can only edit postings in limbo")
+        if r.data[0]["status"] == "closed":
+            raise HTTPException(status_code=400, detail="Cannot edit a closed posting")
 
         updates: dict = {"updated_at": _now()}
         if body.title is not None:

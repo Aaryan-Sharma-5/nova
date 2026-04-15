@@ -17,7 +17,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { CheckCircle, XCircle, Clock, Bot, Zap, Settings } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
+import { CheckCircle, XCircle, Clock, Bot, Zap, Settings, UserPlus, RefreshCw } from "lucide-react";
 
 interface Assignment {
   id: string;
@@ -79,12 +80,18 @@ export default function TaskAssignmentsPage() {
   const [rejectCreateJob, setRejectCreateJob] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  const [assignDialogOpen, setAssignDialogOpen] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<{ email: string; full_name: string }[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [reassignLoading, setReassignLoading] = useState<string | null>(null);
+
   const authHeader = { Authorization: `Bearer ${token}` };
 
   const fetchAssignments = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/task-assignments?status=${activeTab}`, { headers: authHeader });
+      const res = await fetch(`${API_BASE_URL}/api/task-assignments?status=${activeTab}`, { headers: authHeader });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setAssignments(data.assignments ?? []);
@@ -95,9 +102,18 @@ export default function TaskAssignmentsPage() {
     }
   }, [token, activeTab]);
 
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/work-profiles/employees`, { headers: authHeader });
+      if (!res.ok) return;
+      const data = await res.json();
+      setEmployees(data.employees ?? []);
+    } catch { /* ignore */ }
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch("/api/task-assignments/settings/auto-approve", { headers: authHeader });
+      const res = await fetch(`${API_BASE_URL}/api/task-assignments/settings/auto-approve`, { headers: authHeader });
       if (!res.ok) return;
       const data = await res.json();
       setSettings(data);
@@ -112,12 +128,13 @@ export default function TaskAssignmentsPage() {
 
   useEffect(() => {
     void fetchSettings();
-  }, [fetchSettings]);
+    void fetchEmployees();
+  }, [fetchSettings, fetchEmployees]);
 
   const approve = async (id: string) => {
     setActionLoading(id);
     try {
-      const res = await fetch(`/api/task-assignments/${id}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/api/task-assignments/${id}/approve`, {
         method: "POST",
         headers: { ...authHeader, "Content-Type": "application/json" },
         body: JSON.stringify({ notes: "" }),
@@ -132,7 +149,7 @@ export default function TaskAssignmentsPage() {
   const reject = async (id: string) => {
     setActionLoading(id);
     try {
-      const res = await fetch(`/api/task-assignments/${id}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/task-assignments/${id}/reject`, {
         method: "POST",
         headers: { ...authHeader, "Content-Type": "application/json" },
         body: JSON.stringify({ reason: rejectReason, create_job_posting: rejectCreateJob }),
@@ -146,10 +163,52 @@ export default function TaskAssignmentsPage() {
     }
   };
 
+  const reassignWithAI = async (id: string) => {
+    setReassignLoading(id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/task-assignments/${id}/reassign`, {
+        method: "POST",
+        headers: authHeader,
+      });
+      if (!res.ok) {
+        let detail = "Reassignment failed";
+        try { detail = (await res.json()).detail || detail; } catch { /* empty */ }
+        alert(detail);
+        return;
+      }
+      await fetchAssignments();
+    } finally {
+      setReassignLoading(null);
+    }
+  };
+
+  const assignEmployee = async (assignmentId: string, assigneeEmail: string) => {
+    setAssignLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/task-assignments/${assignmentId}/assign`, {
+        method: "POST",
+        headers: { ...authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ assignee_email: assigneeEmail }),
+      });
+      if (!res.ok) {
+        let detail = "Failed";
+        try { detail = (await res.json()).detail || detail; } catch { /* empty */ }
+        throw new Error(detail);
+      }
+      setAssignDialogOpen(null);
+      setEmployeeSearch("");
+      await fetchAssignments();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Assignment failed");
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
   const saveSettings = async () => {
     setSettingsLoading(true);
     try {
-      await fetch("/api/task-assignments/settings/auto-approve", {
+      await fetch(`${API_BASE_URL}/api/task-assignments/settings/auto-approve`, {
         method: "PUT",
         headers: { ...authHeader, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -203,24 +262,33 @@ export default function TaskAssignmentsPage() {
             ))}
           </div>
 
-          {/* Recommendation */}
-          {a.recommended_assignee_name && (
-            <div className="border-l-4 border-primary pl-3 py-1 bg-primary/5">
+          {/* Assignee block — shows AI recommendation, manual assignment, or unassigned state */}
+          {a.recommended_assignee_email ? (
+            <div className="border-l-4 border-primary pl-3 py-1.5 bg-primary/5 space-y-1">
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-primary shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold">
-                    AI Recommends: <span className="text-primary">{a.recommended_assignee_name}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-tight">
+                    {a.ai_reasoning?.startsWith("Manually") ? "Assigned: " : "AI Recommends: "}
+                    <span className="text-primary">{a.recommended_assignee_name || a.recommended_assignee_email}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">{a.recommended_assignee_email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{a.recommended_assignee_email}</p>
                 </div>
-                <span className={`ml-auto text-sm tabular-nums ${matchScoreColor(a.match_score)}`}>
-                  {(a.match_score * 100).toFixed(0)}% match
-                </span>
+                {a.match_score < 1.0 && (
+                  <span className={`ml-auto text-sm tabular-nums shrink-0 ${matchScoreColor(a.match_score)}`}>
+                    {(a.match_score * 100).toFixed(0)}% match
+                  </span>
+                )}
               </div>
               {a.ai_reasoning && (
-                <p className="text-xs text-muted-foreground mt-1.5 italic">{a.ai_reasoning}</p>
+                <p className="text-xs text-muted-foreground italic leading-relaxed">
+                  {a.ai_reasoning}
+                </p>
               )}
+            </div>
+          ) : (
+            <div className="border-l-4 border-muted pl-3 py-1 bg-muted/30">
+              <p className="text-xs text-muted-foreground italic">No assignee — use Assign to select an employee.</p>
             </div>
           )}
 
@@ -237,13 +305,34 @@ export default function TaskAssignmentsPage() {
               {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </p>
             {a.status === "pending" && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-2 border-foreground"
+                  onClick={() => { setAssignDialogOpen(a.id); setEmployeeSearch(""); }}
+                  disabled={actionLoading === a.id || reassignLoading === a.id}
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-1" />
+                  {a.recommended_assignee_email ? "Reassign" : "Assign"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-2 border-foreground"
+                  onClick={() => reassignWithAI(a.id)}
+                  disabled={actionLoading === a.id || reassignLoading === a.id}
+                  title="Re-run AI matching with current work profiles"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${reassignLoading === a.id ? "animate-spin" : ""}`} />
+                  Re-run AI
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   className="border-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
                   onClick={() => { setRejectDialogOpen(a.id); setRejectReason(""); }}
-                  disabled={actionLoading === a.id}
+                  disabled={actionLoading === a.id || reassignLoading === a.id}
                 >
                   <XCircle className="h-3.5 w-3.5 mr-1" />
                   Reject
@@ -252,7 +341,8 @@ export default function TaskAssignmentsPage() {
                   size="sm"
                   className="border-2 border-foreground shadow-[2px_2px_0px_#000]"
                   onClick={() => approve(a.id)}
-                  disabled={actionLoading === a.id}
+                  disabled={actionLoading === a.id || reassignLoading === a.id || !a.recommended_assignee_email}
+                  title={!a.recommended_assignee_email ? "Assign an employee first" : undefined}
                 >
                   <CheckCircle className="h-3.5 w-3.5 mr-1" />
                   Approve
@@ -382,6 +472,52 @@ export default function TaskAssignmentsPage() {
                   Confirm Rejection
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Assign dialog */}
+      {assignDialogOpen && (
+        <Dialog open={!!assignDialogOpen} onOpenChange={() => setAssignDialogOpen(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Assign Employee</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-1">
+              <Input
+                placeholder="Search by name or email…"
+                value={employeeSearch}
+                onChange={(e) => setEmployeeSearch(e.target.value)}
+                className="border-2 border-foreground"
+              />
+              <div className="max-h-72 overflow-y-auto space-y-1 border border-muted rounded">
+                {employees
+                  .filter((e) => {
+                    const q = employeeSearch.toLowerCase();
+                    return !q || e.email.toLowerCase().includes(q) || (e.full_name || "").toLowerCase().includes(q);
+                  })
+                  .map((e) => (
+                    <button
+                      key={e.email}
+                      className="w-full text-left px-3 py-2 hover:bg-muted text-sm flex items-center justify-between gap-2"
+                      onClick={() => assignEmployee(assignDialogOpen, e.email)}
+                      disabled={assignLoading}
+                    >
+                      <span className="font-medium">{e.full_name || e.email}</span>
+                      <span className="text-xs text-muted-foreground truncate">{e.email}</span>
+                    </button>
+                  ))}
+                {employees.filter((e) => {
+                  const q = employeeSearch.toLowerCase();
+                  return !q || e.email.toLowerCase().includes(q) || (e.full_name || "").toLowerCase().includes(q);
+                }).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">No employees found.</p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selecting an employee will assign and immediately approve this task.
+              </p>
             </div>
           </DialogContent>
         </Dialog>

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { API_BASE_URL } from "@/lib/api";
 import { Briefcase, CheckCircle, XCircle, Pencil, Bot } from "lucide-react";
 
 interface JobPosting {
@@ -74,7 +75,7 @@ export default function JobBoardPage() {
   const fetchPostings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/job-board?status=${activeTab}`, { headers: authHeader });
+      const res = await fetch(`${API_BASE_URL}/api/job-board?status=${activeTab}`, { headers: authHeader });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setPostings(data.postings ?? []);
@@ -92,7 +93,7 @@ export default function JobBoardPage() {
   const approve = async (id: string) => {
     setActionLoading(id);
     try {
-      const res = await fetch(`/api/job-board/${id}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/api/job-board/${id}/approve`, {
         method: "POST",
         headers: { ...authHeader, "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -107,7 +108,7 @@ export default function JobBoardPage() {
   const close = async (id: string) => {
     setActionLoading(id);
     try {
-      await fetch(`/api/job-board/${id}/close`, { method: "POST", headers: authHeader });
+      await fetch(`${API_BASE_URL}/api/job-board/${id}/close`, { method: "POST", headers: authHeader });
       await fetchPostings();
     } finally {
       setActionLoading(null);
@@ -127,7 +128,7 @@ export default function JobBoardPage() {
     if (!editPosting) return;
     setEditLoading(true);
     try {
-      await fetch(`/api/job-board/${editPosting.id}`, {
+      await fetch(`${API_BASE_URL}/api/job-board/${editPosting.id}`, {
         method: "PUT",
         headers: { ...authHeader, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -212,27 +213,28 @@ export default function JobBoardPage() {
           </p>
 
           <div className="flex gap-2">
+            {(p.status === "limbo" || p.status === "approved") && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-2 border-foreground"
+                onClick={() => openEdit(p)}
+                disabled={actionLoading === p.id}
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
             {p.status === "limbo" && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-2 border-foreground"
-                  onClick={() => openEdit(p)}
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  className="border-2 border-foreground shadow-[2px_2px_0px_#000]"
-                  onClick={() => approve(p.id)}
-                  disabled={actionLoading === p.id}
-                >
-                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                  Publish
-                </Button>
-              </>
+              <Button
+                size="sm"
+                className="border-2 border-foreground shadow-[2px_2px_0px_#000]"
+                onClick={() => approve(p.id)}
+                disabled={actionLoading === p.id}
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                Publish
+              </Button>
             )}
             {p.status === "approved" && (
               <Button

@@ -32,7 +32,7 @@
 ### Frontend
 - [x] Integrated `InterventionRecommendations` and `AnomalyIndicator` into both:
   - dashboard page
-  - org health page
+  - org wellbeing page
 - [x] Added RBAC-gated rendering for anomaly/intervention modules.
 - [x] Replaced mock-only usage with real API wiring for anomaly/intervention data.
 - [x] Added loading and empty states for intervention/anomaly sections.

@@ -49,6 +49,7 @@ const FALLBACK_AGENT = { agentId: 'general_nova_agent', label: 'NOVA Assistant' 
 const INTRO_SESSION_KEY = 'nova_assistant_introduced';
 const TEXT_ONLY_NOTICE = 'Voice input not available in this browser. Please type.';
 const MUTE_SESSION_KEY = 'nova_assistant_muted';
+const GUIDED_TOUR_PATTERN = /2[- ]?minute tour|guided tour|tour of nova/i;
 
 const PAGE_SUGGESTIONS: Record<string, string[]> = {
   '/org-health': [
@@ -174,6 +175,7 @@ export function VoiceAssistant() {
   const currentSectionRef = useRef<string>(sectionKey(location.pathname));
   const autoStartRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const tourTimersRef = useRef<number[]>([]);
 
   const agent = useMemo(() => resolveAgent(location.pathname), [location.pathname]);
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
@@ -282,16 +284,71 @@ export function VoiceAssistant() {
     }
   }, []);
 
+  const clearTourTimers = useCallback(() => {
+    if (tourTimersRef.current.length === 0) return;
+    for (const timerId of tourTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+    tourTimersRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearTourTimers();
+    };
+  }, [clearTourTimers]);
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !token) return;
 
+      clearTourTimers();
       setError(null);
       setShowSuggestedQuestions(false);
       appendMessage({ id: newId(), role: 'user', content: trimmed });
       setInputValue('');
       setMicState('processing');
+
+      if (GUIDED_TOUR_PATTERN.test(trimmed)) {
+        const intro = 'Perfect. Starting your guided NOVA walkthrough now. I will take you through Org Wellbeing, Employees, and Org Tree in sequence.';
+        const introId = newId();
+        appendMessage({ id: introId, role: 'assistant', content: intro });
+        speak(intro, introId);
+
+        const steps = [
+          {
+            delay: 700,
+            to: '/org-health',
+            message: 'Step 1 of 3: Org Wellbeing. Focus on the workforce score, active alerts, and quick actions for the leadership summary.',
+          },
+          {
+            delay: 3600,
+            to: '/employees',
+            message: 'Step 2 of 3: Employees. Highlight the top risk clusters and open a showcase employee profile to explain root causes.',
+          },
+          {
+            delay: 6500,
+            to: '/employees/org-tree',
+            message: 'Step 3 of 3: Org Tree. Use Find and Fit to Screen to show CEO to VP structure, reporting lines, and span of control.',
+          },
+          {
+            delay: 9000,
+            to: '/dashboard',
+            message: 'Tour complete. You are back on Dashboard and ready for Q&A. Ask me for a deep dive into any metric.',
+          },
+        ];
+
+        tourTimersRef.current = steps.map((step) =>
+          window.setTimeout(() => {
+            navigate(step.to);
+            appendMessage({ id: newId(), role: 'assistant', content: step.message });
+          }, step.delay),
+        );
+
+        setMicState('idle');
+        return;
+      }
 
       const history = messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -343,7 +400,7 @@ export function VoiceAssistant() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [token, messages, location.pathname, user, conversational, speechSupported, appendMessage, speak],
+    [token, messages, location.pathname, user, conversational, speechSupported, appendMessage, speak, clearTourTimers, navigate],
   );
 
   const startListening = useCallback(() => {

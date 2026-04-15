@@ -142,7 +142,7 @@ Risk Score = (
 - Every major risk metric now supports **"Why this score?"** drilldowns in dashboard UI
 - Score explanations include weighted contributors, confidence, and readable rationale
 - Cost and savings analytics expose formulas, inputs, and stepwise calculations
-- Org Health includes methodology disclosures and simulated-benchmark labels for transparency
+- Org Wellbeing includes methodology disclosures and simulated-benchmark labels for transparency
 - AI feedback sessions include explicit consent handling and review workflow for HR
 
 ### 📊 Real-Time Organizational Health Dashboard
@@ -219,7 +219,7 @@ Risk Score = (
 - ✅ **Google Sign-In Primary CTA** - OAuth-first login experience
 - ✅ **Installable PWA** - Manifest + service worker for app-shell caching
 - ✅ **Mobile UX Enhancements** - Bottom tab navigation, install banner, chart touch zoom/scroll handling
-- ✅ **Org Health Report Export** - One-click multi-page PDF generation with progress states
+- ✅ **Org Wellbeing Report Export** - One-click multi-page PDF generation with progress states
 - ✅ **Anomaly Alerts List Panel** - Dedicated `/anomalies` view with per-employee anomaly rows and quick profile navigation
 - ✅ **Live Sidebar Session Badges** - Sessions-to-review and upcoming-sessions badges auto-refresh every 60s and on window focus
 - ✅ **Scroll-Safe What-If Modal** - Fixed header, backdrop close, and 90vh scrollable simulator body for full-content reachability
@@ -230,11 +230,14 @@ Risk Score = (
 - ✅ **Page-Aware Voice Assistant** - auto-routes to specialized agents by route context (overview, employee, appraisal, feedback, dept heatmap, org structure)
 - ✅ **Voice Onboarding Nudge** - first-session bounce + tooltip intro for discoverability
 - ✅ **Suggested Question Pills** - page-specific one-tap prompts for judge/demo flow
+- ✅ **Guided Voice Tour** - timed page walkthrough that narrates Org Wellbeing, Employees, Org Tree, and returns to Dashboard
+- ✅ **Assistant Session Controls** - persistent mute toggle, clear chat reset, and transient agent-switch toast
+- ✅ **Demo Shell Banner** - dismissible synthetic-data disclosure banner for demo-ready presentation mode
 - ✅ **Speaking Waveform Feedback** - in-bubble animated waveform while speech synthesis is active
 - ✅ **Graceful Voice Fallbacks** - text-only mode notice when Web Speech API is unavailable
 
 ### 🧭 **Unified Employee Directory & Identity**
-- ✅ **Single source of truth roster** - one canonical Indian employee directory reused across Employees, Org Tree, Org Health, and drilldown APIs
+- ✅ **Single source of truth roster** - one canonical Indian employee directory reused across Employees, Org Tree, Org Wellbeing, and drilldown APIs
 - ✅ **Deterministic NOVA IDs** - IDs like `NOVA-ENG001` and `NOVA-SAL005` are stable across frontend and backend
 - ✅ **Shared hierarchy model** - `title`, `reports_to`, and `org_level` are wired end to end
 - ✅ **No cross-page identity drift** - legacy mixed placeholder pools removed to prevent overlap/confusion
@@ -356,6 +359,7 @@ Risk Score = (
 | `/hr/sessions-review` | Session queue and HR review/ingestion workflow | HR, Leadership |
 | `/anomalies` | Full anomalies list panel with View Employee navigation | Manager, HR, Leadership |
 | `/integrations` | Jira demo config and integration status cards | HR, Leadership |
+| `/org-health` | Org Wellbeing landing with executive summary, alerts, and quick actions | Manager, HR, Leadership |
 | `/your-data` | Employee self-service data view | Employee |
 | `/feedback-session` | Employee feedback recording/consent flow | Employee |
 
@@ -676,7 +680,7 @@ curl http://localhost:8000/health
   - ensure frontend and backend are both restarted
   - verify `VITE_API_BASE_URL=http://localhost:8000`
   - if needed, clear site data for `localhost:8080` and sign in again
-- Expected state: Employees, Org Tree, Org Health risk cards, and heatmap detail all use the same canonical roster.
+- Expected state: Employees, Org Tree, Org Wellbeing risk cards, and heatmap detail all use the same canonical roster.
 
 **9. Voice input is unavailable or mic does not start**
 - If your browser lacks Web Speech API support, NOVA Assistant automatically runs in text-only mode.
@@ -734,7 +738,7 @@ npm run dev
 | **Employee** | Self-only | Own profile, own insights, personal dashboard |
 | **Manager** | Team-level | Team members, team dashboard, effectiveness scores |
 | **HR** | Organization-wide | All employees, reports, interventions, trends |
-| **Leadership** | Executive | Org health, strategic insights, benchmarking |
+| **Leadership** | Executive | Org wellbeing, strategic insights, benchmarking |
 
 ### Voice Assistant Scope by Role
 
@@ -777,12 +781,12 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Network Analysis (centrality, propagation)
 - Batch Scheduler (APScheduler ready)
 - Structured AI insight schema (summary, key signals, recommended action + fallback parser)
-- Intervention + anomaly widgets integrated in both dashboard and org health pages with RBAC visibility
+- Intervention + anomaly widgets integrated in both dashboard and org wellbeing pages with RBAC visibility
 - Composite score explainability UI (weighted breakdown, 7-day change reason, trend badges)
 - Jira integration system (mocked ingestion, real UI and config lifecycle)
 - Manager 360 feedback loop with k-anonymity behavior and trend aggregation
 - Onboarding risk handling with first-90-days cohort baseline and onboarding watchlist
-- Org Health report export API + frontend multi-page PDF generation flow
+- Org Wellbeing report export API + frontend multi-page PDF generation flow
 - Industry benchmark APIs and UI overlays/badges (explicitly labeled simulated medians)
 - PWA support + mobile responsiveness enhancements (install banner, bottom tabs, touch graph interactions)
 - Feedback session scheduler page and session queue page wired for HR/Leadership roles
@@ -794,6 +798,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Dedicated employee detail endpoint with deterministic required fields and server-computed `data_quality_score`
 - Dedicated anomalies page route (`/anomalies`) with View All flow from dashboard anomaly bar
 - What-if simulator modal UX hardening (scrollable body, fixed header, backdrop dismiss, close control)
+- What-If intervention simulator - modal scenario builder with apply flow, backend simulation route, and scroll-safe UX hardening
 - Integrations page Jira demo configuration flow with test connection simulation and connected-state update
 - Lightweight frontend integration tests for sidebar polling and modal behavior
 - HR Feedback Analyzer page with three-column UX, sentiment/sarcasm-aware cards, and batch/deep Groq analysis flows
@@ -802,13 +807,12 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Unified canonical employee roster wired into frontend and backend org-tree generation (single identity model)
 - Deterministic NOVA ID + hierarchy model (`title`, `reports_to`, `org_level`) propagated to employee and org endpoints
 - Organization hierarchy endpoints with RBAC-scoped full tree, subtree, and hierarchy stats
-- Org Health and Burnout Heatmap employee cards now sourced from the canonical employee context (no mixed placeholder roster)
+- Org Wellbeing and Burnout Heatmap employee cards now sourced from the canonical employee context (no mixed placeholder roster)
 - Specialized voice agents for Department Heatmap and Org Structure pages, including route-aware context prefetching
 - Voice assistant UX polish: first-session onboarding nudge, page-specific suggested questions, speaking waveform, and resilient text-only fallback handling
 
 ### 🔄 **In Progress**
 - ML feature importance visualization
-- What-If intervention simulator
 - Historical trend persistence with correlation tagging
 - Production hardening of Jira connector from mock pipeline to live API token flow
 
@@ -832,7 +836,6 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Structured AI summaries with robust fallback handling
 - Temporal-weighted anomaly composite with explainability panels
 - ML classifier with feature importance visualization
-- What-if intervention simulator
 - Manager 360 trend quality scoring and manager coaching feedback loop refinements
 
 ### Phase 3: Enterprise (Q2 2026)

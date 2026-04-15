@@ -6,30 +6,32 @@ import { EmployeeProvider } from "@/contexts/EmployeeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
-import DashboardPage from "./pages/DashboardPage";
 import { useAuth } from "@/contexts/AuthContext";
-import EmployeesPage from "./pages/EmployeesPage";
-import SentimentPage from "./pages/SentimentPage";
-import OrgHealthPage from "./pages/OrgHealthPage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import ForbiddenPage from "./pages/ForbiddenPage";
-import BackendEndpointPage from "./pages/BackendEndpointPage";
-import AuditLogPage from "./pages/AuditLogPage";
-import EmployeePersonalPage from "./pages/EmployeePersonalPage";
-import FeedbackSessionPage from "./pages/FeedbackSessionPage";
-import HRSessionsReviewPage from "./pages/HRSessionsReviewPage";
-import HRSessionsSchedulerPage from "./pages/HRSessionsSchedulerPage";
-import HRFeedbackPage from "./pages/HRFeedbackPage";
-import AppraisalPage from "./pages/AppraisalPage";
-import IntegrationsPage from "./pages/IntegrationsPage";
-import EmployeeProfilePage from "./pages/EmployeeProfilePage";
-import NotFound from "./pages/NotFound";
-import { InsightsDashboard } from "@/features/insights/InsightsDashboard";
-import AnomaliesPage from "./pages/AnomaliesPage";
-import DeptHeatmapPage from "./pages/DeptHeatmapPage";
-import OrgTreePage from "./pages/OrgTreePage";
-import VoiceAssistant from "@/components/voice/VoiceAssistant";
+import { lazy, Suspense } from "react";
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
+const SentimentPage = lazy(() => import("./pages/SentimentPage"));
+const OrgHealthPage = lazy(() => import("./pages/OrgHealthPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
+const BackendEndpointPage = lazy(() => import("./pages/BackendEndpointPage"));
+const AuditLogPage = lazy(() => import("./pages/AuditLogPage"));
+const EmployeePersonalPage = lazy(() => import("./pages/EmployeePersonalPage"));
+const FeedbackSessionPage = lazy(() => import("./pages/FeedbackSessionPage"));
+const HRSessionsReviewPage = lazy(() => import("./pages/HRSessionsReviewPage"));
+const HRSessionsSchedulerPage = lazy(() => import("./pages/HRSessionsSchedulerPage"));
+const HRFeedbackPage = lazy(() => import("./pages/HRFeedbackPage"));
+const AppraisalPage = lazy(() => import("./pages/AppraisalPage"));
+const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
+const EmployeeProfilePage = lazy(() => import("./pages/EmployeeProfilePage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const InsightsDashboard = lazy(() => import("@/features/insights/InsightsDashboard").then((module) => ({ default: module.InsightsDashboard })));
+const AnomaliesPage = lazy(() => import("./pages/AnomaliesPage"));
+const DeptHeatmapPage = lazy(() => import("./pages/DeptHeatmapPage"));
+const OrgTreePage = lazy(() => import("./pages/OrgTreePage"));
+const VoiceAssistant = lazy(() => import("@/components/voice/VoiceAssistant"));
 
 const queryClient = new QueryClient();
 
@@ -51,39 +53,40 @@ const App = () => (
               v7_relativeSplatPath: true,
             }}
           >
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/forbidden" element={<ForbiddenPage />} />
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/forbidden" element={<ForbiddenPage />} />
 
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <RoleHomeRedirect />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <DashboardPage />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/employees"
-                element={
-                  <ProtectedRoute allowedRoles={["manager", "hr", "leadership"]}>
-                    <AppLayout>
-                      <EmployeesPage />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <RoleHomeRedirect />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout>
+                        <DashboardPage />
+                      </AppLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/employees"
+                  element={
+                    <ProtectedRoute allowedRoles={["manager", "hr", "leadership"]}>
+                      <AppLayout>
+                        <EmployeesPage />
+                      </AppLayout>
+                    </ProtectedRoute>
+                  }
+                />
               <Route
                 path="/sentiment"
                 element={
@@ -315,13 +318,22 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-            </Routes>
-            <VoiceAssistant />
+              </Routes>
+              <VoiceAssistant />
+            </Suspense>
           </BrowserRouter>
         </EmployeeProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+      Loading NOVA...
+    </div>
+  );
+}
 
 export default App;

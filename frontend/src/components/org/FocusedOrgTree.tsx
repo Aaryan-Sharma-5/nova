@@ -9,6 +9,7 @@ import { protectedGetApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployees } from "@/contexts/EmployeeContext";
 import { useNavigate } from "react-router-dom";
+import type { ExpandOrgNodeDetail } from "@/lib/agentBus";
 
 type OrgNode = {
   employee_id: string;
@@ -219,6 +220,22 @@ function TreeCanvas({
     setExpandedPathIds([hierarchy.employee_id]);
     setSelectedLeaf(null);
   }, [hierarchy.employee_id, mode]);
+
+  useEffect(() => {
+    const onExpand = (event: Event) => {
+      const detail = (event as CustomEvent<ExpandOrgNodeDetail>).detail;
+      const employeeId = detail?.employeeId;
+      if (!employeeId) return;
+      const path = findPath(hierarchy, employeeId);
+      if (path.length > 0) {
+        setExpandedPathIds(path);
+        setSelectedLeaf(null);
+      }
+    };
+
+    window.addEventListener("nova:expand-org-node", onExpand as EventListener);
+    return () => window.removeEventListener("nova:expand-org-node", onExpand as EventListener);
+  }, [hierarchy]);
 
   const handleNodeClick = (node: d3.HierarchyPointNode<OrgNode>) => {
     const children = node.data.children || [];

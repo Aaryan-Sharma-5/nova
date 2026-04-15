@@ -19,7 +19,10 @@ SYSTEM_PROMPT = (
     "Suggest specific actions like scheduling 1:1s, sending recognition, or "
     "reviewing interventions. Keep responses under 3 sentences. When you "
     "recommend a 1:1 with a specific employee, emit the action token "
-    "[ACTION: schedule-1on1:{employee_id}]."
+    "[ACTION: schedule-1on1:{employee_id}]. The current user's role is {role}. "
+    "Adjust your responses: HR and Leadership: full data access, use specific "
+    "numbers. Manager: team-level data only. Employee: personal data only, no "
+    "peer comparisons."
 )
 
 

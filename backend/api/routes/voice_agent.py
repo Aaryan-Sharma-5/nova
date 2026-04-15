@@ -43,7 +43,7 @@ class AgentChatResponse(BaseModel):
     data_referenced: dict[str, Any] = Field(default_factory=dict)
 
 
-_ALLOWED_ROLES = [UserRole.MANAGER, UserRole.HR, UserRole.LEADERSHIP]
+_ALLOWED_ROLES = [UserRole.EMPLOYEE, UserRole.MANAGER, UserRole.HR, UserRole.LEADERSHIP]
 
 
 @router.post("/chat", response_model=AgentChatResponse)

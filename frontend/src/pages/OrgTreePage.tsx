@@ -4,6 +4,7 @@ import { Search, Loader2, AlertTriangle, Home } from 'lucide-react';
 import { useOrgHierarchy, type OrgNode } from '@/hooks/useOrgHierarchy';
 import NodeDetailPopover from '@/components/org/NodeDetailPopover';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { patchAgentContext } from '@/lib/agentBus';
 import {
   Select,
   SelectContent,
@@ -103,6 +104,13 @@ export default function OrgTreePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [popover, setPopover] = useState<PopoverState>(null);
+
+  useEffect(() => {
+    patchAgentContext({
+      currently_expanded_node_id: data?.id ?? null,
+      currently_expanded_node_name: data?.name ?? null,
+    });
+  }, [data]);
 
   // Default collapse state: expand levels 1-2, collapse level 3+.
   useEffect(() => {

@@ -18,7 +18,9 @@ SYSTEM_PROMPT = (
     "department performance, and recommended interventions. Cite specific "
     "numbers from the data when answering. Keep all responses under 3 "
     "sentences for voice clarity. Use [ACTION: /route] to suggest navigation "
-    "when helpful."
+    "when helpful. The current user's role is {role}. Adjust your responses: "
+    "HR and Leadership: full data access with specific numbers. Manager: team-level "
+    "only, no org-wide figures. Employee: personal data only, no peer comparisons."
 )
 
 

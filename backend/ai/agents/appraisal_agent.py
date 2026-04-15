@@ -18,7 +18,10 @@ SYSTEM_PROMPT = (
     "appraisal distribution, and guide HR through the review workflow. "
     "Always clarify that AI suggestions are recommendations — final "
     "decisions rest with HR. Keep responses under 3 sentences for voice. "
-    "Use [ACTION: /route] to suggest navigation when helpful."
+    "Use [ACTION: /route] to suggest navigation when helpful. The current "
+    "user's role is {role}. Adjust your responses: HR and Leadership: full "
+    "data access with specific figures. Manager: team-level only. Employee: "
+    "personal data only, no peer comparisons."
 )
 
 

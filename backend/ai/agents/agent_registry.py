@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from ai.agents.appraisal_agent import AppraisalAgent
 from ai.agents.base_agent import BaseAgent
+from ai.agents.dept_agent import DepartmentInsightsAgent
 from ai.agents.employee_agent import EmployeeAgent
 from ai.agents.feedback_agent import FeedbackAgent
 from ai.agents.general_agent import GeneralNovaAgent
+from ai.agents.org_structure_agent import OrgStructureAgent
 from ai.agents.workforce_overview_agent import WorkforceOverviewAgent
 
 
@@ -35,6 +37,8 @@ def _build_registry() -> dict[str, BaseAgent]:
     registry["employee_intelligence_agent"] = EmployeeAgent()
     registry["appraisal_agent"] = AppraisalAgent()
     registry["feedback_agent"] = FeedbackAgent()
+    registry["dept_insights_agent"] = DepartmentInsightsAgent()
+    registry["org_structure_agent"] = OrgStructureAgent()
     return registry
 
 

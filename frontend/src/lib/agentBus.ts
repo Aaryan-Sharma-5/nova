@@ -47,11 +47,21 @@ export function subscribeOpenAssistant(fn: (p: OpenPayload) => void): () => void
 
 // Schedule-1:1 dispatch — pages with a schedule modal can listen for this.
 export type ScheduleOneOnOneDetail = { employeeId: string };
+export type ExpandOrgNodeDetail = { employeeId: string };
 
 export function dispatchScheduleOneOnOne(employeeId: string): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(
     new CustomEvent<ScheduleOneOnOneDetail>('nova:schedule-1on1', {
+      detail: { employeeId },
+    }),
+  );
+}
+
+export function dispatchExpandOrgNode(employeeId: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent<ExpandOrgNodeDetail>('nova:expand-org-node', {
       detail: { employeeId },
     }),
   );

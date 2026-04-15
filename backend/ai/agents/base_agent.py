@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 
 _ACTION_PATTERN = re.compile(r"\[ACTION:\s*([^\]]+)\]")
 _MAX_HISTORY_TURNS = 6
+_ROLE_GUARDRAIL = (
+    "The current user's role is {role}. Adjust your responses: "
+    "HR and Leadership: full data access, use specific numbers. "
+    "Manager: team-level data only, no org-wide figures. "
+    "Employee: personal data only, no peer comparisons."
+)
 
 
 class BaseAgent:
@@ -107,6 +113,13 @@ class BaseAgent:
                     "content": f"Page/user context (JSON): {context_data}",
                 }
             )
+            role = str(context_data.get("user_role") or "unknown")
+            messages.append(
+                {
+                    "role": "system",
+                    "content": _ROLE_GUARDRAIL.format(role=role),
+                }
+            )
 
         trimmed = list(history)[-_MAX_HISTORY_TURNS * 2 :]
         for turn in trimmed:
@@ -132,6 +145,15 @@ class BaseAgent:
                         "label": f"Schedule 1:1 with {employee_id}",
                         "route": employee_id,
                         "action_type": "schedule-1on1",
+                    }
+                )
+            elif token.startswith("expand-node:"):
+                employee_id = token.split(":", 1)[1].strip()
+                actions.append(
+                    {
+                        "label": f"Expand node {employee_id}",
+                        "route": employee_id,
+                        "action_type": "expand-node",
                     }
                 )
             else:

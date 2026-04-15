@@ -227,6 +227,11 @@ Risk Score = (
 - ✅ **Jira Demo Configure Modal** - Test connection simulation + persisted demo-connected status updates in Integrations UI
 - ✅ **Role-Aware Sentiment Navigation** - HR sees Feedback Analyzer while Leadership retains Sentiment Analyzer
 - ✅ **Focused Org Tree + Full Org Tree** - hierarchical drilldown with expand/collapse and dedicated tree route
+- ✅ **Page-Aware Voice Assistant** - auto-routes to specialized agents by route context (overview, employee, appraisal, feedback, dept heatmap, org structure)
+- ✅ **Voice Onboarding Nudge** - first-session bounce + tooltip intro for discoverability
+- ✅ **Suggested Question Pills** - page-specific one-tap prompts for judge/demo flow
+- ✅ **Speaking Waveform Feedback** - in-bubble animated waveform while speech synthesis is active
+- ✅ **Graceful Voice Fallbacks** - text-only mode notice when Web Speech API is unavailable
 
 ### 🧭 **Unified Employee Directory & Identity**
 - ✅ **Single source of truth roster** - one canonical Indian employee directory reused across Employees, Org Tree, Org Health, and drilldown APIs
@@ -374,6 +379,12 @@ POST   /api/ai/performance-prediction  Predict performance band
 POST   /api/ai/retention-risk       Assess retention/flight risk
 GET    /api/ai/insights/{id}       Get all insights for employee
 POST   /api/ai/ask-nova             Chat with AI assistant (streaming)
+```
+
+### Voice Assistant & Agent Routing
+```
+POST   /api/agent/chat              Route chat/voice turn to page-specialized agent
+GET    /api/agent/agents            List registered voice agents
 ```
 
 ### Interventions (NEW)
@@ -591,6 +602,10 @@ VITE_SUPABASE_ANON_KEY=your_supabase_key
 npm run test
 ```
 
+Voice UX browser note:
+- Chrome and Edge provide the best Web Speech API support.
+- On unsupported browsers, NOVA Assistant automatically falls back to text-only mode.
+
 Lightweight integration coverage now includes:
 - sidebar badge polling behavior (`AppLayout.badges.test.tsx`)
 - what-if modal scroll/backdrop-close behavior (`WhatIfSimulator.modal.test.tsx`)
@@ -663,6 +678,11 @@ curl http://localhost:8000/health
   - if needed, clear site data for `localhost:8080` and sign in again
 - Expected state: Employees, Org Tree, Org Health risk cards, and heatmap detail all use the same canonical roster.
 
+**9. Voice input is unavailable or mic does not start**
+- If your browser lacks Web Speech API support, NOVA Assistant automatically runs in text-only mode.
+- Recommended browsers: Chrome or Edge.
+- If supported browser still fails: verify microphone permission and refresh once.
+
 ---
 
 ## ▶️ Running the Application
@@ -715,6 +735,17 @@ npm run dev
 | **Manager** | Team-level | Team members, team dashboard, effectiveness scores |
 | **HR** | Organization-wide | All employees, reports, interventions, trends |
 | **Leadership** | Executive | Org health, strategic insights, benchmarking |
+
+### Voice Assistant Scope by Role
+
+| Role | Voice Assistant Data Scope | Example Behavior |
+|---|---|---|
+| **Employee** | Personal-only | Answers personal questions; no peer/team/org comparisons |
+| **Manager** | Team-level only | Team insights and manager actions; no org-wide numeric comparisons |
+| **HR** | Organization-wide | Full org metrics with specific values and cross-department comparisons |
+| **Leadership** | Organization-wide (executive) | Full org summaries, trends, and strategic comparisons |
+
+NOVA Assistant enforces these limits on every `/api/agent/chat` turn by passing the authenticated role to the active specialized agent.
 
 ### Endpoint Protection
 All API endpoints require valid JWT token with appropriate role.
@@ -772,6 +803,8 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Deterministic NOVA ID + hierarchy model (`title`, `reports_to`, `org_level`) propagated to employee and org endpoints
 - Organization hierarchy endpoints with RBAC-scoped full tree, subtree, and hierarchy stats
 - Org Health and Burnout Heatmap employee cards now sourced from the canonical employee context (no mixed placeholder roster)
+- Specialized voice agents for Department Heatmap and Org Structure pages, including route-aware context prefetching
+- Voice assistant UX polish: first-session onboarding nudge, page-specific suggested questions, speaking waveform, and resilient text-only fallback handling
 
 ### 🔄 **In Progress**
 - ML feature importance visualization

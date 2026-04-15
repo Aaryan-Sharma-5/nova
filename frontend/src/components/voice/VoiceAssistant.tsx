@@ -4,6 +4,7 @@ import { Bot, CalendarCheck, Mic, Minus, Send, Volume2, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { protectedPostApi } from '@/lib/api';
 import {
+  dispatchExpandOrgNode,
   dispatchScheduleOneOnOne,
   getAgentContext,
   subscribeOpenAssistant,
@@ -45,6 +46,42 @@ const PAGE_TO_AGENT: Array<{ match: (path: string) => boolean; agentId: string; 
 
 const FALLBACK_AGENT = { agentId: 'general_nova_agent', label: 'NOVA Assistant' };
 
+const INTRO_SESSION_KEY = 'nova_assistant_introduced';
+const TEXT_ONLY_NOTICE = 'Voice input not available in this browser. Please type.';
+
+const PAGE_SUGGESTIONS: Record<string, string[]> = {
+  '/org-health': [
+    "What's our overall workforce health?",
+    'Which department needs attention?',
+    'How many employees are at risk?',
+  ],
+  '/dashboard': [
+    "What's our overall workforce health?",
+    'Which department needs attention?',
+    'How many employees are at risk?',
+  ],
+  '/employees': [
+    'Who are our top flight risks?',
+    'Tell me about this employee',
+    'Which department has the most burnout?',
+  ],
+  '/hr/appraisals': [
+    'Summarize this appraisal cycle',
+    'Who should be fast-tracked?',
+    'Are there any bias risks?',
+  ],
+  '/hr/feedback-analyzer': [
+    'What are employees most concerned about?',
+    'How much sarcasm is in the feedback?',
+    'Which department has the most negative feedback?',
+  ],
+  '/departments/heatmap': [
+    'Which department is performing best?',
+    'Why is this department flagged?',
+    'Compare Engineering and Sales',
+  ],
+};
+
 function resolveAgent(pathname: string) {
   const match = PAGE_TO_AGENT.find((entry) => entry.match(pathname));
   return match ? { agentId: match.agentId, label: match.label } : FALLBACK_AGENT;
@@ -62,6 +99,24 @@ function sectionKey(pathname: string): string {
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getSuggestedQuestions(pathname: string, context: Record<string, unknown>): string[] {
+  let basePath = pathname;
+  if (pathname.startsWith('/employees/org-tree')) basePath = '/employees/org-tree';
+  else if (pathname.startsWith('/employees')) basePath = '/employees';
+  else if (pathname.startsWith('/hr/appraisals')) basePath = '/hr/appraisals';
+  else if (pathname.startsWith('/hr/feedback-analyzer')) basePath = '/hr/feedback-analyzer';
+  else if (pathname.startsWith('/departments/heatmap')) basePath = '/departments/heatmap';
+
+  const seeded = PAGE_SUGGESTIONS[basePath] || [];
+  if (basePath === '/employees') {
+    const hasSelected = Boolean(
+      context.currently_viewed_employee_id || context.employee_id || context.currently_reviewed_employee_id,
+    );
+    return seeded.filter((q) => (q === 'Tell me about this employee' ? hasSelected : true));
+  }
+  return seeded;
 }
 
 // Narrow typing for the non-standard SpeechRecognition API on window.
@@ -96,6 +151,10 @@ export function VoiceAssistant() {
   const [micState, setMicState] = useState<MicState>('idle');
   const [conversational, setConversational] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [introVisible, setIntroVisible] = useState(false);
+  const [introBouncing, setIntroBouncing] = useState(false);
+  const [showSuggestedQuestions, setShowSuggestedQuestions] = useState(true);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const currentSectionRef = useRef<string>(sectionKey(location.pathname));
@@ -106,6 +165,10 @@ export function VoiceAssistant() {
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
   const shortcutLabel = isMac ? '⌘+Space' : 'Ctrl+Space';
   const speechSupported = typeof window !== 'undefined' && !!getSpeechRecognitionCtor();
+  const suggestedQuestions = getSuggestedQuestions(
+    location.pathname,
+    getAgentContext() as Record<string, unknown>,
+  );
 
   // Trim history to last 10 exchanges (20 messages).
   const appendMessage = useCallback((msg: ChatMessage) => {
@@ -134,27 +197,52 @@ export function VoiceAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const seen = window.sessionStorage.getItem(INTRO_SESSION_KEY);
+    if (seen) return;
+
+    setIntroVisible(true);
+    setIntroBouncing(true);
+    window.sessionStorage.setItem(INTRO_SESSION_KEY, '1');
+    const timer = window.setTimeout(() => {
+      setIntroBouncing(false);
+      setIntroVisible(false);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setShowSuggestedQuestions(true);
+    setIntroVisible(false);
+  }, [open, location.pathname]);
+
   const stopSpeaking = useCallback(() => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+    setSpeakingMessageId(null);
   }, []);
 
   const speak = useCallback(
-    (text: string, onEnd?: () => void) => {
+    (text: string, messageId?: string, onEnd?: () => void) => {
       if (typeof window === 'undefined' || !window.speechSynthesis || !text.trim()) {
         onEnd?.();
         return;
       }
       window.speechSynthesis.cancel();
+      setSpeakingMessageId(messageId ?? null);
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-IN';
       utter.rate = 0.95;
       utter.onend = () => {
+        setSpeakingMessageId(null);
         setMicState((s) => (s === 'speaking' ? 'idle' : s));
         onEnd?.();
       };
       utter.onerror = () => {
+        setSpeakingMessageId(null);
         setMicState((s) => (s === 'speaking' ? 'idle' : s));
         onEnd?.();
       };
@@ -180,6 +268,7 @@ export function VoiceAssistant() {
       if (!trimmed || !token) return;
 
       setError(null);
+      setShowSuggestedQuestions(false);
       appendMessage({ id: newId(), role: 'user', content: trimmed });
       setInputValue('');
       setMicState('processing');
@@ -206,15 +295,16 @@ export function VoiceAssistant() {
           },
         );
 
+        const assistantMessageId = newId();
         appendMessage({
-          id: newId(),
+          id: assistantMessageId,
           role: 'assistant',
           content: response.reply,
           agentId: response.agent_id,
           actions: response.suggested_actions || [],
         });
 
-        speak(response.reply, () => {
+        speak(response.reply, assistantMessageId, () => {
           if (conversational && speechSupported) {
             // Auto-restart listening for follow-ups.
             autoStartRef.current = true;
@@ -222,12 +312,12 @@ export function VoiceAssistant() {
           }
         });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Request failed';
+        const msg = "I'm having trouble connecting right now. Please try again in a moment.";
         setError(msg);
         appendMessage({
           id: newId(),
           role: 'assistant',
-          content: `I couldn't reach the assistant: ${msg}`,
+          content: msg,
         });
         setMicState('idle');
       }
@@ -239,7 +329,7 @@ export function VoiceAssistant() {
   const startListening = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
-      setError('Speech recognition is not supported in this browser.');
+      setError(TEXT_ONLY_NOTICE);
       return;
     }
     stopSpeaking();
@@ -267,7 +357,12 @@ export function VoiceAssistant() {
       };
 
       recognizer.onerror = (event: any) => {
-        setError(`Mic error: ${event?.error ?? 'unknown'}`);
+        const code = String(event?.error || '').toLowerCase();
+        if (code === 'not-allowed' || code === 'service-not-allowed') {
+          setError('Microphone permission is blocked. Please allow access or type your question.');
+        } else {
+          setError('Voice input failed. Please try again or type your question.');
+        }
         setMicState('idle');
       };
 
@@ -354,6 +449,13 @@ export function VoiceAssistant() {
         navigate(action.route);
         return;
       }
+      if (action.action_type === 'expand-node') {
+        navigate('/employees');
+        window.setTimeout(() => {
+          dispatchExpandOrgNode(action.route);
+        }, 140);
+        return;
+      }
       if (action.action_type === 'schedule-1on1') {
         dispatchScheduleOneOnOne(action.route);
       }
@@ -375,27 +477,45 @@ export function VoiceAssistant() {
   return (
     <>
       {!open && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          title={`Ask NOVA Assistant (${shortcutLabel})`}
-          aria-label="Open NOVA Assistant"
-          className="nova-voice-fab fixed bottom-6 right-6 z-[1000] flex h-14 w-14 items-center justify-center rounded-full border-2 border-foreground shadow-[2px_2px_0px_#000] transition-transform hover:-translate-y-0.5"
-          style={{ backgroundColor: '#F5C518' }}
-        >
-          <span
-            className="absolute inset-0 rounded-full"
-            style={{ animation: 'nova-voice-pulse 2.4s ease-out infinite' }}
-          />
-          <Mic className="h-6 w-6 text-black" />
-          <style>{`
-            @keyframes nova-voice-pulse {
-              0% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.55); }
-              70% { box-shadow: 0 0 0 16px rgba(245, 197, 24, 0); }
-              100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0); }
-            }
-          `}</style>
-        </button>
+        <div className="fixed bottom-6 right-6 z-[1000] flex flex-col items-end gap-2">
+          {introVisible && (
+            <div className="max-w-[260px] rounded-lg border-2 border-foreground bg-white px-3 py-2 text-xs shadow-[3px_3px_0px_#000]">
+              Hi! I'm NOVA Assistant. Click to ask me anything about your workforce data.
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            title={`Ask NOVA Assistant (${shortcutLabel})`}
+            aria-label="Open NOVA Assistant"
+            className={`nova-voice-fab relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-foreground shadow-[2px_2px_0px_#000] transition-transform hover:-translate-y-0.5 ${
+              introBouncing ? 'nova-intro-bounce' : ''
+            }`}
+            style={{ backgroundColor: '#F5C518' }}
+          >
+            <span
+              className="absolute inset-0 rounded-full"
+              style={{ animation: 'nova-voice-pulse 2.4s ease-out infinite' }}
+            />
+            <Mic className="h-6 w-6 text-black" />
+            <style>{`
+              @keyframes nova-voice-pulse {
+                0% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.55); }
+                70% { box-shadow: 0 0 0 16px rgba(245, 197, 24, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0); }
+              }
+              @keyframes nova-intro-bounce {
+                0%, 100% { transform: translateY(0); }
+                25% { transform: translateY(-6px); }
+                50% { transform: translateY(0); }
+                75% { transform: translateY(-3px); }
+              }
+              .nova-intro-bounce {
+                animation: nova-intro-bounce 0.8s ease-in-out 0s 4;
+              }
+            `}</style>
+          </button>
+        </div>
       )}
 
       {open && (
@@ -469,6 +589,17 @@ export function VoiceAssistant() {
                         }`}
                       >
                         {m.content}
+                        {!isUser && speakingMessageId === m.id && micState === 'speaking' && (
+                          <span className="mt-2 inline-flex items-end gap-1" aria-label="Speaking waveform">
+                            {[0, 1, 2, 3, 4].map((bar) => (
+                              <span
+                                key={`${m.id}-bar-${bar}`}
+                                className="nova-wave-bar"
+                                style={{ animationDelay: `${bar * 0.12}s` }}
+                              />
+                            ))}
+                          </span>
+                        )}
                       </div>
                       {!isUser && m.actions && m.actions.length > 0 && (
                         <div className="flex flex-wrap gap-1">
@@ -523,6 +654,19 @@ export function VoiceAssistant() {
                 0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
                 40% { opacity: 1; transform: translateY(-3px); }
               }
+              .nova-wave-bar {
+                width: 3px;
+                height: 10px;
+                background: #F5C518;
+                border: 1px solid #1A1A1A;
+                display: inline-block;
+                animation: nova-wave 0.9s ease-in-out infinite;
+                transform-origin: bottom;
+              }
+              @keyframes nova-wave {
+                0%, 100% { transform: scaleY(0.4); }
+                50% { transform: scaleY(1.4); }
+              }
             `}</style>
           </div>
 
@@ -557,6 +701,24 @@ export function VoiceAssistant() {
               </button>
             </div>
 
+            {showSuggestedQuestions && suggestedQuestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {suggestedQuestions.slice(0, 3).map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    onClick={() => {
+                      setInputValue(question);
+                      void sendMessage(question);
+                    }}
+                    className="rounded-full border-2 border-foreground bg-white px-2.5 py-1 text-[10px] font-semibold text-black hover:bg-[#FFF9D6]"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="flex flex-col items-center gap-0.5">
               <button
                 type="button"
@@ -585,6 +747,9 @@ export function VoiceAssistant() {
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 {micLabel}
               </p>
+              {!speechSupported && (
+                <p className="text-[10px] text-amber-700 font-medium">{TEXT_ONLY_NOTICE}</p>
+              )}
               <p className="text-[9px] text-muted-foreground/70">
                 Press mic or type your question · {shortcutLabel}
               </p>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowUpDown, Loader2, AlertTriangle } from 'lucide-react';
 import {
   useDepartmentHeatmap,
@@ -7,6 +7,7 @@ import {
 } from '@/hooks/useDepartmentHeatmap';
 import DeptDrilldownPanel from '@/components/departments/DeptDrilldownPanel';
 import { Card } from '@/components/ui/card';
+import { patchAgentContext } from '@/lib/agentBus';
 import {
   Tooltip,
   TooltipContent,
@@ -76,6 +77,7 @@ export default function DeptHeatmapPage() {
   useDocumentTitle('NOVA — Department Heatmap');
   const { data, loading, error } = useDepartmentHeatmap();
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [hoveredDimension, setHoveredDimension] = useState<EfficiencyDimension | null>(null);
   const [sortByEfficiency, setSortByEfficiency] = useState(false);
 
   const {
@@ -106,6 +108,13 @@ export default function DeptHeatmapPage() {
     }
     return averages;
   }, [data]);
+
+  useEffect(() => {
+    patchAgentContext({
+      selected_department: selectedDept,
+      hovered_cell_dimension: hoveredDimension,
+    });
+  }, [selectedDept, hoveredDimension]);
 
   if (loading) {
     return (
@@ -185,6 +194,7 @@ export default function DeptHeatmapPage() {
                   flags={flags}
                   isSelected={isSelected}
                   onSelect={setSelectedDept}
+                  onHoverDimension={setHoveredDimension}
                 />
               );
             })}
@@ -229,6 +239,7 @@ type HeatmapRowProps = {
   flags: string[];
   isSelected: boolean;
   onSelect: (dept: string) => void;
+  onHoverDimension: (dim: EfficiencyDimension | null) => void;
 };
 
 function HeatmapRow({
@@ -239,6 +250,7 @@ function HeatmapRow({
   flags,
   isSelected,
   onSelect,
+  onHoverDimension,
 }: HeatmapRowProps) {
   return (
     <>
@@ -278,6 +290,8 @@ function HeatmapRow({
               <button
                 type="button"
                 onClick={() => onSelect(dept)}
+                onMouseEnter={() => onHoverDimension(dim)}
+                onMouseLeave={() => onHoverDimension(null)}
                 className={`flex h-14 items-center justify-center border-2 border-foreground text-sm font-bold transition-transform hover:scale-105 ${
                   isSelected ? 'ring-2 ring-[#FFE500]' : ''
                 }`}

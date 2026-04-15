@@ -18,7 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { API_BASE_URL } from "@/lib/api";
-import { CheckCircle, XCircle, Clock, Bot, Zap, Settings, UserPlus, RefreshCw } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Bot, Zap, Settings, UserPlus, RefreshCw, AlertTriangle, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Assignment {
   id: string;
@@ -33,7 +34,7 @@ interface Assignment {
   recommended_assignee_name: string | null;
   match_score: number;
   ai_reasoning: string;
-  status: "pending" | "approved" | "rejected" | "auto_approved";
+  status: "pending" | "approved" | "rejected" | "auto_approved" | "no_match";
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
@@ -51,6 +52,7 @@ const STATUS_CONFIG = {
   approved: { label: "Approved", variant: "default" as const, icon: CheckCircle },
   auto_approved: { label: "Auto-Approved", variant: "default" as const, icon: Zap },
   rejected: { label: "Rejected", variant: "destructive" as const, icon: XCircle },
+  no_match: { label: "No Match Found", variant: "outline" as const, icon: AlertTriangle },
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -262,8 +264,28 @@ export default function TaskAssignmentsPage() {
             ))}
           </div>
 
-          {/* Assignee block — shows AI recommendation, manual assignment, or unassigned state */}
-          {a.recommended_assignee_email ? (
+          {/* Assignee block — shows AI recommendation, no-match banner, or unassigned state */}
+          {a.status === "no_match" ? (
+            <div className="border-l-4 border-yellow-400 pl-3 py-2 bg-yellow-50 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm font-semibold text-yellow-800">AI found no matching employee</p>
+                  <p className="text-xs text-yellow-700 leading-relaxed">{a.ai_reasoning}</p>
+                  <Link
+                    to="/job-board"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-yellow-800 underline underline-offset-2 hover:text-yellow-900"
+                  >
+                    View job listing on Job Board
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+              </div>
+              <p className="text-xs text-yellow-700 font-medium pl-6">
+                You can still manually assign this task using the Assign button below.
+              </p>
+            </div>
+          ) : a.recommended_assignee_email ? (
             <div className="border-l-4 border-primary pl-3 py-1.5 bg-primary/5 space-y-1">
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-primary shrink-0" />
@@ -304,7 +326,7 @@ export default function TaskAssignmentsPage() {
             <p className="text-xs text-muted-foreground">
               {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </p>
-            {a.status === "pending" && (
+            {(a.status === "pending" || a.status === "no_match") && (
               <div className="flex gap-2 flex-wrap">
                 <Button
                   size="sm"
@@ -327,26 +349,30 @@ export default function TaskAssignmentsPage() {
                   <RefreshCw className={`h-3.5 w-3.5 mr-1 ${reassignLoading === a.id ? "animate-spin" : ""}`} />
                   Re-run AI
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
-                  onClick={() => { setRejectDialogOpen(a.id); setRejectReason(""); }}
-                  disabled={actionLoading === a.id || reassignLoading === a.id}
-                >
-                  <XCircle className="h-3.5 w-3.5 mr-1" />
-                  Reject
-                </Button>
-                <Button
-                  size="sm"
-                  className="border-2 border-foreground shadow-[2px_2px_0px_#000]"
-                  onClick={() => approve(a.id)}
-                  disabled={actionLoading === a.id || reassignLoading === a.id || !a.recommended_assignee_email}
-                  title={!a.recommended_assignee_email ? "Assign an employee first" : undefined}
-                >
-                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                  Approve
-                </Button>
+                {a.status === "pending" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
+                      onClick={() => { setRejectDialogOpen(a.id); setRejectReason(""); }}
+                      disabled={actionLoading === a.id || reassignLoading === a.id}
+                    >
+                      <XCircle className="h-3.5 w-3.5 mr-1" />
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="border-2 border-foreground shadow-[2px_2px_0px_#000]"
+                      onClick={() => approve(a.id)}
+                      disabled={actionLoading === a.id || reassignLoading === a.id || !a.recommended_assignee_email}
+                      title={!a.recommended_assignee_email ? "Assign an employee first" : undefined}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                      Approve
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -526,12 +552,13 @@ export default function TaskAssignmentsPage() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)}>
         <TabsList className="border-2 border-foreground">
           <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="no_match">No Match</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="auto_approved">Auto-Approved</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
         </TabsList>
 
-        {["pending", "approved", "auto_approved", "rejected"].map((tab) => (
+        {["pending", "no_match", "approved", "auto_approved", "rejected"].map((tab) => (
           <TabsContent key={tab} value={tab} className="mt-4">
             {loading ? (
               <div className="space-y-3">

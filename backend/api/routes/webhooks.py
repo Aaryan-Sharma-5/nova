@@ -87,6 +87,57 @@ async def _create_job_posting(sb, jira_key: str, assignment_id: str | None,
         return None
 
 
+async def _handle_no_match(
+    sb, data: dict, issue_key: str, title: str, description: str,
+    project_name: str, issue_type: str, priority: str,
+    required_skills: list[str], reason: str,
+) -> dict:
+    """Create a job posting AND a no_match task assignment when AI finds nobody."""
+    posting_id = await _create_job_posting(
+        sb, issue_key, None, title, description, required_skills, reason
+    )
+
+    ai_note = (
+        f"AI found no matching employee — {reason} "
+        f"A job listing has been created on the Job Board. "
+        f"You can manually assign this task to an available employee."
+    )
+
+    assignment_row = {
+        "jira_issue_key": issue_key,
+        "jira_issue_title": title,
+        "jira_issue_description": description[:2000],
+        "project_name": project_name,
+        "issue_type": issue_type,
+        "priority": priority,
+        "required_skills": required_skills,
+        "recommended_assignee_email": None,
+        "recommended_assignee_name": None,
+        "match_score": 0.0,
+        "ai_reasoning": ai_note,
+        "status": "no_match",
+        "raw_webhook_data": data,
+        "created_at": _now(),
+        "updated_at": _now(),
+    }
+
+    assignment_id = None
+    try:
+        r = sb.table("jira_task_assignments").insert(assignment_row).execute()
+        if r.data:
+            assignment_id = r.data[0]["id"]
+    except Exception as exc:
+        logger.error("Failed to save no-match assignment: %s", exc)
+
+    return {
+        "status": "no_match",
+        "issue_key": issue_key,
+        "reason": reason,
+        "job_posting_id": posting_id,
+        "assignment_id": assignment_id,
+    }
+
+
 # ── JIRA Webhook ──────────────────────────────────────────────────────────────
 
 @router.post("/jira")
@@ -145,32 +196,21 @@ async def _handle_issue_created(data: dict, sb) -> dict:
     auto_threshold = float(_get_setting(sb, "auto_approve_threshold", 0.85) or 0.85)
 
     if not profiles:
-        # No employees at all — straight to job posting
-        posting_id = await _create_job_posting(
-            sb, issue_key, None, title, description, required_skills,
-            "No employee work profiles found in the system."
+        return await _handle_no_match(
+            sb, data, issue_key, title, description, project_name,
+            issue_type, priority, required_skills,
+            "No employee work profiles found in the system.",
         )
-        return {
-            "status": "job_posting_created",
-            "issue_key": issue_key,
-            "reason": "no_employees",
-            "job_posting_id": posting_id,
-        }
 
     # 4. Find matching employees
     candidates = find_matching_employees(required_skills, f"{title}. {description}", profiles, top_n=5)
 
     if not candidates:
-        posting_id = await _create_job_posting(
-            sb, issue_key, None, title, description, required_skills,
-            "No employees with relevant skills found."
+        return await _handle_no_match(
+            sb, data, issue_key, title, description, project_name,
+            issue_type, priority, required_skills,
+            "No employees with relevant skills found.",
         )
-        return {
-            "status": "job_posting_created",
-            "issue_key": issue_key,
-            "reason": "no_skill_match",
-            "job_posting_id": posting_id,
-        }
 
     # 5. LLM evaluation
     evaluation = await evaluate_best_candidate(candidates, title, description, required_skills)
@@ -180,18 +220,11 @@ async def _handle_issue_created(data: dict, sb) -> dict:
     reasoning = evaluation.get("reasoning", "")
 
     if not selected_email:
-        # LLM rejected all candidates
-        posting_id = await _create_job_posting(
-            sb, issue_key, None, title, description, required_skills,
-            f"LLM rejected all candidates: {reasoning}"
+        return await _handle_no_match(
+            sb, data, issue_key, title, description, project_name,
+            issue_type, priority, required_skills,
+            f"LLM rejected all candidates: {reasoning}",
         )
-        return {
-            "status": "job_posting_created",
-            "issue_key": issue_key,
-            "reason": "llm_rejected_all",
-            "llm_reasoning": reasoning,
-            "job_posting_id": posting_id,
-        }
 
     # Resolve display name — LLM may return null if profile had no full_name
     if not selected_name:

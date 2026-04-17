@@ -61,30 +61,22 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     managerOneOnOneFrequency: number;
   } | null>(null);
 
-  const urgencyColors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+  const urgencyColors: Record<string, { border: string; badge: string }> = {
     critical: {
-      bg: '#000000',
-      border: '#F5C518',
-      text: '#ffffff',
-      badge: '#F5C518',
+      border: '#000000',
+      badge: '#FF1744',
     },
     high: {
-      bg: '#ffffff',
       border: '#000000',
-      text: '#000000',
       badge: '#F5C518',
     },
     medium: {
-      bg: '#ffffff',
       border: '#000000',
-      text: '#000000',
-      badge: '#999999',
+      badge: '#6B7280',
     },
     low: {
-      bg: '#ffffff',
-      border: '#cccccc',
-      text: '#333333',
-      badge: '#cccccc',
+      border: '#000000',
+      badge: '#9CA3AF',
     },
   };
 
@@ -241,9 +233,9 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
       <div
         className="p-4 transition-all"
         style={{
-          backgroundColor: colors.bg,
+          backgroundColor: '#FFFFFF',
           border: `3px solid ${colors.border}`,
-          color: colors.text,
+          color: '#000000',
         }}
       >
         <div className="flex items-start gap-3 mb-3">
@@ -256,8 +248,8 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
               <span
                 className="text-xs font-bold uppercase px-2 py-1"
                 style={{
-                  backgroundColor: colors.badge,
-                  color: colors.bg === '#000000' ? '#000000' : '#ffffff',
+                  backgroundColor: '#F5C518',
+                  color: '#000000',
                 }}
               >
                 {urgencyBadgeText[overallUrgency]}
@@ -286,8 +278,8 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                 className="overflow-hidden transition-all"
                 style={{
                   border: `3px solid ${recColors.border}`,
-                  backgroundColor: recColors.bg,
-                  color: recColors.text,
+                  backgroundColor: '#FFFFFF',
+                  color: '#000000',
                 }}
               >
                 {/* Header/Collapsed State */}
@@ -295,7 +287,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                   onClick={() => setExpandedIndex(isExpanded ? null : index)}
                   className="w-full text-left p-4 transition-colors flex items-center justify-between"
                   style={{
-                    backgroundColor: recColors.bg,
+                    backgroundColor: '#FFFFFF',
                     borderBottom: isExpanded ? `3px solid ${recColors.border}` : 'none',
                   }}
                 >
@@ -323,9 +315,9 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                       </div>
                     </div>
                     {isExpanded ? (
-                      <ChevronUp className="w-5 h-5 flex-shrink-0" style={{ color: recColors.badge }} />
+                      <ChevronUp className="w-5 h-5 flex-shrink-0" style={{ color: '#000000' }} />
                     ) : (
-                      <ChevronDown className="w-5 h-5 flex-shrink-0 opacity-70" />
+                      <ChevronDown className="w-5 h-5 flex-shrink-0 opacity-70" style={{ color: '#000000' }} />
                     )}
                   </div>
                 </button>
@@ -337,7 +329,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                     style={{ borderColor: recColors.border }}
                   >
                     <div>
-                      <h5 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: recColors.badge }}>
+                      <h5 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: '#000000' }}>
                         Estimated Impact
                       </h5>
                       <p className="text-xs leading-relaxed opacity-90">{rec.estimated_impact}</p>
@@ -345,7 +337,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <h5 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: recColors.badge }}>
+                        <h5 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: '#000000' }}>
                           Timing Window
                         </h5>
                         <p className="text-xs opacity-90">{rec.timing_window}</p>
@@ -368,9 +360,9 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                           onChange={(event) => handleRowAction(index, rec, event.target.value as '' | 'execute' | 'simulate')}
                           className="w-full text-xs font-bold uppercase px-3 py-2 transition-all"
                           style={{
-                            backgroundColor: recColors.border,
-                            color: recColors.bg === '#000000' ? '#000000' : '#ffffff',
-                            border: `2px solid ${recColors.border}`,
+                            backgroundColor: '#FFFFFF',
+                            color: '#000000',
+                            border: '2px solid #000000',
                           }}
                         >
                           <option value="">Select action...</option>
@@ -385,7 +377,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                         className="mt-4 pt-4 space-y-3 border-t-2"
                         style={{
                           borderColor: recColors.border,
-                          backgroundColor: recColors.bg === '#000000' ? '#111111' : '#f5f5f5',
+                          backgroundColor: '#F9FAFB',
                         }}
                       >
                         <label className="block text-xs font-bold uppercase tracking-wider">
@@ -397,9 +389,9 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                           placeholder="Document any relevant notes about this intervention..."
                           className="w-full p-3 text-xs font-mono border-2 border-gray-400"
                           style={{
-                            backgroundColor: recColors.bg === '#000000' ? '#000000' : '#ffffff',
-                            color: recColors.text,
-                            borderColor: recColors.border,
+                            backgroundColor: '#FFFFFF',
+                            color: '#000000',
+                            borderColor: '#000000',
                           }}
                           rows={3}
                         />
@@ -424,9 +416,9 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                             }}
                             className="flex-1 px-4 py-2 font-bold uppercase text-xs transition-all"
                             style={{
-                              backgroundColor: recColors.bg,
-                              color: recColors.text,
-                              border: `2px solid ${recColors.border}`,
+                              backgroundColor: '#FFFFFF',
+                              color: '#000000',
+                              border: '2px solid #000000',
                             }}
                           >
                             Cancel
@@ -463,7 +455,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
       <div
         className="p-4 text-xs leading-relaxed"
         style={{
-          backgroundColor: '#fffef8',
+          backgroundColor: '#FFFFFF',
           border: '3px solid #F5C518',
           color: '#000000',
           fontWeight: 600,

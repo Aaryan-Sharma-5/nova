@@ -1,7 +1,7 @@
 import { Sparkles, AlertTriangle, ShieldCheck, Copy, ArrowRight } from 'lucide-react';
 import { useWeeklyBrief, type WeeklyBriefScope } from '@/hooks/useWeeklyBrief';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { protectedGetApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -32,44 +32,11 @@ export default function WeeklyBriefCard({ scope = 'org', teamId = null }: Weekly
   const navigate = useNavigate();
   const { toast } = useToast();
   const { token } = useAuth();
-  const { data, loading, error } = useWeeklyBrief({ token, scope, teamId });
+  const { data: currentBrief, loading: loadingCurrent, error: errorCurrent } = useWeeklyBrief({ token, scope, teamId, weekOffset: 0 });
+  const { data: previousBrief, loading: loadingPrevious, error: errorPrevious } = useWeeklyBrief({ token, scope, teamId, weekOffset: 1 });
   const [selectedWindow, setSelectedWindow] = useState<'this' | 'previous'>('this');
-  const [previousBrief, setPreviousBrief] = useState<typeof data | null>(null);
   const [topAction, setTopAction] = useState<{ intervention_name: string; description: string } | null>(null);
   const isDarkTheme = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-
-  const storageKey = `nova_weekly_brief_cache_${scope}`;
-
-  useEffect(() => {
-    if (!data) return;
-
-    const raw = window.localStorage.getItem(storageKey);
-    let cached: { current?: typeof data; previous?: typeof data } | null = null;
-    if (raw) {
-      try {
-        cached = JSON.parse(raw) as { current?: typeof data; previous?: typeof data };
-      } catch {
-        cached = null;
-        window.localStorage.removeItem(storageKey);
-      }
-    }
-    if (cached?.current?.week_of && cached.current.week_of !== data.week_of) {
-      setPreviousBrief(cached.current);
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify({ current: data, previous: cached.current }),
-      );
-      return;
-    }
-
-    if (cached?.previous) {
-      setPreviousBrief(cached.previous);
-    }
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify({ current: data, previous: cached?.previous || null }),
-    );
-  }, [data, storageKey]);
 
   useEffect(() => {
     const loadTopAction = async () => {
@@ -100,7 +67,9 @@ export default function WeeklyBriefCard({ scope = 'org', teamId = null }: Weekly
     void loadTopAction();
   }, [token]);
 
-  const displayedData = selectedWindow === 'this' ? data : (previousBrief ?? data);
+  const displayedData = selectedWindow === 'this' ? currentBrief : (previousBrief ?? currentBrief);
+  const loading = selectedWindow === 'this' ? loadingCurrent : loadingPrevious;
+  const error = selectedWindow === 'this' ? errorCurrent : errorPrevious;
 
   const copyBrief = async () => {
     if (!displayedData || !displayedData.narrative) return;

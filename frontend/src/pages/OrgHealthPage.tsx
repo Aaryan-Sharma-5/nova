@@ -719,13 +719,13 @@ export default function OrgHealthPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
-              <CardTitle>Executive Summary Scorecard</CardTitle>
+              <CardTitle className="font-heading uppercase tracking-wider">Executive Summary Scorecard</CardTitle>
               <span className="text-xs text-muted-foreground">Last updated: {lastUpdatedLabel}</span>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-5 gap-4">
-              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
                 <p className="text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>
                   {healthScore.score.toFixed(0)}
                 </p>
@@ -742,25 +742,25 @@ export default function OrgHealthPage() {
                 </div>
               </div>
 
-              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
                 <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>246</p>
                 <p className="text-sm text-muted-foreground mt-1">Total Headcount</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>+8 this month</p>
               </div>
 
-              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
                 <p className="text-3xl font-bold" style={{ color: 'var(--button-primary-bg)' }}>10.7%</p>
                 <p className="text-sm text-muted-foreground mt-1">Avg Attrition Rate</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--button-primary-bg)' }}>vs 12% target</p>
               </div>
 
-              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
                 <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>78.8</p>
                 <p className="text-sm text-muted-foreground mt-1">Avg Performance</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>Above target</p>
               </div>
 
-              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
                 <p className="text-3xl font-bold" style={{ color: 'var(--alert-critical)' }}>58</p>
                 <p className="text-sm text-muted-foreground mt-1">Burnout Score</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--alert-critical)' }}>Needs attention</p>

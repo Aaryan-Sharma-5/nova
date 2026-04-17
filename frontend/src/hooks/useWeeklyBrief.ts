@@ -26,10 +26,11 @@ type UseWeeklyBriefOptions = {
   token: string | null;
   scope?: WeeklyBriefScope;
   teamId?: string | null;
+  weekOffset?: number;
   enabled?: boolean;
 };
 
-export function useWeeklyBrief({ token, scope = 'org', teamId, enabled = true }: UseWeeklyBriefOptions) {
+export function useWeeklyBrief({ token, scope = 'org', teamId, weekOffset = 0, enabled = true }: UseWeeklyBriefOptions) {
   const [data, setData] = useState<WeeklyBriefResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export function useWeeklyBrief({ token, scope = 'org', teamId, enabled = true }:
   useEffect(() => {
     if (!token || !enabled) return;
 
-    const params = new URLSearchParams({ scope });
+    const params = new URLSearchParams({ scope, week_offset: String(weekOffset) });
     if (teamId) params.set('team_id', teamId);
 
     let cancelled = false;
@@ -58,7 +59,7 @@ export function useWeeklyBrief({ token, scope = 'org', teamId, enabled = true }:
     return () => {
       cancelled = true;
     };
-  }, [token, scope, teamId, enabled]);
+  }, [token, scope, teamId, weekOffset, enabled]);
 
   return { data, loading, error };
 }

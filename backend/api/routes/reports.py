@@ -89,31 +89,37 @@ Scope = Literal["org", "team"]
 _WEEKLY_BRIEF_MIN_TEAM_SIZE = 5
 
 
-def _aggregate_weekly_brief_context(scope: Scope, team_id: str | None) -> dict[str, Any]:
+def _aggregate_weekly_brief_context(scope: Scope, team_id: str | None, week_offset: int = 0) -> dict[str, Any]:
     """Gather the signals that seed the Weekly Brief narrative.
 
     Currently demo-grade: returns deterministic snapshots per scope. Live-data
     ingestion is a §10 Priority Gap (mock graph → live comms metadata) and is
     explicitly out of scope for this slice.
     """
-    today = date.today()
+    today = date.today() - timedelta(days=7 * max(0, week_offset))
     week_start = today - timedelta(days=today.weekday())
 
     if scope == "team":
         team_name = team_id or "payments-core"
+        baseline_health = 68
+        health_score = max(52, min(85, baseline_health + min(week_offset, 4)))
+        health_delta_pct = round(-4.2 + min(week_offset, 4) * 0.9, 1)
+        sentiment_trend = round(-0.06 + min(week_offset, 4) * 0.015, 3)
+        top_risk = max(70, 84 + min(week_offset, 4) * 2)
+        secondary_risk = max(63, 76 + min(week_offset, 4) * 2)
         return {
             "scope": "team",
             "team_id": team_name,
             "team_name": team_name.replace("-", " ").title(),
             "week_of": week_start.isoformat(),
             "team_size": 14,
-            "health_score": 68,
-            "health_delta_pct": -4.2,
-            "sentiment_trend_slope_30d": -0.06,
+            "health_score": health_score,
+            "health_delta_pct": health_delta_pct,
+            "sentiment_trend_slope_30d": sentiment_trend,
             "at_risk": [
                 {
                     "alias": "Engineer R.",
-                    "risk_score": 84,
+                    "risk_score": top_risk,
                     "tenure_months": 9,
                     "top_factors": [
                         "after-hours activity up 42% over 14 days",
@@ -123,7 +129,7 @@ def _aggregate_weekly_brief_context(scope: Scope, team_id: str | None) -> dict[s
                 },
                 {
                     "alias": "Engineer S.",
-                    "risk_score": 76,
+                    "risk_score": secondary_risk,
                     "tenure_months": 22,
                     "top_factors": [
                         "PTO untaken for 8 months",
@@ -139,19 +145,28 @@ def _aggregate_weekly_brief_context(scope: Scope, team_id: str | None) -> dict[s
             "context_note": "Team just closed a Q-crunch sprint; post-launch fatigue is plausible.",
         }
 
+    baseline_health = 76
+    health_score = max(60, min(92, baseline_health + min(week_offset, 6)))
+    health_delta_pct = round(1.1 - min(week_offset, 6) * 0.35, 1)
+    sentiment_trend = round(0.02 - min(week_offset, 6) * 0.01, 3)
+    sales_risk = max(72, 81 + min(week_offset, 6) * 2)
+    payments_risk = max(66, 74 + min(week_offset, 6) * 2)
+    interventions = max(6, 11 + min(week_offset, 6) * 1)
+    success_rate = max(52, 63 - min(week_offset, 6) * 2)
+
     return {
         "scope": "org",
         "week_of": week_start.isoformat(),
         "population": 842,
-        "health_score": 76,
-        "health_delta_pct": 1.1,
-        "sentiment_trend_slope_30d": 0.02,
+        "health_score": health_score,
+        "health_delta_pct": health_delta_pct,
+        "sentiment_trend_slope_30d": sentiment_trend,
         "at_risk_teams": [
-            {"team": "Sales EMEA", "risk_score": 81, "drivers": ["pipeline pressure", "manager 1:1 gap"]},
-            {"team": "Payments Core", "risk_score": 74, "drivers": ["post-crunch fatigue", "after-hours activity"]},
+            {"team": "Sales EMEA", "risk_score": sales_risk, "drivers": ["pipeline pressure", "manager 1:1 gap"]},
+            {"team": "Payments Core", "risk_score": payments_risk, "drivers": ["post-crunch fatigue", "after-hours activity"]},
         ],
-        "interventions_in_flight": 11,
-        "intervention_success_rate": 63,
+        "interventions_in_flight": interventions,
+        "intervention_success_rate": success_rate,
     }
 
 
@@ -250,6 +265,7 @@ def _word_count(text: str) -> int:
 async def get_weekly_brief(
     scope: Scope = Query("org"),
     team_id: str | None = Query(None),
+    week_offset: int = Query(0, ge=0, le=12),
     current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP, UserRole.MANAGER])),
 ) -> dict:
     """Narrative Weekly Brief — 200-word People-Ops-advisor-style workforce pulse."""
@@ -258,7 +274,7 @@ async def get_weekly_brief(
     if current_user.role == UserRole.MANAGER:
         effective_scope = "team"
 
-    ctx = _aggregate_weekly_brief_context(effective_scope, team_id)
+    ctx = _aggregate_weekly_brief_context(effective_scope, team_id, week_offset)
 
     # k-anonymity floor for team briefs — refuse to narrate if the team is too
     # small to aggregate safely. The structured_insight contract is still

@@ -196,6 +196,18 @@
     box-shadow: var(--shadow-sm);
   }
 
+  .sidebar-link-active > span:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
+
+  .sidebar-link-active > span:first-child svg {
+    display: block;
+    margin: 0;
+  }
+
   @media (min-width: 1024px) {
     .app-sidebar,
     .app-sidebar nav {

@@ -126,7 +126,6 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
             { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
             { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
             { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
-            { to: '/hr/org-risk-distribution', icon: ShieldCheck, label: 'HR API' },
             { to: '/hr/sessions-schedule', icon: CalendarClock, label: 'Schedule Sessions' },
             { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions to Review' },
             { to: '/integrations', icon: Settings2, label: 'Integrations' },
@@ -243,7 +242,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [pendingAssignmentCount, setPendingAssignmentCount] = useState(0);
   const [pendingJobCount, setPendingJobCount] = useState(0);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showDemoBanner, setShowDemoBanner] = useState(true);
 
   const insightsEmployeeId = employees[0]?.id ?? 'emp-123';
 
@@ -379,34 +377,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [location.pathname, flatItemsForHeader, user?.role]);
 
   return (
-    <div className={`flex min-h-screen w-full ${showDemoBanner ? 'pt-6' : ''}`}>
-      {showDemoBanner && (
-        <div className="fixed inset-x-0 top-0 z-[60] h-6 border-b border-[#111] bg-[#F5C518] px-3 text-[11px] font-medium text-black flex items-center justify-between">
-          <span>🎯 NOVA — Grand Finale Demo | Data is synthetic for demonstration purposes</span>
-          <button type="button" className="px-1" onClick={() => setShowDemoBanner(false)} aria-label="Dismiss demo banner">×</button>
-        </div>
-      )}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    <div className="flex min-h-screen w-full">
 
       <aside
-        className={`app-sidebar group fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r-2 border-foreground bg-card transition-transform duration-200 lg:static lg:w-[84px] lg:overflow-hidden lg:translate-x-0 lg:transition-[width] lg:duration-200 lg:hover:w-64 lg:focus-within:w-64 ${
+        className={`app-sidebar group fixed left-0 top-0 z-50 flex h-screen w-64 flex-col overflow-hidden border-r-2 border-foreground bg-card transition-transform duration-200 lg:sticky lg:top-0 lg:w-[84px] lg:overflow-hidden lg:translate-x-0 lg:transition-[width] lg:duration-200 lg:hover:w-64 lg:focus-within:w-64 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-3 border-b-2 border-foreground px-5 py-5 lg:justify-center lg:px-0 lg:py-4 lg:group-hover:justify-start lg:group-hover:px-5 lg:group-focus-within:justify-start lg:group-focus-within:px-5">
+        <div className="flex items-center gap-3 border-b-2 border-foreground px-2 py-2 lg:h-16 lg:justify-center lg:px-0 lg:py-0 lg:group-hover:h-auto lg:group-hover:justify-start lg:group-hover:px-2 lg:group-hover:py-2 lg:group-focus-within:h-auto lg:group-focus-within:justify-start lg:group-focus-within:px-2 lg:group-focus-within:py-2">
           <NavLink
             to={homePath}
             end
             onClick={() => setSidebarOpen(false)}
-            className="flex min-w-0 items-center gap-3 lg:w-full lg:justify-center lg:gap-0 lg:group-hover:justify-start lg:group-hover:gap-3 lg:group-focus-within:justify-start lg:group-focus-within:gap-3"
+            className="flex min-w-0 items-center gap-3 px-3 py-2.5 lg:h-11 lg:w-11 lg:justify-center lg:gap-0 lg:px-0 lg:py-0 lg:group-hover:h-auto lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:gap-3 lg:group-hover:px-3 lg:group-hover:py-2.5 lg:group-focus-within:h-auto lg:group-focus-within:w-full lg:group-focus-within:justify-start lg:group-focus-within:gap-3 lg:group-focus-within:px-3 lg:group-focus-within:py-2.5"
           >
-            <div className="flex h-9 w-9 items-center justify-center border-2 border-foreground bg-primary shadow-[2px_2px_0px_#000]">
-              <Brain className="h-5 w-5 text-primary-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-primary shadow-none lg:group-hover:shadow-[2px_2px_0px_#000] lg:group-focus-within:shadow-[2px_2px_0px_#000]">
+              <Brain className="h-4 w-4 text-primary-foreground" />
             </div>
             <div className="min-w-0 overflow-hidden transition-all duration-200 lg:max-w-0 lg:opacity-0 lg:group-hover:max-w-[10rem] lg:group-hover:opacity-100 lg:group-focus-within:max-w-[10rem] lg:group-focus-within:opacity-100">
               <h1 className="text-sm font-bold font-heading text-foreground">NOVA</h1>
@@ -457,9 +443,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           ))}
         </nav>
-        <div className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
-          NOVA v1.0 · Grand Finale 2025
-        </div>
       </aside>
 
       <div className="flex flex-1 flex-col min-w-0">

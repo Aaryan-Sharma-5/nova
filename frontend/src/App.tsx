@@ -291,20 +291,6 @@ const App = () => (
                 }
               />
               <Route
-                path="/hr/org-risk-distribution"
-                element={
-                  <ProtectedRoute allowedRoles={["hr"]}>
-                    <AppLayout>
-                      <BackendEndpointPage
-                        title="HR Org Risk Distribution"
-                        endpoint="/hr/org-risk-distribution"
-                        description="HR-only backend endpoint wired through frontend auth token."
-                      />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/manager/team-alerts"
                 element={
                   <ProtectedRoute allowedRoles={["manager"]}>

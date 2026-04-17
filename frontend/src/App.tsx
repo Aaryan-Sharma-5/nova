@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { lazy, Suspense } from "react";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -35,7 +36,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const InsightsDashboard = lazy(() => import("@/features/insights/InsightsDashboard").then((module) => ({ default: module.InsightsDashboard })));
 const AnomaliesPage = lazy(() => import("./pages/AnomaliesPage"));
 const DeptHeatmapPage = lazy(() => import("./pages/DeptHeatmapPage"));
-const VoiceAssistant = lazy(() => import("@/components/voice/VoiceAssistant"));
+const VoiceAssistant = lazyWithRetry(() => import("@/components/voice/VoiceAssistant"), "voice-assistant");
 
 const queryClient = new QueryClient();
 

@@ -61,6 +61,33 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     managerOneOnOneFrequency: number;
   } | null>(null);
 
+  const urgencyColors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+    critical: {
+      bg: '#000000',
+      border: '#F5C518',
+      text: '#ffffff',
+      badge: '#F5C518',
+    },
+    high: {
+      bg: '#ffffff',
+      border: '#000000',
+      text: '#000000',
+      badge: '#F5C518',
+    },
+    medium: {
+      bg: '#ffffff',
+      border: '#000000',
+      text: '#000000',
+      badge: '#999999',
+    },
+    low: {
+      bg: '#ffffff',
+      border: '#cccccc',
+      text: '#333333',
+      badge: '#cccccc',
+    },
+  };
+
   const urgencyIcons: Record<string, React.ReactNode> = {
     low: <Clock className="w-4 h-4" />,
     medium: <AlertCircle className="w-4 h-4" />,
@@ -206,169 +233,212 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     );
   }
 
+  const colors = urgencyColors[overallUrgency];
+
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header Card — NOVA Brutalist Style */}
       <div
-        className="border-l-4 p-4 rounded-r-lg"
+        className="p-4 transition-all"
         style={{
-          backgroundColor: 'var(--alert-banner-bg)',
-          borderLeftColor: overallUrgency === 'critical' ? 'var(--alert-critical)' : 'var(--accent-primary)',
-          color: 'var(--text-primary)',
-          borderTop: '1px solid var(--border-color)',
-          borderRight: '1px solid var(--border-color)',
-          borderBottom: '1px solid var(--border-color)',
+          backgroundColor: colors.bg,
+          border: `3px solid ${colors.border}`,
+          color: colors.text,
         }}
       >
-        <div className="flex items-center gap-3 mb-2">
-          {urgencyIcons[overallUrgency]}
-          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Intervention Recommendations for {employeeName}
-          </h3>
+        <div className="flex items-start gap-3 mb-3">
+          <span style={{ color: colors.badge }}>{urgencyIcons[overallUrgency]}</span>
+          <div className="flex-1">
+            <h3 className="font-bold text-sm uppercase tracking-wider mb-1">
+              Intervention Recommendations for {employeeName}
+            </h3>
+            <div className="inline-flex gap-2 items-center mb-2">
+              <span
+                className="text-xs font-bold uppercase px-2 py-1"
+                style={{
+                  backgroundColor: colors.badge,
+                  color: colors.bg === '#000000' ? '#000000' : '#ffffff',
+                }}
+              >
+                {urgencyBadgeText[overallUrgency]}
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed opacity-90">{reasoning}</p>
+          </div>
         </div>
-        <p className="text-sm opacity-90 mb-2">{urgencyBadgeText[overallUrgency]}</p>
-        <p className="text-sm italic">{reasoning}</p>
       </div>
 
       {/* Recommendations List */}
       <div className="space-y-3">
         {recommendations.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>{emptyStateMessage}</p>
+          <div className="text-center py-8 border-2 border-dashed border-gray-300 p-6">
+            <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-30" />
+            <p className="text-sm text-gray-600">{emptyStateMessage}</p>
           </div>
         ) : (
-          recommendations.map((rec, index) => (
-            <div
-              key={index}
-              className="border rounded-lg overflow-hidden transition-all"
-              style={{
-                borderColor: expandedIndex === index ? 'var(--accent-primary)' : 'var(--border-color)',
-                backgroundColor: 'var(--bg-card)',
-              }}
-            >
-              {/* Collapsed Header */}
-              <button
-                onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                className="w-full text-left p-4 transition-colors flex items-center justify-between"
-                style={{ backgroundColor: expandedIndex === index ? 'var(--bg-secondary)' : 'var(--bg-card)' }}
+          recommendations.map((rec, index) => {
+            const recColors = urgencyColors[rec.urgency];
+            const isExpanded = expandedIndex === index;
+
+            return (
+              <div
+                key={index}
+                className="overflow-hidden transition-all"
+                style={{
+                  border: `3px solid ${recColors.border}`,
+                  backgroundColor: recColors.bg,
+                  color: recColors.text,
+                }}
               >
-                <div className="flex-1 flex items-center gap-3">
-                  <div
-                    className={`w-1 h-1 rounded-full ${
-                      rec.urgency === 'critical'
-                        ? 'bg-red-500'
-                        : rec.urgency === 'high'
-                        ? 'bg-orange-500'
-                        : rec.urgency === 'medium'
-                        ? 'bg-yellow-500'
-                        : 'bg-blue-500'
-                    }`}
-                  />
-                  <div>
-                    <h4 className="font-semibold capitalize">
-                      {rec.intervention_type.replace(/-/g, ' ')}
-                    </h4>
-                    <p className="text-sm text-muted-foreground">{rec.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 ml-4">
-                  <div className="text-right mr-2">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase">
-                      {rec.urgency}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {Math.round(rec.priority_score * 100)}% priority
-                    </div>
-                  </div>
-                  {expandedIndex === index ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </div>
-              </button>
-
-              {/* Expanded Details */}
-              {expandedIndex === index && (
-                <div className="border-t p-4 space-y-3" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                  <div>
-                    <h5 className="font-semibold text-sm text-foreground mb-1">
-                      Estimated Impact
-                    </h5>
-                    <p className="text-sm text-muted-foreground">{rec.estimated_impact}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h5 className="font-semibold text-sm text-foreground mb-1">
-                        Timing Window
-                      </h5>
-                      <p className="text-sm text-muted-foreground">{rec.timing_window}</p>
-                    </div>
-                    <div>
-                      <h5 className="font-semibold text-sm text-foreground mb-1">
-                        Risks If Delayed
-                      </h5>
-                      <p className="text-sm" style={{ color: 'var(--alert-critical)' }}>{rec.risks_if_delayed}</p>
-                    </div>
-                  </div>
-
-                  {/* Action Row */}
-                  {executingIndex !== index && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <select
-                        value={selectedActionByIndex[index] ?? ''}
-                        onChange={(event) => handleRowAction(index, rec, event.target.value as '' | 'execute' | 'simulate')}
-                        className="h-9 rounded-md border border-foreground bg-background px-3 text-sm"
-                      >
-                        <option value="">Select action...</option>
-                        {onExecuteIntervention && <option value="execute">Mark as Executed</option>}
-                        <option value="simulate">Simulate Intervention</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {executingIndex === index && (
-                    <div className="mt-3 p-3 border rounded space-y-2" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
-                      <label className="block text-sm font-semibold text-foreground">
-                        Execution Notes (Optional)
-                      </label>
-                      <textarea
-                        value={executionNotes}
-                        onChange={(e) => setExecutionNotes(e.target.value)}
-                        placeholder="Document any relevant notes about this intervention..."
-                        className="w-full p-2 border rounded text-sm focus:outline-none"
-                        style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-                        rows={3}
+                {/* Header/Collapsed State */}
+                <button
+                  onClick={() => setExpandedIndex(isExpanded ? null : index)}
+                  className="w-full text-left p-4 transition-colors flex items-center justify-between"
+                  style={{
+                    backgroundColor: recColors.bg,
+                    borderBottom: isExpanded ? `3px solid ${recColors.border}` : 'none',
+                  }}
+                >
+                  <div className="flex-1 flex items-start gap-3">
+                    <div className="flex flex-col gap-1 mt-0.5">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: recColors.badge }}
                       />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleExecute(index)}
-                          disabled={isLoading}
-                          className="px-4 py-2 rounded disabled:opacity-50 transition-colors text-sm font-semibold"
-                          style={{ backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' }}
-                        >
-                          {isLoading ? 'Saving...' : 'Confirm Execution'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setExecutingIndex(null);
-                            setExecutionNotes('');
-                            setSelectedActionByIndex((prev) => ({ ...prev, [index]: '' }));
-                          }}
-                          className="px-4 py-2 rounded transition-colors text-sm"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                        >
-                          Cancel
-                        </button>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-sm uppercase tracking-wider mb-1">
+                        {rec.intervention_type.replace(/-/g, ' ')}
+                      </h4>
+                      <p className="text-xs opacity-75">{rec.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                    <div className="text-right">
+                      <div className="text-xs font-bold uppercase" style={{ color: recColors.badge }}>
+                        {rec.urgency}
+                      </div>
+                      <div className="text-xs opacity-70 font-mono">
+                        {Math.round(rec.priority_score * 100)}%
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))
+                    {isExpanded ? (
+                      <ChevronUp className="w-5 h-5 flex-shrink-0" style={{ color: recColors.badge }} />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 flex-shrink-0 opacity-70" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div
+                    className="p-4 space-y-4 border-t-2"
+                    style={{ borderColor: recColors.border }}
+                  >
+                    <div>
+                      <h5 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: recColors.badge }}>
+                        Estimated Impact
+                      </h5>
+                      <p className="text-xs leading-relaxed opacity-90">{rec.estimated_impact}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: recColors.badge }}>
+                          Timing Window
+                        </h5>
+                        <p className="text-xs opacity-90">{rec.timing_window}</p>
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: '#FF1744' }}>
+                          Risks If Delayed
+                        </h5>
+                        <p className="text-xs" style={{ color: '#FF1744' }}>
+                          {rec.risks_if_delayed}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Row */}
+                    {executingIndex !== index && (
+                      <div className="mt-4 pt-4 border-t-2" style={{ borderColor: recColors.border }}>
+                        <select
+                          value={selectedActionByIndex[index] ?? ''}
+                          onChange={(event) => handleRowAction(index, rec, event.target.value as '' | 'execute' | 'simulate')}
+                          className="w-full text-xs font-bold uppercase px-3 py-2 transition-all"
+                          style={{
+                            backgroundColor: recColors.border,
+                            color: recColors.bg === '#000000' ? '#000000' : '#ffffff',
+                            border: `2px solid ${recColors.border}`,
+                          }}
+                        >
+                          <option value="">Select action...</option>
+                          {onExecuteIntervention && <option value="execute">Mark as Executed</option>}
+                          <option value="simulate">Simulate Intervention</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {executingIndex === index && (
+                      <div
+                        className="mt-4 pt-4 space-y-3 border-t-2"
+                        style={{
+                          borderColor: recColors.border,
+                          backgroundColor: recColors.bg === '#000000' ? '#111111' : '#f5f5f5',
+                        }}
+                      >
+                        <label className="block text-xs font-bold uppercase tracking-wider">
+                          Execution Notes (Optional)
+                        </label>
+                        <textarea
+                          value={executionNotes}
+                          onChange={(e) => setExecutionNotes(e.target.value)}
+                          placeholder="Document any relevant notes about this intervention..."
+                          className="w-full p-3 text-xs font-mono border-2 border-gray-400"
+                          style={{
+                            backgroundColor: recColors.bg === '#000000' ? '#000000' : '#ffffff',
+                            color: recColors.text,
+                            borderColor: recColors.border,
+                          }}
+                          rows={3}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleExecute(index)}
+                            disabled={isLoading}
+                            className="flex-1 px-4 py-2 font-bold uppercase text-xs transition-all disabled:opacity-50"
+                            style={{
+                              backgroundColor: '#F5C518',
+                              color: '#000000',
+                              border: '2px solid #000000',
+                            }}
+                          >
+                            {isLoading ? 'Saving...' : 'Confirm Execution'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setExecutingIndex(null);
+                              setExecutionNotes('');
+                              setSelectedActionByIndex((prev) => ({ ...prev, [index]: '' }));
+                            }}
+                            className="flex-1 px-4 py-2 font-bold uppercase text-xs transition-all"
+                            style={{
+                              backgroundColor: recColors.bg,
+                              color: recColors.text,
+                              border: `2px solid ${recColors.border}`,
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -389,12 +459,18 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
         }}
       />
 
-      {/* Support Text */}
-      <div className="p-3 border rounded text-sm" style={{ backgroundColor: 'var(--alert-banner-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
-        <p>
-          <strong>Tip:</strong> Implement interventions in priority order. Track execution
-          in the database for audit trails and impact analysis.
-        </p>
+      {/* Support Text Card */}
+      <div
+        className="p-4 text-xs leading-relaxed"
+        style={{
+          backgroundColor: '#fffef8',
+          border: '3px solid #F5C518',
+          color: '#000000',
+          fontWeight: 600,
+        }}
+      >
+        <span className="font-bold">TIP:</span> Implement interventions in priority order. Track execution
+        in the database for audit trails and impact analysis.
       </div>
     </div>
   );

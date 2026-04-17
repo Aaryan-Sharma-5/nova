@@ -2,17 +2,32 @@ import logging
 from typing import Any
 
 import requests
-from composio import ComposioToolSet
+try:
+    from composio import ComposioToolSet as _ComposioToolSet
+except ModuleNotFoundError:
+    _ComposioToolSet = None
 
 from core.config import settings
 
 
-_admin_toolset: ComposioToolSet | None = None
+_admin_toolset: Any | None = None
 logger = logging.getLogger(__name__)
 
 _CONNECTED_ACCOUNTS_URL = "https://backend.composio.dev/api/v1/connectedAccounts"
 _ACTIVE_CONNECTION_STATUSES = {"ACTIVE", "CONNECTED", "AUTHORIZED"}
 _PENDING_CONNECTION_STATUSES = {"INITIATED", "PENDING", "IN_PROGRESS"}
+
+
+def is_composio_available() -> bool:
+    return _ComposioToolSet is not None
+
+
+def _require_composio_package() -> None:
+    if _ComposioToolSet is None:
+        raise RuntimeError(
+            "Composio integration is unavailable because the 'composio' package is not installed. "
+            "Install it in the existing environment and restart the server."
+        )
 
 
 def _get_api_key() -> str:
@@ -22,19 +37,21 @@ def _get_api_key() -> str:
     return api_key
 
 
-def get_toolset(entity_id: str) -> ComposioToolSet:
+def get_toolset(entity_id: str):
     """Return a per-tenant toolset scoped to entity_id (= org_id)."""
-    return ComposioToolSet(
+    _require_composio_package()
+    return _ComposioToolSet(
         api_key=_get_api_key(),
         entity_id=entity_id,
     )
 
 
-def get_admin_toolset() -> ComposioToolSet:
+def get_admin_toolset():
     """Platform-level toolset for connection management."""
     global _admin_toolset
+    _require_composio_package()
     if _admin_toolset is None:
-        _admin_toolset = ComposioToolSet(api_key=_get_api_key())
+        _admin_toolset = _ComposioToolSet(api_key=_get_api_key())
     return _admin_toolset
 
 

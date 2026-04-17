@@ -1,366 +1,576 @@
-import { ArrowRight, Lock, Fingerprint, Activity, TrendingDown, BrainCircuit, ShieldAlert, BarChart3, Users, Briefcase } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { useState, FormEvent } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { UserRole } from "@/types/auth";
+import {
+  Activity,
+  ArrowRight,
+  Briefcase,
+  BrainCircuit,
+  CirclePlus,
+  Info,
+  Network,
+  Shield,
+  TrendingDown,
+  Zap,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+type RevealVariant = "fade-up" | "scale-in";
+
+type FeatureCard = {
+  title: string;
+  description: string;
+  icon: JSX.Element;
+};
+
+const featureCards: FeatureCard[] = [
+  {
+    title: "Burnout Detection",
+    description: "ML scoring across 10 behavioral signals",
+    icon: <Activity className="h-7 w-7" />,
+  },
+  {
+    title: "Attrition Prediction",
+    description: "6-month flight risk forecasting per employee",
+    icon: <TrendingDown className="h-7 w-7" />,
+  },
+  {
+    title: "Sentiment Intelligence",
+    description: "NLP analysis with sarcasm detection",
+    icon: <BrainCircuit className="h-7 w-7" />,
+  },
+  {
+    title: "Privacy Architecture",
+    description: "k-anonymity, PII vaulting, full audit logs",
+    icon: <Shield className="h-7 w-7" />,
+  },
+  {
+    title: "Explainable AI",
+    description: "SHAP-style score breakdowns, no black boxes",
+    icon: <Info className="h-7 w-7" />,
+  },
+  {
+    title: "Intervention Engine",
+    description: "ROI-ranked recommended HR actions",
+    icon: <Zap className="h-7 w-7" />,
+  },
+  {
+    title: "Org Network Graph",
+    description: "Burnout propagation mapping across teams",
+    icon: <Network className="h-7 w-7" />,
+  },
+  {
+    title: "Talent Pipeline",
+    description: "AI task matching + auto-generated job postings",
+    icon: <Briefcase className="h-7 w-7" />,
+  },
+];
+
+const dotPositions = [
+  { left: "8%", top: "14%", size: "3px", delay: "0s", duration: "8s", opacity: 0.16 },
+  { left: "16%", top: "42%", size: "2px", delay: "1s", duration: "11s", opacity: 0.12 },
+  { left: "21%", top: "72%", size: "4px", delay: "2s", duration: "10s", opacity: 0.24 },
+  { left: "27%", top: "28%", size: "3px", delay: "0.5s", duration: "9s", opacity: 0.15 },
+  { left: "33%", top: "54%", size: "2px", delay: "1.3s", duration: "12s", opacity: 0.18 },
+  { left: "39%", top: "18%", size: "3px", delay: "0.8s", duration: "9s", opacity: 0.21 },
+  { left: "46%", top: "66%", size: "2px", delay: "1.8s", duration: "10s", opacity: 0.14 },
+  { left: "52%", top: "34%", size: "4px", delay: "2.1s", duration: "11s", opacity: 0.28 },
+  { left: "58%", top: "76%", size: "3px", delay: "0.6s", duration: "10s", opacity: 0.2 },
+  { left: "63%", top: "24%", size: "2px", delay: "1.5s", duration: "9s", opacity: 0.11 },
+  { left: "69%", top: "48%", size: "3px", delay: "0.4s", duration: "8s", opacity: 0.23 },
+  { left: "74%", top: "14%", size: "2px", delay: "2.4s", duration: "12s", opacity: 0.16 },
+  { left: "79%", top: "68%", size: "4px", delay: "1.7s", duration: "10s", opacity: 0.2 },
+  { left: "84%", top: "36%", size: "3px", delay: "0.9s", duration: "11s", opacity: 0.14 },
+  { left: "88%", top: "56%", size: "2px", delay: "1.1s", duration: "9s", opacity: 0.18 },
+  { left: "92%", top: "22%", size: "3px", delay: "2.7s", duration: "10s", opacity: 0.13 },
+  { left: "12%", top: "86%", size: "2px", delay: "1.6s", duration: "11s", opacity: 0.15 },
+  { left: "41%", top: "84%", size: "3px", delay: "2.2s", duration: "12s", opacity: 0.17 },
+  { left: "67%", top: "88%", size: "2px", delay: "0.3s", duration: "8s", opacity: 0.14 },
+];
+
+function useRevealOnScroll() {
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("nova-reveal-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.16, rootMargin: "0px 0px -10% 0px" },
+    );
+
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+}
+
+function revealClass(variant: RevealVariant, delayMs = 0) {
+  return `nova-reveal nova-reveal-${variant}` + (delayMs > 0 ? ` [transition-delay:${delayMs}ms]` : "");
+}
+
+function smoothScrollToSection(id: string) {
+  const target = document.getElementById(id);
+  if (!target) return;
+  const top = target.getBoundingClientRect().top + window.scrollY - 80;
+  window.scrollTo({ top, behavior: "smooth" });
+}
 
 export default function LandingPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<UserRole>("employee");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState(false);
-  
-  const { login, register, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const [isScrolledPastHero, setIsScrolledPastHero] = useState(false);
 
-  const getLandingPath = (role: UserRole) => role === "employee" ? "/your-data" : "/org-health";
+  useRevealOnScroll();
 
-  async function handleAuth(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      if (isLogin) {
-        const user = await login(email, password);
-        navigate(getLandingPath(user.role), { replace: true });
-      } else {
-        const user = await register({ email, password, full_name: fullName, role });
-        navigate(getLandingPath(user.role), { replace: true });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  useEffect(() => {
+    const onScroll = () => {
+      const platform = document.getElementById("platform");
+      if (!platform) return;
+      const triggerY = platform.offsetHeight - 140;
+      setIsScrolledPastHero(window.scrollY > triggerY);
+    };
 
-  const isGoogleConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const id = hash.replace("#", "");
+    window.setTimeout(() => smoothScrollToSection(id), 80);
+  }, []);
+
+  const navTextClass = isScrolledPastHero ? "text-[#1a1a1a]" : "text-white";
+
+  const navItems = useMemo(
+    () => [
+      { label: "PLATFORM", id: "platform" },
+      { label: "FEATURES", id: "features" },
+      { label: "VIEWS", id: "views" },
+      { label: "ABOUT", id: "about" },
+    ],
+    [],
+  );
 
   return (
-    <div className="nova-public-landing min-h-screen bg-[#fbf9f6] text-black font-sans selection:bg-[#eab308] selection:text-black scroll-smooth">
-      
-      {/* GLOBAL NAV */}
-      <header className="landing-nav border-b-2 border-black bg-[#fbf9f6] sticky top-0 z-50">
-        <div className="max-w-[1440px] mx-auto flex items-center justify-between p-4 px-8">
-          <span className="font-[Playfair_Display] text-2xl font-black tracking-tight text-black">NOVA</span>
-          <nav className="hidden md:flex gap-8 text-[0.65rem] font-black uppercase tracking-[0.2em]">
-            <a href="#platform" className="hover:text-[#eab308] transition-colors">Platform</a>
-            <a href="#features" className="hover:text-[#eab308] transition-colors">Features</a>
-            <a href="#dashboards" className="hover:text-[#eab308] transition-colors">Views</a>
-            <a href="#about" className="hover:text-[#eab308] transition-colors">About</a>
+    <div className="bg-[#0b0b0b] text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+      <style>{`
+        .nova-reveal {
+          opacity: 0;
+          transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+          will-change: opacity, transform;
+        }
+        .nova-reveal-fade-up {
+          transform: translateY(30px);
+        }
+        .nova-reveal-scale-in {
+          transform: scale(0.95);
+        }
+        .nova-reveal-visible {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        .nova-hero-gradient {
+          background: radial-gradient(circle at 35% 25%, #0a0f1a 0%, #050505 42%, #000000 100%);
+          animation: novaPulse 4s ease-in-out infinite alternate;
+        }
+        .nova-data-dot {
+          position: absolute;
+          border-radius: 9999px;
+          background: #ffffff;
+          animation-name: novaDrift;
+          animation-timing-function: ease-in-out;
+          animation-iteration-count: infinite;
+          pointer-events: none;
+        }
+        @keyframes novaPulse {
+          from { filter: brightness(0.94); }
+          to { filter: brightness(1.06); }
+        }
+        @keyframes novaDrift {
+          0% { transform: translate3d(0, 0, 0); }
+          50% { transform: translate3d(0, -8px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
+      `}</style>
+
+      <header
+        className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+          isScrolledPastHero
+            ? "bg-white border-b border-[#e5e7eb] shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+            : "bg-transparent"
+        }`}
+      >
+        <div className="mx-auto flex h-20 max-w-[1320px] items-center justify-between px-6 lg:px-10">
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className={`flex items-center gap-2 text-xl font-extrabold tracking-tight ${navTextClass}`}
+          >
+            <CirclePlus className="h-6 w-6 text-[#F5C518]" strokeWidth={2.3} />
+            <span>NOVA</span>
+          </button>
+
+          <nav className="hidden items-center gap-7 md:flex">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => smoothScrollToSection(item.id)}
+                className={`text-[0.68rem] font-bold tracking-[0.22em] transition-colors hover:text-[#F5C518] ${navTextClass}`}
+              >
+                {item.label}
+              </button>
+            ))}
           </nav>
-          <div className="flex items-center gap-4">
-            <a href="#platform" onClick={() => setIsLogin(true)} className="text-[0.65rem] uppercase tracking-[0.2em] font-black hover:text-[#eab308] transition-colors cursor-pointer">Sign In</a>
-            <a href="#platform" onClick={() => setIsLogin(false)} className="bg-[#eab308] border-[1.5px] border-black px-4 py-2 text-[0.65rem] uppercase tracking-[0.2em] font-black shadow-[2px_2px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer">
-              Initialize
-            </a>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/login")}
+            className={`text-[0.68rem] font-bold tracking-[0.22em] transition-colors hover:text-[#F5C518] ${navTextClass}`}
+          >
+            SIGN IN
+          </button>
         </div>
       </header>
 
-      {/* 1. HERO SECTION (LEFT + RIGHT SPLIT) */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 min-h-[90vh] border-b-2 border-black" id="platform">
-        {/* Left Side: Dark Monolith */}
-        <div className="bg-black text-[#fbf9f6] p-8 md:p-16 lg:p-24 flex flex-col justify-center border-r-2 border-black relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#eab308]/5 via-black to-black opacity-80 z-0"></div>
-          <div className="relative z-10 flex flex-col h-full justify-center">
-            <h1 className="font-[Playfair_Display] text-[clamp(2.5rem,5.5vw,5rem)] font-black leading-[0.9] text-[#eab308] mb-6 uppercase">
-              THE WORKFORCE<br/>INTELLIGENCE<br/>MONOLITH.
+      <section id="platform" className="relative flex min-h-screen flex-col overflow-hidden border-b border-[#1f2937] nova-hero-gradient">
+        <div className="absolute inset-0">
+          {dotPositions.map((dot, index) => (
+            <span
+              key={`${dot.left}-${dot.top}-${index}`}
+              className="nova-data-dot"
+              style={{
+                left: dot.left,
+                top: dot.top,
+                width: dot.size,
+                height: dot.size,
+                opacity: dot.opacity,
+                animationDelay: dot.delay,
+                animationDuration: dot.duration,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="relative z-10 mx-auto flex w-full max-w-[900px] flex-1 flex-col justify-center px-[5vw] pt-28 pb-20">
+          <div data-reveal className={revealClass("fade-up")}>
+            <h1
+              className="font-black uppercase leading-[0.88] tracking-tight text-[#F5C518]"
+              style={{ fontFamily: "Playfair Display, serif", fontSize: "clamp(2.8rem, 8vw, 6.4rem)" }}
+            >
+              THE WORKFORCE
+              <br />
+              INTELLIGENCE
+              <br />
+              MONOLITH.
             </h1>
-            <p className="text-xl md:text-2xl font-medium text-white/90 max-w-md mb-16">
-              Detect burnout. Predict attrition. Act before it's too late.
-            </p>
-            
-            <div className="mt-auto pt-8 border-t border-white/20 grid grid-cols-3 gap-6">
-              <div>
-                <p className="text-[#eab308]/80 text-[0.6rem] font-black uppercase tracking-[0.2em] mb-2">Burnout Index</p>
-                <strong className="text-[#eab308] text-4xl block font-black">61</strong>
-              </div>
-              <div>
-                <p className="text-[#eab308]/80 text-[0.6rem] font-black uppercase tracking-[0.2em] mb-2">Attrition Risk Score</p>
-                <strong className="text-[#eab308] text-4xl block font-black">58</strong>
-              </div>
-              <div>
-                <p className="text-[#eab308]/80 text-[0.6rem] font-black uppercase tracking-[0.2em] mb-2">Workforce Stability</p>
-                <strong className="text-[#eab308] text-4xl block font-black">82%</strong>
-              </div>
-            </div>
+          </div>
+
+          <p
+            data-reveal
+            className={`${revealClass("fade-up", 90)} mt-8 max-w-[600px] text-[clamp(1.1rem,2.5vw,1.85rem)] font-medium leading-relaxed text-white/92`}
+          >
+            Detect burnout. Predict attrition. Act before it&apos;s too late.
+          </p>
+
+          <div data-reveal className={`${revealClass("fade-up", 180)} mt-10 flex flex-col gap-4 sm:flex-row`}>
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="rounded-none border-2 border-[#F5C518] bg-[#F5C518] px-8 py-4 text-[0.72rem] font-extrabold tracking-[0.24em] text-[#1a1a1a] transition-transform hover:-translate-y-[2px]"
+            >
+              SIGN IN →
+            </button>
+            <button
+              type="button"
+              onClick={() => smoothScrollToSection("features")}
+              className="rounded-none border-2 border-white bg-transparent px-8 py-4 text-[0.72rem] font-extrabold tracking-[0.22em] text-white transition-colors hover:bg-white hover:text-black"
+            >
+              EXPLORE FEATURES ↓
+            </button>
           </div>
         </div>
 
-        {/* Right Side: Access Terminal */}
-        <div className="bg-[#fbf9f6] p-8 md:p-16 flex flex-col justify-center">
-          <div className="max-w-md mx-auto w-full">
-            <h2 className="text-3xl lg:text-4xl font-black uppercase tracking-tight mb-2">ACCESS TERMINAL</h2>
-            <p className="text-sm font-bold text-gray-500 mb-10">
-              {isLogin ? "Input credentials to initialize session." : "Input details to register new credentials."}
-            </p>
-            
-            <form className="space-y-4" onSubmit={handleAuth}>
-              {error && <div className="p-3 border-2 border-red-600 bg-red-100 text-red-600 text-[0.65rem] font-bold uppercase tracking-widest animate-fade-in">{error}</div>}
-              
-              {!isLogin && (
-                <label className="flex flex-col gap-2 text-[0.65rem] font-black uppercase tracking-[0.2em] animate-fade-in">
-                  Full Name
-                  <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="Jane Doe" className="border-2 border-black bg-white py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#eab308] transition-shadow shadow-[4px_4px_0_#000]" />
-                </label>
-              )}
-
-              <label className="flex flex-col gap-2 text-[0.65rem] font-black uppercase tracking-[0.2em]">
-                Identification
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="email@nova.system" className="border-2 border-black bg-white py-3 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#eab308] transition-shadow shadow-[4px_4px_0_#000]" />
-              </label>
-              
-              <label className="flex flex-col gap-2 text-[0.65rem] font-black uppercase tracking-[0.2em]">
-                <div className="flex justify-between w-full">
-                  Security Key
-                  {isLogin && <span className="text-[0.55rem] tracking-widest uppercase hover:underline cursor-pointer text-gray-500">Recovery</span>}
-                </div>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••••••" className="border-2 border-black bg-white py-3 px-4 text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-[#eab308] transition-shadow shadow-[4px_4px_0_#000]" />
-              </label>
-
-              {!isLogin && (
-                <label className="flex flex-col gap-2 text-[0.65rem] font-black uppercase tracking-[0.2em] animate-fade-in">
-                  Authorization Level
-                  <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="border-2 border-black bg-white py-3 px-4 text-[0.65rem] font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-[#eab308] transition-shadow shadow-[4px_4px_0_#000] appearance-none rounded-none">
-                    <option value="employee">Level 1 - Employee</option>
-                    <option value="manager">Level 2 - Manager</option>
-                    <option value="hr">Level 3 - Human Resources</option>
-                    <option value="leadership">Level 4 - Executive Command</option>
-                  </select>
-                </label>
-              )}
-              
-              <button disabled={submitting} type="submit" className="block w-full text-center text-sm py-4 border-2 border-black shadow-[4px_4px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all bg-[#eab308] uppercase tracking-[0.2em] font-black mt-6 disabled:opacity-50">
-                {submitting ? "PROCESSING..." : isLogin ? "INITIALIZE SESSION" : "REGISTER CREDENTIALS"}
-              </button>
-            </form>
-            
-            <div className="text-center mt-6 text-[0.65rem] font-bold uppercase tracking-widest text-[#4a4a4a]">
-              {isLogin ? "Require Clearance? " : "Existing Credentials? "}
-              <button onClick={() => setIsLogin(!isLogin)} type="button" className="text-black underline cursor-pointer">{isLogin ? "Request Access" : "Sign In"}</button>
-            </div>
-            
-            <div className="w-full h-px bg-black my-8 opacity-20"></div>
-            
-            <p className="text-[0.6rem] font-black uppercase tracking-[0.2em] text-[#4a4a4a] mb-4 text-center">Alternative Authentication</p>
-            <div className="grid grid-cols-2 gap-4">
-              <button 
-                onClick={async () => {
-                  if (!isGoogleConfigured) return;
-                  setOauthLoading(true);
-                  try { await signInWithGoogle(); } catch (err) { setError(err instanceof Error ? err.message : "Google sign-in failed"); setOauthLoading(false); }
-                }}
-                disabled={!isGoogleConfigured || oauthLoading}
-                className="flex items-center justify-center gap-2 border-2 border-black py-3 text-[0.6rem] font-black uppercase tracking-widest bg-white hover:bg-black hover:text-white transition-colors shadow-[2px_2px_0_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] disabled:opacity-50">
-                <Lock className="h-3.5 w-3.5" />
-                {oauthLoading ? "..." : "SSO / Google"}
-              </button>
-              <button disabled className="flex items-center justify-center gap-2 border-2 border-black py-3 text-[0.6rem] font-black uppercase tracking-widest bg-white opacity-50 cursor-not-allowed transition-colors shadow-[2px_2px_0_#000]">
-                <Fingerprint className="h-3.5 w-3.5" />
-                Biometric
-              </button>
-            </div>
-            {!isGoogleConfigured && (
-                <p className="text-[0.55rem] uppercase tracking-widest font-bold text-center mt-3 text-red-500">
-                  Google SSO not configured locally
-                </p>
-            )}
-          </div>
+        <div className="relative z-10 border-t border-white/20 py-5">
+          <p className="px-5 text-center text-[0.62rem] font-semibold tracking-[0.22em] text-white/95 sm:text-[0.68rem]">
+            AI-POWERED · EXPLAINABLE · PRIVACY-FIRST · BUILT FOR HR
+          </p>
         </div>
       </section>
 
-      {/* 2. PRODUCT VALUE SECTION */}
-      <section className="py-24 lg:py-32 bg-[#fbf9f6] border-b-2 border-black overflow-hidden relative">
-        <div className="max-w-[1440px] mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
-          
+      <section id="features" className="border-b border-[#111827] bg-[#f7f5ef] py-24 text-[#111111] lg:py-32">
+        <div className="mx-auto grid max-w-[1320px] grid-cols-1 items-start gap-14 px-6 lg:grid-cols-12 lg:px-10">
           <div className="lg:col-span-7">
-            <h2 className="font-sans text-[clamp(2.5rem,5vw,4.5rem)] font-black leading-[0.95] tracking-tight uppercase">
-              WORKFORCE METRICS.<br/>
-              <span className="inline-block mt-2 bg-black text-[#eab308] px-4 py-2">DEFINED.</span>
+            <h2
+              data-reveal
+              className={revealClass("fade-up")}
+              style={{ fontFamily: "Playfair Display, serif", fontSize: "clamp(2.1rem, 4.9vw, 4.2rem)", lineHeight: 0.95, fontWeight: 900 }}
+            >
+              WORKFORCE METRICS.
+              <br />
+              <span className="mt-2 inline-block bg-black px-4 py-2 text-[#F5C518]">DEFINED.</span>
             </h2>
-            <div className="mt-10 space-y-6 max-w-lg text-[#111] text-lg font-bold">
-              <p className="flex gap-4 items-center border-l-4 border-[#eab308] pl-4"><ArrowRight className="h-5 w-5 text-black shrink-0"/> AI-driven risk detection</p>
-              <p className="flex gap-4 items-center border-l-4 border-[#eab308] pl-4"><ArrowRight className="h-5 w-5 text-black shrink-0"/> Explainable scoring (not black box)</p>
-              <p className="flex gap-4 items-center border-l-4 border-[#eab308] pl-4"><ArrowRight className="h-5 w-5 text-black shrink-0"/> Real-time workforce monitoring</p>
+
+            <div className="mt-10 space-y-7 text-[#111111]">
+              <div data-reveal className={revealClass("fade-up", 80)}>
+                <p className="flex items-center gap-3 border-l-4 border-[#F5C518] pl-4 text-lg font-extrabold">
+                  <ArrowRight className="h-5 w-5" />
+                  AI-driven risk detection
+                </p>
+                <p className="mt-2 pl-12 text-sm font-medium leading-relaxed text-[#374151]">
+                  Burnout, attrition, and disengagement signals detected before they escalate.
+                </p>
+              </div>
+              <div data-reveal className={revealClass("fade-up", 150)}>
+                <p className="flex items-center gap-3 border-l-4 border-[#F5C518] pl-4 text-lg font-extrabold">
+                  <ArrowRight className="h-5 w-5" />
+                  Explainable scoring (not black box)
+                </p>
+                <p className="mt-2 pl-12 text-sm font-medium leading-relaxed text-[#374151]">
+                  Every score comes with a plain-English breakdown of contributing factors.
+                </p>
+              </div>
+              <div data-reveal className={revealClass("fade-up", 220)}>
+                <p className="flex items-center gap-3 border-l-4 border-[#F5C518] pl-4 text-lg font-extrabold">
+                  <ArrowRight className="h-5 w-5" />
+                  Real-time workforce monitoring
+                </p>
+                <p className="mt-2 pl-12 text-sm font-medium leading-relaxed text-[#374151]">
+                  Continuous pulse on sentiment, performance, and collaboration health.
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-5 transform transition-transform duration-500 hover:-translate-y-2">
-            <div className="bg-white border-2 border-black shadow-[16px_16px_0_#eab308] p-8 w-full">
-              <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
-                <span className="font-extrabold text-[0.65rem] uppercase tracking-widest inline-flex items-center gap-2">
+          <div data-reveal className={`${revealClass("scale-in", 110)} lg:col-span-5`}>
+            <div className="w-full border-2 border-black bg-white p-7 shadow-[14px_14px_0_#F5C518]">
+              <div className="mb-6 flex items-center justify-between border-b-2 border-black pb-4">
+                <span className="inline-flex items-center gap-2 text-[0.65rem] font-black tracking-[0.18em] text-black">
                   <Activity className="h-3 w-3" />
                   SYSTEM OVERVIEW / 24
                 </span>
                 <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-black"></div><div className="w-2 h-2 bg-black"></div><div className="w-2 h-2 bg-[#eab308]"></div>
+                  <span className="h-2 w-2 bg-black" />
+                  <span className="h-2 w-2 bg-black" />
+                  <span className="h-2 w-2 bg-[#F5C518]" />
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="border-2 border-black p-4 bg-[#fbf9f6]">
-                  <p className="text-[0.55rem] uppercase tracking-widest font-black text-gray-500">Burnout Score</p>
-                  <strong className="text-4xl font-black block mt-2 text-black">61</strong>
-                </div>
-                <div className="border-2 border-black p-4 bg-[#eab308]">
-                  <p className="text-[0.55rem] uppercase tracking-widest font-black text-black">Attrition Risk</p>
-                  <strong className="text-4xl font-black block mt-2 text-black">58</strong>
-                </div>
-              </div>
-              
-              <div className="border-2 border-black p-4 mb-6 flex justify-between items-end bg-[#fbf9f6]">
-                <div>
-                  <p className="text-[0.55rem] uppercase tracking-widest font-black text-gray-500">Headcount</p>
-                  <strong className="text-2xl font-black block mt-1 text-black">246</strong>
-                </div>
-                <Users className="h-6 w-6 opacity-30" />
               </div>
 
-              {/* Minimal Bar Chart */}
-              <div className="h-16 flex items-end justify-between gap-1 pt-4 border-t-2 border-black">
-                {[40, 65, 30, 80, 50, 90, 45, 60, 20, 70].map((h, i) => (
-                  <div key={i} className={`w-full ${i===5 ? 'bg-[#eab308]' : 'bg-black'}`} style={{height: `${h}%`}}></div>
-                ))}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border-2 border-black bg-[#f8f6f1] p-4">
+                  <p className="text-[0.55rem] font-black tracking-[0.16em] text-[#6b7280]">BURNOUT SCORE</p>
+                  <p className="mt-2 text-2xl font-black text-black">MONITORED</p>
+                  <p className="mt-1 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-[#6b7280]">Continuous scoring</p>
+                </div>
+                <div className="border-2 border-black bg-[#F5C518] p-4">
+                  <p className="text-[0.55rem] font-black tracking-[0.16em] text-black">ATTRITION RISK</p>
+                  <p className="mt-2 text-2xl font-black text-black">PREDICTED</p>
+                  <p className="mt-1 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-black/70">ML-powered forecasting</p>
+                </div>
+              </div>
+
+              <div className="mt-4 border-2 border-black bg-[#f8f6f1] p-4">
+                <p className="text-[0.55rem] font-black tracking-[0.16em] text-[#6b7280]">HEADCOUNT</p>
+                <p className="mt-2 text-2xl font-black text-black">TRACKED</p>
+                <p className="mt-1 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-[#6b7280]">Full org coverage</p>
+              </div>
+
+              <div className="mt-5 h-16 border-t-2 border-black pt-4">
+                <div className="flex h-full items-end justify-between gap-1">
+                  {[40, 65, 30, 80, 50, 90, 45, 60, 20, 70].map((height, index) => (
+                    <div
+                      key={index}
+                      className={`w-full ${index === 5 ? "bg-[#F5C518]" : "bg-black"}`}
+                      style={{ height: `${height}%` }}
+                    />
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] font-medium text-[#6b7280]">Illustrative org health distribution</p>
               </div>
             </div>
           </div>
-          
         </div>
       </section>
 
-      {/* 3. FEATURES SECTION (GRID) */}
-      <section className="bg-black text-[#fbf9f6] border-b-2 border-[#eab308]" id="features">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 w-full">
-          {[
-            { title: "Burnout Detection", desc: "Identify exhaustion patterns before critical failure.", icon: <Activity className="w-8 h-8" /> },
-            { title: "Attrition Prediction", desc: "Forecast organizational departure risk with high precision.", icon: <TrendingDown className="w-8 h-8" /> },
-            { title: "Explainable AI", desc: "Transparent risk scoring mechanisms—no black boxes.", icon: <BrainCircuit className="w-8 h-8" /> },
-            { title: "Intervention Engine", desc: "Actionable protocols automatically recommended by AI.", icon: <ShieldAlert className="w-8 h-8" /> },
-          ].map((feature, i) => (
-            <div key={i} className="border-r border-b border-white/20 p-12 hover:bg-[#111] transition-colors group cursor-default">
-              <div className="text-[#eab308] mb-8 opacity-70 group-hover:opacity-100 transition-opacity transform group-hover:scale-110 duration-300 w-max">
-                {feature.icon}
-              </div>
-              <h3 className="text-xl font-black uppercase tracking-tight mb-4">{feature.title}</h3>
-              <p className="text-sm font-medium text-white/60 leading-relaxed group-hover:text-white/90 transition-colors">
-                {feature.desc}
-              </p>
-            </div>
-          ))}
+      <section className="border-b border-[#374151] bg-[#1a1a1a] py-20" aria-label="Feature Grid">
+        <div className="mx-auto max-w-[1320px] px-6 lg:px-10">
+          <h3
+            data-reveal
+            className={`${revealClass("fade-up")} mb-8 text-center text-[clamp(1.8rem,4vw,2.8rem)] font-black tracking-tight text-white`}
+            style={{ fontFamily: "Playfair Display, serif" }}
+          >
+            FEATURES
+          </h3>
+          <div className="grid grid-cols-1 border border-white/10 sm:grid-cols-2 lg:grid-cols-4">
+            {featureCards.map((feature, index) => (
+              <article
+                key={feature.title}
+                data-reveal
+                className={`${revealClass("fade-up", 40 * index)} border-b border-r border-white/10 p-7 transition-colors hover:bg-[#111827]`}
+              >
+                <div className="mb-4 text-[#F5C518]">{feature.icon}</div>
+                <h4 className="text-lg font-extrabold text-white">{feature.title}</h4>
+                <p className="mt-2 text-sm font-medium leading-relaxed text-white/75">{feature.description}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* 4. ROLE-BASED DASHBOARD SECTION */}
-      <section className="py-24 lg:py-32 bg-[#fbf9f6] border-b-2 border-black" id="dashboards">
-        <div className="max-w-[1440px] mx-auto px-8">
-           <h2 className="text-[clamp(2.5rem,4vw,3.5rem)] font-black uppercase tracking-tight text-center mb-16 lg:mb-24">
-             Command Interfaces
-           </h2>
-           
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {[
-                { role: "HR View", target: "Org-wide risk", icon: <Users className="w-6 h-6"/>, bg: "bg-white", accent: "bg-[#eab308]" },
-                { role: "Manager View", target: "Team insights", icon: <Briefcase className="w-6 h-6"/>, bg: "bg-black", accent: "bg-[#fbf9f6]", text: "text-white" },
-                { role: "Leadership View", target: "Executive summary", icon: <BarChart3 className="w-6 h-6"/>, bg: "bg-[#eab308]", accent: "bg-black" },
-              ].map((card, i) => (
-                <div key={i} className={`${card.bg} border-2 border-black p-8 relative overflow-hidden group hover:-translate-y-2 transition-transform shadow-[8px_8px_0_#000]`}>
-                  <div className={`absolute top-0 right-0 p-4 ${card.text ? 'text-white' : 'text-black'}`}>
-                     {card.icon}
-                  </div>
-                  <div className="h-40"></div>
-                  <h3 className={`text-2xl font-black uppercase tracking-tight mb-2 ${card.text || 'text-black'}`}>{card.role}</h3>
-                  <div className={`w-12 h-1 mb-4 ${card.accent}`}></div>
-                  <p className={`font-bold uppercase tracking-widest text-[0.65rem] ${card.text ? 'text-white/70' : 'text-black/70'}`}>
-                    {card.target}
-                  </p>
-                </div>
-              ))}
-           </div>
-        </div>
-      </section>
-
-      {/* 5. HOW IT WORKS (PIPELINE STYLE) */}
-      <section className="py-24 lg:py-32 bg-[#eab308] border-b-2 border-black relative overflow-hidden" id="pipeline">
-        <div className="absolute inset-0 border-y-[20px] border-black/5 pointer-events-none"></div>
-        <div className="max-w-[1440px] mx-auto px-8 relative z-10">
-          <h2 className="text-[clamp(2rem,3vw,3rem)] font-black uppercase tracking-tight text-black text-center mb-20">
-            Intelligence Pipeline
-          </h2>
-          
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 lg:gap-8 max-w-6xl mx-auto">
-            {["Employee Data", "AI Analysis", "Risk Scoring", "Recommended Actions"].map((step, i) => (
-              <div key={i} className="flex flex-col md:flex-row items-center w-full lg:w-auto">
-                <div className="w-full md:w-48 h-48 border-[3px] border-black bg-[#fbf9f6] flex flex-col items-center justify-center p-6 text-center shadow-[6px_6px_0_#000] relative group hover:bg-black hover:text-[#eab308] transition-colors">
-                  <span className="text-[0.6rem] font-black uppercase tracking-[0.2em] mb-4 opacity-50 group-hover:opacity-100">Step {i+1}</span>
-                  <p className="font-black uppercase text-sm tracking-widest leading-snug">{step}</p>
-                </div>
-                {i < 3 && (
-                  <ArrowRight className="w-8 h-8 text-black my-8 md:my-0 mx-auto md:mx-6 shrink-0 md:-rotate-0 rotate-90" strokeWidth={3} />
-                )}
+      <section id="views" className="border-b border-[#374151] bg-[#0f172a] py-24 text-white lg:py-28">
+        <div className="mx-auto max-w-[1320px] px-6 lg:px-10">
+          <h3
+            data-reveal
+            className={`${revealClass("fade-up")} text-center text-[clamp(2rem,4vw,3.2rem)] font-black tracking-tight text-[#F5C518]`}
+            style={{ fontFamily: "Playfair Display, serif" }}
+          >
+            BUILT FOR EVERY ROLE.
+          </h3>
+          <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {[
+              { title: "C-SUITE VIEW", body: "Org-wide health at a glance" },
+              { title: "HR MANAGER VIEW", body: "Deep analytics + interventions" },
+              { title: "EMPLOYEE VIEW", body: "Your personal wellness dashboard" },
+            ].map((card, idx) => (
+              <div
+                key={card.title}
+                data-reveal
+                className={`${revealClass("scale-in", 90 * idx)} border border-[#374151] bg-[#111827] p-7`}
+              >
+                <div className="mb-5 h-1 w-full bg-[#F5C518]" />
+                <h4 className="text-sm font-black tracking-[0.18em] text-[#F5C518]">{card.title}</h4>
+                <p className="mt-3 text-lg font-semibold text-white">{card.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ABOUT SECTION */}
-      <section className="py-24 lg:py-32 bg-[#fbf9f6] border-b-2 border-black" id="about">
-        <div className="max-w-[1440px] mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
-          <div>
-            <h2 className="text-[clamp(2.5rem,4vw,3.5rem)] font-[Playfair_Display] font-black leading-none mb-8 text-black uppercase">
-              Architecting Stability.<br/>Engineering Trust.
+      <section className="border-b border-black bg-[#f7f5ef] py-24 text-black lg:py-28">
+        <div className="mx-auto grid max-w-[1320px] grid-cols-1 items-start gap-12 px-6 lg:grid-cols-12 lg:px-10">
+          <div className="lg:col-span-7">
+            <h2
+              data-reveal
+              className={revealClass("fade-up")}
+              style={{ fontFamily: "Playfair Display, serif", fontSize: "clamp(2.3rem,4.5vw,3.7rem)", lineHeight: 1, fontWeight: 900 }}
+            >
+              Architecting Stability.
+              <br />
+              Engineering Trust.
             </h2>
-            <div className="space-y-6 text-lg font-medium text-[#4a4a4a]">
-              <p>NOVA was forged to solve one of the most complex challenges of the modern enterprise: workforce volatility. By bridging behavioral data with transparent machine learning, we transform raw telemetry into structural insights.</p>
-              <p>We believe that AI in human resources must be inherently explainable. Our models are constructed not as black boxes, but as transparent, auditable intelligence layers serving the leaders who rely on them.</p>
+            <div className="mt-7 space-y-5 text-lg font-medium leading-relaxed text-[#4a4a4a]">
+              <p data-reveal className={revealClass("fade-up", 80)}>
+                NOVA was forged to solve one of the most complex challenges of the modern enterprise: workforce volatility. By bridging behavioral data with transparent machine learning, we transform raw telemetry into structural insights.
+              </p>
+              <p data-reveal className={revealClass("fade-up", 150)}>
+                We believe that AI in human resources must be inherently explainable. Our models are constructed not as black boxes, but as transparent, auditable intelligence layers serving the leaders who rely on them.
+              </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 lg:gap-6">
-             <div className="border-[3px] border-black p-8 text-center bg-white shadow-[6px_6px_0_#eab308] transform transition-transform hover:-translate-y-2">
-                <strong className="text-4xl lg:text-5xl font-black block mb-2">99%</strong>
-                <span className="text-[0.65rem] font-black uppercase tracking-widest text-gray-500">Uptime Reliability</span>
-             </div>
-             <div className="border-[3px] border-black p-8 text-center bg-black text-white shadow-[6px_6px_0_#eab308] transform transition-transform hover:-translate-y-2">
-                <strong className="text-4xl lg:text-5xl font-black block mb-2 text-[#eab308]">10k+</strong>
-                <span className="text-[0.65rem] font-black uppercase tracking-widest opacity-70">Nodes Monitored</span>
-             </div>
-             <div className="border-[3px] border-black p-8 text-center bg-[#eab308] shadow-[6px_6px_0_#000] col-span-2 transform transition-transform hover:-translate-y-2">
-                <strong className="text-4xl lg:text-5xl font-black block mb-2">ZERO</strong>
-                <span className="text-[0.65rem] font-black uppercase tracking-widest">Black Box Assertions</span>
-             </div>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:col-span-5">
+            {[
+              { value: "100%", subtitle: "EXPLAINABLE DECISIONS", tone: "bg-white text-black border-black shadow-[6px_6px_0_#F5C518]" },
+              { value: "6", subtitle: "INTEGRATED DATA SOURCES", tone: "bg-black text-[#F5C518] border-black shadow-[6px_6px_0_#F5C518]" },
+              { value: "ZERO", subtitle: "OPAQUE AI DECISIONS", tone: "bg-[#F5C518] text-black border-black shadow-[6px_6px_0_#000]" },
+              { value: "4", subtitle: "RBAC ACCESS LEVELS", tone: "bg-white text-black border-[#F5C518] shadow-[6px_6px_0_#F5C518]" },
+            ].map((card, idx) => (
+              <div
+                key={card.subtitle}
+                data-reveal
+                className={`${revealClass("scale-in", 80 * idx)} border-[3px] p-7 text-center ${card.tone}`}
+              >
+                <p className="text-5xl font-black">{card.value}</p>
+                <p className="mt-2 text-[0.65rem] font-black tracking-[0.14em]">{card.subtitle}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 6. CTA SECTION */}
-      <section className="py-32 lg:py-48 bg-black text-center border-b-8 border-[#eab308]">
-        <div className="max-w-4xl mx-auto px-8">
-          <h2 className="text-[clamp(3.5rem,8vw,6rem)] font-black uppercase font-[Playfair_Display] leading-none mb-12 text-[#eab308]">
+      <section id="about" className="border-b border-[#374151] bg-[#f7f5ef] py-24 text-black lg:py-28">
+        <div className="mx-auto max-w-[980px] px-6 text-center lg:px-10">
+          <h3
+            data-reveal
+            className={`${revealClass("fade-up")} text-[clamp(2rem,4vw,3rem)] font-black`}
+            style={{ fontFamily: "Playfair Display, serif" }}
+          >
+            WHAT IS NOVA?
+          </h3>
+          <p data-reveal className={`${revealClass("fade-up", 100)} mt-8 text-lg font-medium leading-relaxed text-[#374151]`}>
+            NOVA (Next-Gen Organizational Vitality Analytics) is an AI-powered HR intelligence platform that shifts workforce management from reactive to predictive. It identifies employee burnout, flight risk, and disengagement before they escalate — enabling organizations to intervene early. NOVA combines sentiment analysis, ML risk scoring, peer network analysis, and explainable AI into a unified platform accessible through role-based dashboards for C-suite, HR managers, and employees.
+          </p>
+          <p data-reveal className={`${revealClass("fade-up", 180)} mt-8 text-center text-base italic text-[#6b7280]`}>
+            Built by a team of 4 undergraduate students · Grand Finale 2025
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b-8 border-[#F5C518] bg-black py-28 text-center lg:py-36">
+        <div className="mx-auto max-w-4xl px-6 lg:px-10">
+          <h3
+            data-reveal
+            className={`${revealClass("fade-up")} text-[clamp(3rem,8vw,6rem)] font-black uppercase leading-none text-[#F5C518]`}
+            style={{ fontFamily: "Playfair Display, serif" }}
+          >
             DEPLOY NOVA.
-          </h2>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-              <button className="w-full sm:w-auto bg-[#eab308] text-black border-[3px] border-[#eab308] px-10 py-5 font-black uppercase tracking-[0.2em] text-[0.7rem] hover:bg-black hover:text-[#eab308] transition-colors shadow-[6px_6px_0_#fbf9f6] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px]">
-                Deploy Platform
-              </button>
-              <button className="w-full sm:w-auto bg-transparent border-[3px] border-[#fbf9f6] text-[#fbf9f6] px-10 py-5 font-black uppercase tracking-[0.2em] text-[0.7rem] hover:bg-[#fbf9f6] hover:text-black transition-colors shadow-[6px_6px_0_#eab308] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px]">
-                View Documentation
-              </button>
+          </h3>
+          <div data-reveal className={`${revealClass("fade-up", 120)} mt-10 flex flex-col items-center justify-center gap-5 sm:flex-row`}>
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="w-full border-[3px] border-[#F5C518] bg-[#F5C518] px-10 py-4 text-[0.7rem] font-black tracking-[0.2em] text-black transition-colors hover:bg-black hover:text-[#F5C518] sm:w-auto"
+            >
+              DEPLOY PLATFORM
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/hr-api")}
+              className="w-full border-[3px] border-white bg-transparent px-10 py-4 text-[0.7rem] font-black tracking-[0.2em] text-white transition-colors hover:bg-white hover:text-black sm:w-auto"
+            >
+              VIEW DOCUMENTATION
+            </button>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-[#fbf9f6] text-black py-12 border-t-2 border-black">
-        <div className="max-w-[1440px] mx-auto px-8 flex justify-between items-center">
+      <footer className="bg-[#1a1a1a] text-white">
+        <div className="h-1 w-full bg-[#F5C518]" />
+        <div className="border-t border-[#374151]">
+          <div className="mx-auto grid max-w-[1320px] grid-cols-1 gap-10 px-6 py-14 lg:grid-cols-3 lg:px-10">
             <div>
-              <p className="font-[Playfair_Display] text-xl font-black tracking-tight text-black mb-1">NOVA</p>
-              <span className="text-[0.55rem] uppercase tracking-widest opacity-60 font-bold">© 2026 NOVA ARCHITECTURAL SYSTEMS</span>
+              <div className="flex items-center gap-2 text-xl font-black tracking-tight">
+                <CirclePlus className="h-6 w-6 text-[#F5C518]" strokeWidth={2.3} />
+                <span>NOVA</span>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-[#9ca3af]">NOVA · AI Workforce Pulse</p>
+              <p className="mt-2 text-sm text-[#9ca3af]">Next-Gen Organizational Vitality Analytics</p>
+              <p className="mt-4 text-xs text-[#9ca3af]">© 2026 NOVA · Built for the modern enterprise</p>
             </div>
+
+            <div>
+              <h4 className="text-sm font-black tracking-[0.16em] text-white">PLATFORM</h4>
+              <ul className="mt-4 space-y-2 text-sm text-[#9ca3af]">
+                <li>· Org Intelligence</li>
+                <li>· Predictive Risk Engine</li>
+                <li>· Intervention Recommendations</li>
+                <li>· Appraisal Cycle Management</li>
+                <li>· Talent Pipeline</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-black tracking-[0.16em] text-white">ABOUT NOVA</h4>
+              <p className="mt-4 text-sm leading-relaxed text-[#9ca3af]">
+                NOVA is an AI-powered HR analytics platform that detects burnout, predicts attrition, and surfaces actionable workforce insights — all powered by explainable machine learning. Built to shift HR from reactive administration to proactive strategy.
+              </p>
+              <p className="mt-4 text-xs text-[#9ca3af]">Built with: Python · FastAPI · React · Groq LLM · Supabase</p>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

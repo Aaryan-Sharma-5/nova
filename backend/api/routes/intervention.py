@@ -97,6 +97,7 @@ def _normalize_employee_payload(raw: dict[str, Any], index: int) -> dict[str, An
 
 
 def _fallback_employees() -> list[dict[str, Any]]:
+    """High-risk employee cohort for intervention recommendations. Varied by department/role."""
     return [
         {
             "id": "NOVA-ENG011",
@@ -111,6 +112,18 @@ def _fallback_employees() -> list[dict[str, Any]]:
             "recognition_count_90d": 0,
         },
         {
+            "id": "NOVA-ENG047",
+            "name": "Priya Gupta",
+            "department": "Engineering",
+            "burnout_risk": 81,
+            "attrition_risk": 76,
+            "sentiment_score": -0.39,
+            "performance_score": 79,
+            "tenure_months": 28,
+            "salary_band": 1550000,
+            "recognition_count_90d": 1,
+        },
+        {
             "id": "NOVA-SAL012",
             "name": "Ria Sharma",
             "department": "Sales",
@@ -121,6 +134,18 @@ def _fallback_employees() -> list[dict[str, Any]]:
             "tenure_months": 22,
             "salary_band": 980000,
             "recognition_count_90d": 1,
+        },
+        {
+            "id": "NOVA-HR009",
+            "name": "Neha Patel",
+            "department": "Human Resources",
+            "burnout_risk": 79,
+            "attrition_risk": 71,
+            "sentiment_score": -0.35,
+            "performance_score": 77,
+            "tenure_months": 34,
+            "salary_band": 920000,
+            "recognition_count_90d": 0,
         },
         {
             "id": "NOVA-OPS003",
@@ -134,17 +159,46 @@ def _fallback_employees() -> list[dict[str, Any]]:
             "salary_band": 850000,
             "recognition_count_90d": 0,
         },
+        {
+            "id": "NOVA-MKT024",
+            "name": "Vikram Singh",
+            "department": "Marketing",
+            "burnout_risk": 68,
+            "attrition_risk": 63,
+            "sentiment_score": -0.22,
+            "performance_score": 71,
+            "tenure_months": 18,
+            "salary_band": 890000,
+            "recognition_count_90d": 2,
+        },
     ]
 
 
 def _group_label(employee_names: list[str], departments: list[str]) -> str:
+    """Generate human-readable target group label based on scope and departments."""
     if not employee_names:
         return "General (0 employees)"
-    if len(set(departments)) == 1:
-        return f"{departments[0]} ({len(employee_names)} employees)"
+    
+    unique_depts = list(dict.fromkeys(departments))  # Preserve order, remove dups
+    
+    # Single department with multiple employees
+    if len(unique_depts) == 1:
+        dept = unique_depts[0]
+        if len(employee_names) == 1:
+            return employee_names[0]
+        elif len(employee_names) <= 3:
+            return f"{', '.join(employee_names)} ({dept})"
+        else:
+            return f"{dept} ({len(employee_names)} high-risk employees)"
+    
+    # Cross-department intervention
     if len(employee_names) == 1:
         return employee_names[0]
-    return f"{employee_names[0]} + {len(employee_names) - 1} others"
+    elif len(employee_names) <= 3:
+        depts_str = " + ".join(unique_depts)
+        return f"{', '.join(employee_names)} ({depts_str})"
+    else:
+        return f"Cross-functional cohort ({len(employee_names)} employees, {len(unique_depts)} departments)"
 
 
 def _urgency_rank(value: str) -> int:
@@ -477,36 +531,108 @@ async def get_roi_recommendations(
     )
 
     if not recommendations:
-        fallback = await get_interventions(
-            InterventionRequest(
-                employee_id="NOVA-ENG011",
-                employee_name="Aditya Verma",
-                department="Engineering",
-                burnout_score=0.83,
-                sentiment_score=-0.4,
-                performance_band="top",
-                tenure_months=36,
-                retention_risk="high",
-                attrition_probability=0.78,
-                salary_band=1600000,
+        # Fallback: generate recommendations for top 3 at-risk employees from demo dataset
+        fallback_employees_list = [
+            (
+                "NOVA-ENG011",
+                "Aditya Verma",
+                "Engineering",
+                0.83,
+                -0.4,
+                "top",
+                40,
+                "high",
+                0.79,
+                1650000,
+            ),
+            (
+                "NOVA-ENG047",
+                "Priya Gupta",
+                "Engineering",
+                0.81,
+                -0.39,
+                "high",
+                28,
+                "high",
+                0.76,
+                1550000,
+            ),
+            (
+                "NOVA-SAL012",
+                "Ria Sharma",
+                "Sales",
+                0.77,
+                -0.31,
+                "high",
+                22,
+                "high",
+                0.74,
+                980000,
+            ),
+        ]
+        
+        fallback_grouped: dict[str, dict[str, Any]] = {}
+        for emp_id, emp_name, dept, burnout, sentiment, perf_band, tenure, risk, attrition, salary in fallback_employees_list:
+            request = InterventionRequest(
+                employee_id=emp_id,
+                employee_name=emp_name,
+                department=dept,
+                burnout_score=burnout,
+                sentiment_score=sentiment,
+                performance_band=perf_band,
+                tenure_months=tenure,
+                retention_risk=risk,
+                attrition_probability=attrition,
+                salary_band=salary,
             )
-        )
-        for rec in fallback.recommendations[:3]:
+            result = await get_interventions(request)
+            for rec in result.recommendations:
+                key = rec.intervention_type.value
+                entry = fallback_grouped.setdefault(
+                    key,
+                    {
+                        "intervention_type": key,
+                        "intervention_name": rec.intervention_name,
+                        "description": rec.description,
+                        "urgency": rec.urgency.value,
+                        "priority_score": rec.priority_score,
+                        "employee_names": [],
+                        "departments": [],
+                        "intervention_cost_inr": 0.0,
+                        "projected_savings_inr": 0.0,
+                        "savings_basis": rec.savings_basis,
+                    },
+                )
+                entry["employee_names"].append(emp_name)
+                entry["departments"].append(dept)
+                entry["intervention_cost_inr"] += rec.intervention_cost_inr
+                entry["projected_savings_inr"] += rec.projected_savings_inr
+                entry["priority_score"] = max(entry["priority_score"], rec.priority_score)
+                if _urgency_rank(rec.urgency.value) < _urgency_rank(entry["urgency"]):
+                    entry["urgency"] = rec.urgency.value
+
+        for item in fallback_grouped.values():
+            cost = float(item["intervention_cost_inr"])
+            savings = float(item["projected_savings_inr"])
+            roi_percent = round(((savings - cost) / cost) * 100.0, 1) if cost > 0 else round(savings / 1000.0, 1)
             recommendations.append(
                 ROIRecommendationItem(
-                    intervention_type=rec.intervention_type.value,
-                    intervention_name=rec.intervention_name,
-                    description=rec.description,
-                    urgency=rec.urgency.value,
-                    priority_score=rec.priority_score,
-                    target_group="Aditya Verma + 2 others",
-                    target_employee_count=3,
-                    intervention_cost_inr=rec.intervention_cost_inr * 3,
-                    projected_savings_inr=rec.projected_savings_inr * 3,
-                    roi_percent=rec.roi_percent,
-                    savings_basis=rec.savings_basis,
+                    intervention_type=item["intervention_type"],
+                    intervention_name=item["intervention_name"],
+                    description=item["description"],
+                    urgency=item["urgency"],
+                    priority_score=round(float(item["priority_score"]), 3),
+                    target_group=_group_label(item["employee_names"], item["departments"]),
+                    target_employee_count=len(item["employee_names"]),
+                    intervention_cost_inr=round(cost, 2),
+                    projected_savings_inr=round(savings, 2),
+                    roi_percent=roi_percent,
+                    savings_basis=f"Based on {len(item['employee_names'])} at-risk employees x estimated replacement cost benchmark",
                 )
             )
+        recommendations.sort(
+            key=lambda rec: (_urgency_rank(rec.urgency), -rec.roi_percent, -rec.priority_score)
+        )
 
     return {
         "recommendations": [item.model_dump() for item in recommendations],

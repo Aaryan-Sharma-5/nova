@@ -16,6 +16,7 @@ const SentimentPage = lazy(() => import("./pages/SentimentPage"));
 const OrgHealthPage = lazy(() => import("./pages/OrgHealthPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const HrApiPage = lazy(() => import("./pages/HrApiPage"));
 const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
 const BackendEndpointPage = lazy(() => import("./pages/BackendEndpointPage"));
 const AuditLogPage = lazy(() => import("./pages/AuditLogPage"));
@@ -62,6 +63,7 @@ const App = () => (
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/hr-api" element={<HrApiPage />} />
                 <Route path="/forbidden" element={<ForbiddenPage />} />
                 <Route path="/careers" element={<CareersPage />} />
 

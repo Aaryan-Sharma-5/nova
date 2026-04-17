@@ -976,13 +976,15 @@ export default function OrgHealthPage() {
         </Card>
 
         {/* Recommended Interventions */}
-        <Card>
-          <CardHeader>
+        <div className="border-4 border-black bg-white">
+          <div className="border-b-4 border-black p-4">
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Recommended HR Interventions (ROI-Ranked)</CardTitle>
+              <h2 className="text-lg font-bold uppercase tracking-wider">Recommended HR Interventions (ROI-Ranked)</h2>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="link" className="h-auto p-0 text-sm">Methodology</Button>
+                  <button className="text-xs font-bold uppercase px-3 py-2 border-2 border-black bg-white hover:bg-gray-50 transition-colors">
+                    Methodology →
+                  </button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -1002,22 +1004,22 @@ export default function OrgHealthPage() {
                 </DialogContent>
               </Dialog>
             </div>
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-4">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Intervention</TableHead>
-                  <TableHead>Target Group</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
-                  <TableHead className="text-right">Savings</TableHead>
-                  <TableHead className="text-right">ROI</TableHead>
+                <TableRow className="border-b-2 border-black">
+                  <TableHead className="font-bold uppercase tracking-wider text-xs">Priority</TableHead>
+                  <TableHead className="font-bold uppercase tracking-wider text-xs">Intervention</TableHead>
+                  <TableHead className="font-bold uppercase tracking-wider text-xs">Target Group</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-xs">Cost</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-xs">Savings</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-xs">ROI</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {interventions.map((item, i) => (
-                  <TableRow key={i}>
+                  <TableRow key={i} className="border-b border-gray-300 hover:bg-gray-50">
                     <TableCell>{getPriorityBadge(item.urgency, item.rank)}</TableCell>
                     <TableCell>
                       <p className="font-medium">{item.intervention}</p>
@@ -1062,8 +1064,8 @@ export default function OrgHealthPage() {
               </TableBody>
             </Table>
 
-            <div className="mt-4 p-4 border rounded-lg" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <div className="mt-4 p-4 border-2 border-yellow-400 bg-yellow-50">
+              <p className="text-sm font-bold" style={{ color: '#000000' }}>
                 Total Investment:{' '}
                 <ExplainableValue
                   value={formatINR(roiSummary?.total_investment_inr || 0)}
@@ -1079,8 +1081,8 @@ export default function OrgHealthPage() {
                 {' | '}Net Impact: {formatINR(roiSummary?.net_impact_inr || 0)}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Month-over-Month Summary */}
         <Card>

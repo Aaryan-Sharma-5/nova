@@ -45,8 +45,16 @@ from api.routes.webhooks import router as webhooks_router
 from api.routes.task_assignments import router as task_assignments_router
 from api.routes.job_board import router as job_board_router
 from api.routes.work_profiles import router as work_profiles_router
-from api.routes.composio_admin import router as composio_admin_router
-from api.routes.composio_sync import router as composio_sync_router
+from integrations.composio.client import is_composio_available
+
+_composio_route_import_error: Exception | None = None
+try:
+    from api.routes.composio_admin import router as composio_admin_router
+    from api.routes.composio_sync import router as composio_sync_router
+except Exception as exc:
+    composio_admin_router = None
+    composio_sync_router = None
+    _composio_route_import_error = exc
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +62,11 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+if _composio_route_import_error is not None:
+    logger.warning(
+        "[Composio] Routes disabled at startup: %s",
+        _composio_route_import_error,
+    )
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -119,8 +132,11 @@ app.include_router(webhooks_router)
 app.include_router(task_assignments_router)
 app.include_router(job_board_router)
 app.include_router(work_profiles_router)
-app.include_router(composio_admin_router)
-app.include_router(composio_sync_router)
+if composio_admin_router is not None and composio_sync_router is not None:
+    app.include_router(composio_admin_router)
+    app.include_router(composio_sync_router)
+else:
+    logger.warning("[Composio] API routes skipped because Composio dependencies are unavailable.")
 
 
 _SENSITIVE_GET_PREFIXES = (
@@ -328,6 +344,10 @@ async def _process_sentiment_buffer() -> None:
 
 async def _composio_nightly_sync() -> None:
     """Pull last 24h of signals for every active Composio-connected org."""
+    if not is_composio_available():
+        logger.info("[Composio] Nightly sync skipped: composio package is unavailable.")
+        return
+
     from services.ingestion_service import IngestionService
     sb = get_supabase_admin()
     try:
@@ -397,15 +417,21 @@ async def startup_event():
         _process_sentiment_buffer,
         interval_seconds=120,  # every 2 minutes
     )
-    scheduler.register_job(
-        "composio_nightly_sync",
-        _composio_nightly_sync,
-        interval_seconds=86400,
-    )
+    if is_composio_available():
+        scheduler.register_job(
+            "composio_nightly_sync",
+            _composio_nightly_sync,
+            interval_seconds=86400,
+        )
+    else:
+        logger.info("[Composio] Scheduler job not registered: composio package is unavailable.")
 
     if not settings.SCHEDULER_RUN_JOBS_ON_STARTUP:
         now = datetime.utcnow()
-        for job_id in ("sentiment_buffer_flush", "composio_nightly_sync"):
+        job_ids = ["sentiment_buffer_flush"]
+        if is_composio_available():
+            job_ids.append("composio_nightly_sync")
+        for job_id in job_ids:
             job = scheduler.jobs.get(job_id)
             if job and job.last_run is None:
                 job.last_run = now

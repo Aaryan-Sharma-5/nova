@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { generateBurnoutHeatmap } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
 import { useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,7 +9,21 @@ import { useEmployees } from "@/contexts/EmployeeContext";
 
 export default function BurnoutHeatmap() {
   const { employees } = useEmployees();
-  const data = generateBurnoutHeatmap();
+  const data = useMemo(() => {
+    const byDepartment = new Map<string, number[]>();
+    for (const employee of employees) {
+      byDepartment.set(employee.department, [...(byDepartment.get(employee.department) || []), employee.burnoutRisk]);
+    }
+
+    return Array.from(byDepartment.entries()).map(([department, scores]) => {
+      const avg = scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : 0;
+      const weeks = Array.from({ length: 12 }, (_, index) => {
+        const drift = (index - 5) * 1.2;
+        return Math.max(0, Math.min(100, Math.round(avg + drift)));
+      });
+      return { department, weeks };
+    });
+  }, [employees]);
   const chartRef = useRef<HTMLDivElement>(null);
   const [selectedCell, setSelectedCell] = useState<{ dept: string; week: number; score: number } | null>(null);
   const highBurnoutEmployees = useMemo(() => {

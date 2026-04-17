@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from "recharts";
-import { generateSentimentEmotions, generateSentimentTopics, SentimentEmotions } from "@/utils/mockAnalyticsData";
 import { Clock, TrendingUp, AlertCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -35,11 +34,55 @@ function normalizeEmotions(source: Record<string, number> | null | undefined): S
   }, {} as SentimentEmotions);
 }
 
+type SentimentEmotions = Record<string, number>;
+
+function inferFallbackEmotions(text: string): SentimentEmotions {
+  const lower = text.toLowerCase();
+  const hasNegative = /stress|burnout|frustrat|angry|overwhelm|quit|leave/.test(lower);
+  const hasPositive = /great|happy|excited|support|growth|good|motivat/.test(lower);
+  return {
+    joy: hasPositive ? 62 : 28,
+    trust: hasPositive ? 58 : 33,
+    fear: hasNegative ? 64 : 18,
+    surprise: 26,
+    sadness: hasNegative ? 57 : 20,
+    disgust: hasNegative ? 48 : 15,
+    anger: hasNegative ? 54 : 16,
+    anticipation: hasPositive ? 52 : 29,
+  };
+}
+
+function inferTopics(text: string): Array<{ topic: string; count: number; sentiment: 'positive' | 'negative' | 'neutral' }> {
+  const keywords = [
+    { topic: 'workload', pattern: /workload|deadline|pressure|overtime|burnout/, sentiment: 'negative' as const },
+    { topic: 'management', pattern: /manager|leadership|direction|1:1|support/, sentiment: 'neutral' as const },
+    { topic: 'growth', pattern: /growth|career|promotion|learning|mentor/, sentiment: 'positive' as const },
+    { topic: 'compensation', pattern: /salary|pay|raise|compensation/, sentiment: 'negative' as const },
+    { topic: 'culture', pattern: /culture|team|collaboration|respect|inclusion/, sentiment: 'positive' as const },
+  ];
+
+  const lower = text.toLowerCase();
+  const derived = keywords
+    .map((item) => ({
+      topic: item.topic,
+      sentiment: item.sentiment,
+      count: (lower.match(new RegExp(item.pattern.source, 'g')) || []).length,
+    }))
+    .filter((item) => item.count > 0);
+
+  if (derived.length > 0) return derived;
+  return [
+    { topic: 'general sentiment', count: 1, sentiment: 'neutral' },
+    { topic: 'workload', count: 1, sentiment: 'negative' },
+    { topic: 'team collaboration', count: 1, sentiment: 'positive' },
+  ];
+}
+
 export default function SentimentBreakdown({ text, employeeName, emotionBreakdown }: SentimentBreakdownProps) {
-  const fallbackEmotions = generateSentimentEmotions();
+  const fallbackEmotions = inferFallbackEmotions(text);
   const modelEmotions = normalizeEmotions(emotionBreakdown);
   const emotions = modelEmotions ?? fallbackEmotions;
-  const topics = generateSentimentTopics();
+  const topics = inferTopics(text);
 
   // Convert emotions object to array for radar chart
   const emotionData = Object.entries(emotions).map(([emotion, value]) => ({

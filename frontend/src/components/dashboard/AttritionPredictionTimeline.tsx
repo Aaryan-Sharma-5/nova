@@ -1,8 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ReferenceLine } from "recharts";
-import { generateAttritionForecast } from "@/utils/mockAnalyticsData";
+import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ReferenceLine } from "recharts";
 import { protectedGetApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
@@ -10,6 +9,7 @@ import html2canvas from "html2canvas";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "react-router-dom";
+import { useEmployees } from "@/contexts/EmployeeContext";
 
 const ACCEPTABLE_ATTRITION_RATE = 10; // Configurable threshold
 
@@ -33,14 +33,45 @@ type EventCorrelation = {
 };
 
 export default function AttritionPredictionTimeline() {
-  const data = useMemo(() => generateAttritionForecast(), []);
+  const { employees } = useEmployees();
+  const data = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const deptBase = (department: string) => {
+      const cohort = employees.filter((employee) => employee.department.toLowerCase() === department.toLowerCase());
+      if (!cohort.length) return 0;
+      return cohort.reduce((sum, employee) => sum + employee.attritionRisk, 0) / cohort.length;
+    };
+
+    const engineeringBase = deptBase('Engineering') / 10;
+    const salesBase = deptBase('Sales') / 10;
+    const marketingBase = deptBase('Marketing') / 10;
+    const operationsBase = deptBase('Operations') / 10;
+
+    return months.map((month, index) => {
+      const slope = index * 0.6;
+      const engineering = Number((engineeringBase + slope * 0.45).toFixed(1));
+      const sales = Number((salesBase + slope * 0.55).toFixed(1));
+      const marketing = Number((marketingBase + slope * 0.35).toFixed(1));
+      const operations = Number((operationsBase + slope * 0.4).toFixed(1));
+
+      return {
+        month,
+        engineering,
+        sales,
+        marketing,
+        operations,
+        engineeringLower: Math.max(0, Number((engineering - 1.6).toFixed(1))),
+        engineeringUpper: Number((engineering + 1.6).toFixed(1)),
+      };
+    });
+  }, [employees]);
   const chartRef = useRef<HTMLDivElement>(null);
   const { token } = useAuth();
   const [eventCorrelations, setEventCorrelations] = useState<EventCorrelation[]>([]);
   const [showIndustry, setShowIndustry] = useState(false);
   const [industryAttrition, setIndustryAttrition] = useState<number | null>(null);
   const [showWhyScore, setShowWhyScore] = useState(false);
-  const totalHeadcount = 100;
+  const totalHeadcount = employees.length || 1;
 
   const formatDataKey = (key: string) => {
     const labels: Record<string, string> = {

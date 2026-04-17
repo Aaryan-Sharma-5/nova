@@ -1,14 +1,51 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUp, ArrowDown } from "lucide-react";
-import { calculateWorkforceHealthScore } from "@/utils/mockAnalyticsData";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { useEmployees } from "@/contexts/EmployeeContext";
 
 export default function WorkforceHealthScore() {
   const { token } = useAuth();
-  const [data, setData] = useState(calculateWorkforceHealthScore());
+  const { employees } = useEmployees();
+  const data = useMemo(() => {
+    if (employees.length === 0) {
+      return {
+        score: 0,
+        delta: 0,
+        components: {
+          burnout: 0,
+          attrition: 0,
+          engagement: 0,
+          sentiment: 0,
+        },
+      };
+    }
+
+    const totals = employees.reduce(
+      (acc, employee) => {
+        acc.burnout += employee.burnoutRisk;
+        acc.attrition += employee.attritionRisk;
+        acc.engagement += employee.engagementScore;
+        acc.sentiment += ((employee.sentimentScore + 1) / 2) * 100;
+        return acc;
+      },
+      { burnout: 0, attrition: 0, engagement: 0, sentiment: 0 },
+    );
+
+    const burnout = 100 - totals.burnout / employees.length;
+    const attrition = 100 - totals.attrition / employees.length;
+    const engagement = totals.engagement / employees.length;
+    const sentiment = totals.sentiment / employees.length;
+    const score = (burnout + attrition + engagement + sentiment) / 4;
+
+    return {
+      score,
+      delta: ((engagement + sentiment) / 2 - (burnout + attrition) / 2) / 10,
+      components: { burnout, attrition, engagement, sentiment },
+    };
+  }, [employees]);
   const [animatedScore, setAnimatedScore] = useState(0);
   const [showIndustry, setShowIndustry] = useState(false);
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);

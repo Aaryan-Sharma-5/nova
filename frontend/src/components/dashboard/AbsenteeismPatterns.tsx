@@ -2,14 +2,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
-import { generateAbsenteeismData } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
+import { useEmployees } from "@/contexts/EmployeeContext";
 
 const POLICY_THRESHOLD = 5.5; // Configurable absenteeism threshold
 
 export default function AbsenteeismPatterns() {
-  const data = generateAbsenteeismData();
+  const { employees } = useEmployees();
+  const data = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const avgAbsence = employees.length
+      ? employees.reduce((sum, employee) => sum + employee.absenceDays, 0) / employees.length
+      : 0;
+    const avgBurnout = employees.length
+      ? employees.reduce((sum, employee) => sum + employee.burnoutRisk, 0) / employees.length
+      : 0;
+
+    return months.map((month, index) => {
+      const factor = 0.88 + index * 0.05;
+      const unplanned = Number(((avgAbsence / 2.4) * factor).toFixed(1));
+      const sickLeave = Number(((avgAbsence / 3.3) * (1 + index * 0.04)).toFixed(1));
+      const personalLeave = Number(((avgAbsence / 4.1) * (1 + index * 0.03)).toFixed(1));
+      const burnoutScore = Math.max(0, Math.min(100, Math.round(avgBurnout * (0.92 + index * 0.02))));
+      return { month, sickLeave, personalLeave, unplanned, burnoutScore };
+    });
+  }, [employees]);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const handleExport = async () => {
@@ -67,9 +85,18 @@ export default function AbsenteeismPatterns() {
   };
 
   const calculateCorrelation = () => {
-    // Simple correlation coefficient between total absenteeism and burnout
-    // Mock calculation for demonstration
-    return 0.78; // Strong positive correlation
+    const totals = enrichedData.map((item) => item.total);
+    const burnout = enrichedData.map((item) => item.burnoutScore);
+    const n = totals.length;
+    if (n === 0) return 0;
+    const sumX = totals.reduce((a, b) => a + b, 0);
+    const sumY = burnout.reduce((a, b) => a + b, 0);
+    const sumXY = totals.reduce((sum, value, index) => sum + value * burnout[index], 0);
+    const sumX2 = totals.reduce((sum, value) => sum + value * value, 0);
+    const sumY2 = burnout.reduce((sum, value) => sum + value * value, 0);
+    const denom = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    if (!denom) return 0;
+    return (n * sumXY - sumX * sumY) / denom;
   };
 
   return (

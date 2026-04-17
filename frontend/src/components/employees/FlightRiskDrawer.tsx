@@ -11,10 +11,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, MessageSquare, Award, TrendingUp, AlertCircle, Trophy } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts";
-import { generateFlightRiskData, FlightRiskEvent } from "@/utils/mockAnalyticsData";
 import { useAuth } from "@/contexts/AuthContext";
 import { protectedGetApi, protectedPostApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useEmployees } from "@/contexts/EmployeeContext";
+
+type FlightRiskEvent = {
+  type: "review" | "one-on-one" | "milestone" | "sentiment-shift";
+  date: string;
+  description: string;
+  impact: "positive" | "negative" | "neutral";
+};
 
 type MeetingItem = {
   id: string;
@@ -71,6 +78,7 @@ async function fireConfetti(): Promise<void> {
 
 export default function FlightRiskDrawer({ employeeId, employeeName, open, onClose }: FlightRiskDrawerProps) {
   const { token, user } = useAuth();
+  const { getEmployee } = useEmployees();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -98,7 +106,35 @@ export default function FlightRiskDrawer({ employeeId, employeeName, open, onClo
   const [recMessage, setRecMessage] = useState("");
   const [recPublic, setRecPublic] = useState(true);
 
-  const data = useMemo(() => (employeeId ? generateFlightRiskData(employeeId) : null), [employeeId]);
+  const data = useMemo(() => {
+    if (!employeeId) return null;
+    const employee = getEmployee(employeeId);
+    if (!employee) return null;
+
+    const riskScores = Array.from({ length: 10 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (9 - index) * 10);
+      const score = Math.max(0, Math.min(100, Math.round(employee.attritionRisk + (index - 4) * 1.5)));
+      return { date: date.toISOString().slice(0, 10), score };
+    });
+
+    const events: FlightRiskEvent[] = [
+      {
+        type: "sentiment-shift",
+        date: riskScores[Math.max(0, riskScores.length - 4)]?.date || riskScores[0].date,
+        description: "Sentiment trend changed in recent check-ins",
+        impact: employee.sentimentScore < 0 ? "negative" : "positive",
+      },
+      {
+        type: "review",
+        date: riskScores[Math.max(0, riskScores.length - 2)]?.date || riskScores[0].date,
+        description: "Latest performance snapshot generated",
+        impact: employee.performanceScore > 70 ? "positive" : "neutral",
+      },
+    ];
+
+    return { riskScores, events };
+  }, [employeeId, getEmployee]);
 
   useEffect(() => {
     const load = async () => {

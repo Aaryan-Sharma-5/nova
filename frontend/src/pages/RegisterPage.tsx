@@ -7,9 +7,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/auth";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
+function getLandingPath(role: UserRole): string {
+  return role === "employee" ? "/your-data" : "/org-health";
+}
+
 export default function RegisterPage() {
   useDocumentTitle('NOVA — Create Account');
-  const { register, isAuthenticated, isLoading } = useAuth();
+  const { register, isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
@@ -21,7 +25,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (isAuthenticated && !isLoading) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getLandingPath(user?.role ?? formData.role)} replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -30,8 +34,8 @@ export default function RegisterPage() {
     setSubmitting(true);
 
     try {
-      await register(formData);
-      navigate("/", { replace: true });
+      const user = await register(formData);
+      navigate(getLandingPath(user.role), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

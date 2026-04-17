@@ -6,10 +6,15 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { UserRole } from "@/types/auth";
+
+function getLandingPath(role: UserRole): string {
+  return role === "employee" ? "/your-data" : "/org-health";
+}
 
 export default function LoginPage() {
   useDocumentTitle('NOVA — Sign In');
-  const { login, signInWithGoogle, completeGoogleSignIn, isAuthenticated, isLoading } = useAuth();
+  const { login, signInWithGoogle, completeGoogleSignIn, isAuthenticated, isLoading, user } = useAuth();
   const isGoogleConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
   const [email, setEmail] = useState("hr.admin@company.com");
   const [password, setPassword] = useState("secret");
@@ -32,8 +37,8 @@ export default function LoginPage() {
       setOauthLoading(true);
       setError(null);
       try {
-        await completeGoogleSignIn();
-        navigate(redirectPath, { replace: true });
+        const signedInUser = await completeGoogleSignIn();
+        navigate(redirectPath === "/" ? getLandingPath(signedInUser.role) : redirectPath, { replace: true });
       } catch (err) {
         if (mounted) {
           setError(err instanceof Error ? err.message : "Google sign-in failed");
@@ -52,7 +57,8 @@ export default function LoginPage() {
   }, [completeGoogleSignIn, location.search, navigate, redirectPath]);
 
   if (isAuthenticated && !isLoading) {
-    return <Navigate to={redirectPath} replace />;
+    const landingPath = redirectPath === "/" ? getLandingPath(user?.role ?? "hr") : redirectPath;
+    return <Navigate to={landingPath} replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -61,8 +67,8 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      await login(email, password);
-      navigate(redirectPath, { replace: true });
+      const user = await login(email, password);
+      navigate(redirectPath === "/" ? getLandingPath(user.role) : redirectPath, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

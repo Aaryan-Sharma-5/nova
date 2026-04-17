@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from ai.anomaly_detector import (
+    AnomalyResult,
+    AnomalyType,
     composite_anomaly_check,
     detect_communication_drop,
     detect_engagement_drop,
@@ -226,6 +228,63 @@ async def analyze_behavioral_anomalies(
         current_messages=message_counts[-1] if message_counts else 0,
         historical_messages=message_counts[:-1] if len(message_counts) > 1 else [],
     )
+
+    # Fallback heuristic for sparse timelines: surface clear risk signals even when
+    # a full z-score baseline is unavailable.
+    if not any([
+        sentiment_anomaly.detected,
+        engagement_anomaly.detected,
+        performance_anomaly.detected,
+        communication_anomaly.detected,
+    ]):
+        current_sentiment = sentiment_history[-1] if sentiment_history else 0.0
+        current_engagement = engagement_history[-1] if engagement_history else 0.0
+        current_performance = performance_history[-1] if performance_history else 0.0
+        current_messages = message_counts[-1] if message_counts else 0
+
+        if current_sentiment <= -0.35:
+            sentiment_anomaly = AnomalyResult(
+                detected=True,
+                anomaly_type=AnomalyType.SENTIMENT_CRASH,
+                severity="high" if current_sentiment <= -0.55 else "medium",
+                z_score=-2.2,
+                threshold_z=1.8,
+                description=f"Sentiment is critically low ({current_sentiment:.2f}) compared to healthy baseline.",
+            )
+
+        if current_engagement > 1.0:
+            current_engagement = current_engagement / 100.0
+        if current_engagement <= 0.45:
+            engagement_anomaly = AnomalyResult(
+                detected=True,
+                anomaly_type=AnomalyType.ENGAGEMENT_DROP,
+                severity="high" if current_engagement <= 0.3 else "medium",
+                z_score=-2.0,
+                threshold_z=1.8,
+                description=f"Engagement is low ({current_engagement:.2f}) and below expected operating range.",
+            )
+
+        if current_performance > 1.5:
+            current_performance = current_performance / 100.0
+        if current_performance <= 0.55:
+            performance_anomaly = AnomalyResult(
+                detected=True,
+                anomaly_type=AnomalyType.PERFORMANCE_DECLINE,
+                severity="medium",
+                z_score=-1.9,
+                threshold_z=1.8,
+                description=f"Performance signal is soft ({current_performance:.2f}) and may indicate decline.",
+            )
+
+        if current_messages <= 2 and len(message_counts) >= 1:
+            communication_anomaly = AnomalyResult(
+                detected=True,
+                anomaly_type=AnomalyType.COMMUNICATION_DROP,
+                severity="medium",
+                z_score=-1.9,
+                threshold_z=1.8,
+                description=f"Communication volume is very low ({current_messages} messages) this cycle.",
+            )
 
     # Get composite result
     anomaly_timestamps = {

@@ -1,14 +1,52 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { generateHiringFunnelData } from "@/utils/mockAnalyticsData";
+import { protectedGetApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import html2canvas from "html2canvas";
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 
+type FunnelStage = {
+  stage: string;
+  count: number;
+};
+
+type HiringFunnelPayload = {
+  current: FunnelStage[];
+  previous: FunnelStage[];
+  time_to_fill_days: number;
+};
+
 export default function HiringFunnel() {
-  const { current, previous } = generateHiringFunnelData();
+  const { token } = useAuth();
+  const [payload, setPayload] = useState<HiringFunnelPayload>({
+    current: [],
+    previous: [],
+    time_to_fill_days: 0,
+  });
   const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!token) {
+        setPayload({ current: [], previous: [], time_to_fill_days: 0 });
+        return;
+      }
+
+      try {
+        const next = await protectedGetApi<HiringFunnelPayload>("/api/org/hiring-funnel", token);
+        setPayload(next);
+      } catch {
+        setPayload({ current: [], previous: [], time_to_fill_days: 0 });
+      }
+    };
+
+    void load();
+  }, [token]);
+
+  const current = payload.current;
+  const previous = payload.previous;
 
   const handleExport = async () => {
     if (chartRef.current) {
@@ -21,13 +59,13 @@ export default function HiringFunnel() {
   };
 
   // Combine data for side-by-side comparison
-  const combinedData = current.map((curr, i) => ({
+  const combinedData = useMemo(() => current.map((curr, i) => ({
     stage: curr.stage,
     currentCount: curr.count,
-    previousCount: previous[i].count,
-    currentConversion: curr.conversionRate,
-    previousConversion: previous[i].conversionRate,
-  }));
+    previousCount: previous[i]?.count ?? 0,
+    currentConversion: i === 0 ? 100 : Number(((curr.count / Math.max(current[i - 1]?.count || 1, 1)) * 100).toFixed(1)),
+    previousConversion: i === 0 ? 100 : Number((((previous[i]?.count || 0) / Math.max(previous[i - 1]?.count || 1, 1)) * 100).toFixed(1)),
+  })), [current, previous]);
 
   const funnelColors = ['#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#c026d3'];
 
@@ -63,16 +101,22 @@ export default function HiringFunnel() {
     return null;
   };
 
-  const calculateTimeToFill = () => {
-    // Mock calculation: average days from Applied to Accepted
-    return 42; // days
-  };
+  const calculateTimeToFill = () => payload.time_to_fill_days;
 
   const calculateOverallConversion = () => {
     const accepted = current.find(s => s.stage === 'Accepted')?.count || 0;
     const applied = current.find(s => s.stage === 'Applied')?.count || 1;
     return ((accepted / applied) * 100).toFixed(1);
   };
+
+  const quarterDelta = useMemo(() => {
+    const currentAccepted = current.find((s) => s.stage === 'Accepted')?.count || 0;
+    const previousAccepted = previous.find((s) => s.stage === 'Accepted')?.count || 0;
+    if (previousAccepted === 0) {
+      return currentAccepted > 0 ? 100 : 0;
+    }
+    return Number((((currentAccepted - previousAccepted) / previousAccepted) * 100).toFixed(0));
+  }, [current, previous]);
 
   return (
     <Card className="col-span-2">
@@ -114,7 +158,7 @@ export default function HiringFunnel() {
                       <p className="text-2xl font-bold">{stage.count}</p>
                       {index > 0 && (
                         <p className="text-xs opacity-90">
-                          {stage.count > previous[index].count ? '▲' : '▼'} {Math.abs(stage.count - previous[index].count)}
+                          {stage.count > (previous[index]?.count || 0) ? '▲' : '▼'} {Math.abs(stage.count - (previous[index]?.count || 0))}
                         </p>
                       )}
                     </div>
@@ -157,7 +201,7 @@ export default function HiringFunnel() {
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-center gap-1">
               <TrendingUp className="h-5 w-5 text-green-600" />
-              <p className="text-2xl font-bold text-green-600">+8%</p>
+              <p className="text-2xl font-bold text-green-600">{quarterDelta > 0 ? '+' : ''}{quarterDelta}%</p>
             </div>
             <p className="text-xs text-muted-foreground">vs Last Quarter</p>
           </div>
@@ -166,8 +210,8 @@ export default function HiringFunnel() {
         {/* Insights */}
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800">
-            <strong>Performance:</strong> Interview-to-Offer conversion improved from 34% to 33%. 
-            Focus on screening stage to reduce time-to-fill by 15%.
+            <strong>Performance:</strong> Applied-to-accepted conversion is {calculateOverallConversion()}% with an average time-to-fill of {calculateTimeToFill()} days.
+            Focus on early-stage screening throughput to improve final conversion.
           </p>
         </div>
       </CardContent>

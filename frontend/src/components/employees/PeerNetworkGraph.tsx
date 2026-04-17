@@ -1,13 +1,39 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
-import { generateNetworkData, NetworkNode, NetworkLink } from "@/utils/mockAnalyticsData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Download, Lightbulb, Users, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import html2canvas from "html2canvas";
 import { useEmployees } from "@/contexts/EmployeeContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { protectedGetApi } from "@/lib/api";
+
+type NetworkNode = {
+  id: string;
+  name: string;
+  department: string;
+  sentiment: number;
+  influence: number;
+};
+
+type NetworkLink = {
+  source: string | { id: string };
+  target: string | { id: string };
+  strength: number;
+};
+
+type PropagationPayload = {
+  nodes: Array<{
+    id: string;
+    name: string;
+    department: string;
+    burnout_risk_score: number;
+    centrality?: { influence?: number };
+  }>;
+  edges: Array<{ source: string; target: string; weight: number }>;
+};
 
 type NetworkMetrics = {
   connectionCount: Map<string, number>;
@@ -93,13 +119,52 @@ export default function PeerNetworkGraph() {
   const [selectedDept, setSelectedDept] = useState<string>("all");
   const [hoveredNode, setHoveredNode] = useState<NetworkNode | null>(null);
   const { employees } = useEmployees();
-  const { nodes, links } = useMemo(() => {
-    const roster = employees.slice(0, 15).map((employee) => ({
-      name: employee.name,
-      department: employee.department,
-    }));
-    return generateNetworkData(roster.length ? roster : undefined);
-  }, [employees]);
+  const { token } = useAuth();
+  const [nodes, setNodes] = useState<NetworkNode[]>([]);
+  const [links, setLinks] = useState<NetworkLink[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!token) {
+        setNodes([]);
+        setLinks([]);
+        return;
+      }
+
+      try {
+        const payload = await protectedGetApi<PropagationPayload>("/api/graph/propagation", token);
+        setNodes((payload.nodes || []).map((node) => ({
+          id: node.id,
+          name: node.name,
+          department: node.department,
+          sentiment: Math.max(0, Math.min(100, Math.round((1 - node.burnout_risk_score) * 100))),
+          influence: Math.max(5, Math.min(100, Math.round((node.centrality?.influence || 0) * 100))),
+        })));
+        setLinks((payload.edges || []).map((edge) => ({
+          source: edge.source,
+          target: edge.target,
+          strength: edge.weight,
+        })));
+      } catch {
+        const fallback = employees.slice(0, 12).map((employee, index) => ({
+          id: employee.id,
+          name: employee.name,
+          department: employee.department,
+          sentiment: Math.max(0, Math.min(100, Math.round((employee.sentimentScore + 1) * 50))),
+          influence: Math.max(5, 20 + index * 4),
+        }));
+
+        setNodes(fallback);
+        setLinks(fallback.slice(1).map((node, index) => ({
+          source: fallback[index].id,
+          target: node.id,
+          strength: 0.5,
+        })));
+      }
+    };
+
+    void load();
+  }, [token, employees]);
 
   function shortLabel(fullName: string): string {
     const parts = fullName.trim().split(/\s+/);
@@ -282,7 +347,7 @@ export default function PeerNetworkGraph() {
       .attr("text-anchor", "middle")
       .attr("font-size", "11px")
       .attr("font-weight", "500")
-      .attr("fill", "#e2e8f0");
+      .attr("fill", "#fb923c");
 
     // Add influence score badges
     node.append("text")

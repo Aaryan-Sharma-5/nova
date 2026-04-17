@@ -28,6 +28,30 @@ type OrgHierarchyResponse = {
   total_employees: number;
 };
 
+function normalizeHierarchyPayload(payload: unknown): OrgHierarchyResponse | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  const maybeWrapped = payload as Partial<OrgHierarchyResponse>;
+  if (maybeWrapped.root && typeof maybeWrapped.root === "object") {
+    return {
+      root: maybeWrapped.root as OrgNode,
+      counts: maybeWrapped.counts || { 1: 0, 2: 0, 3: 0, 4: 0 },
+      total_employees: Number(maybeWrapped.total_employees || 0),
+    };
+  }
+
+  const maybeRaw = payload as Partial<OrgNode>;
+  if (typeof maybeRaw.employee_id === "string" && maybeRaw.employee_id.trim()) {
+    return {
+      root: maybeRaw as OrgNode,
+      counts: { 1: 0, 2: 0, 3: 0, 4: 0 },
+      total_employees: 0,
+    };
+  }
+
+  return null;
+}
+
 type TreeMode = "focused" | "full";
 
 const DEPARTMENT_OPTIONS = ["All", "Engineering", "Sales", "HR", "Design", "Finance", "Operations"] as const;
@@ -566,9 +590,15 @@ export default function FocusedOrgTree({
       if (!token) return;
       setLoading(true);
       try {
-        const payload = await protectedGetApi<OrgHierarchyResponse>("/api/org/hierarchy", token);
-        setHierarchy(payload.root);
-        setCounts(payload.counts || { 1: 0, 2: 0, 3: 0, 4: 0 });
+        const payload = await protectedGetApi<unknown>("/api/org/hierarchy", token);
+        const normalized = normalizeHierarchyPayload(payload);
+        if (!normalized) {
+          setHierarchy(null);
+          setCounts({ 1: 0, 2: 0, 3: 0, 4: 0 });
+          return;
+        }
+        setHierarchy(normalized.root);
+        setCounts(normalized.counts || { 1: 0, 2: 0, 3: 0, 4: 0 });
       } catch {
         setHierarchy(null);
       } finally {

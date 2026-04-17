@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { RiskBadge } from '@/components/shared/RiskBadge';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getContributingFactors, generateInterventions } from '@/utils/riskCalculation';
-import { getSentimentEmoji, getSentimentLabel } from '@/utils/sentimentAnalysis';
-import { AlertTriangle, Lightbulb, TrendingUp, Clock, Briefcase, Calendar } from 'lucide-react';
+import { getSentimentLabel } from '@/utils/sentimentAnalysis';
+import { AlertTriangle, Lightbulb, TrendingUp, Clock, Briefcase, Calendar, Smile, Frown, Meh } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,12 @@ import { useNavigate } from 'react-router-dom';
 interface Props {
   employee: Employee | null;
   onClose: () => void;
+}
+
+function getSentimentIcon(score: number) {
+  if (score > 0.15) return Smile;
+  if (score < -0.15) return Frown;
+  return Meh;
 }
 
 export function EmployeeDetailDialog({ employee, onClose }: Props) {
@@ -45,6 +51,7 @@ export function EmployeeDetailDialog({ employee, onClose }: Props) {
     date: p.date.slice(5),
     Sentiment: Math.round(p.score * 100) / 100,
   }));
+  const SentimentIcon = getSentimentIcon(employee.sentimentScore);
 
   return (
     <Dialog open={!!employee} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -102,9 +109,12 @@ export function EmployeeDetailDialog({ employee, onClose }: Props) {
           </div>
           <div className="flex-1 min-w-[140px] rounded-lg border p-3">
             <p className="text-xs text-muted-foreground mb-1">Sentiment</p>
-            <p className="text-sm font-semibold">
-              {getSentimentEmoji(employee.sentimentScore)} {getSentimentLabel(employee.sentimentScore)} ({employee.sentimentScore > 0 ? '+' : ''}{employee.sentimentScore.toFixed(2)})
-            </p>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <SentimentIcon className={`h-4 w-4 ${employee.sentimentScore > 0 ? 'text-emerald-600' : employee.sentimentScore < 0 ? 'text-red-600' : 'text-muted-foreground'}`} />
+              <span>
+                {getSentimentLabel(employee.sentimentScore)} ({employee.sentimentScore > 0 ? '+' : ''}{employee.sentimentScore.toFixed(2)})
+              </span>
+            </div>
           </div>
         </div>
 

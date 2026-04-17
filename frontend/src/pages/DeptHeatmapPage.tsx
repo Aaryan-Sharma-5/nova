@@ -270,7 +270,8 @@ function HeatmapRow({
                 key={flag}
                 className="border border-foreground bg-[#FF1744] px-1 text-[9px] font-bold uppercase tracking-wider text-white"
               >
-                ⚠ {flag}
+                <AlertTriangle className="mr-1 inline-block h-2.5 w-2.5 align-middle" />
+                {flag}
               </span>
             ))}
           </div>

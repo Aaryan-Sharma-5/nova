@@ -39,10 +39,10 @@ interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   signInWithGoogle: () => Promise<void>;
-  completeGoogleSignIn: () => Promise<void>;
-  register: (payload: RegisterPayload) => Promise<void>;
+  completeGoogleSignIn: () => Promise<AuthUser>;
+  register: (payload: RegisterPayload) => Promise<AuthUser>;
   logout: () => Promise<void>;
   hasRole: (roles: UserRole[]) => boolean;
 }
@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const bootstrapSession = useCallback(async (incomingToken: string) => {
     const me = await meApi(incomingToken);
     setUser(me);
+    return me;
   }, []);
 
   useEffect(() => {
@@ -110,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(AUTH_STORAGE_KEY, auth.access_token);
       localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
       setToken(auth.access_token);
-      await bootstrapSession(auth.access_token);
+      return await bootstrapSession(auth.access_token);
     } catch (error) {
       clearSession();
       throw error;
@@ -121,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (payload: RegisterPayload) => {
     await registerApi(payload);
-    await login(payload.email, payload.password);
+    return login(payload.email, payload.password);
   }, [login]);
 
   const signInWithGoogle = useCallback(async () => {
@@ -155,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(AUTH_STORAGE_KEY, auth.access_token);
       localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
       setToken(auth.access_token);
-      await bootstrapSession(auth.access_token);
+      return await bootstrapSession(auth.access_token);
     } catch (error) {
       clearSession();
       throw error;

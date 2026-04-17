@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { analyzeSentiment, getSentimentEmoji, calculateUrgencyLevel, extractInsights } from '@/utils/sentimentAnalysis';
+import { analyzeSentiment, calculateUrgencyLevel, extractInsights } from '@/utils/sentimentAnalysis';
 import { SentimentResult } from '@/types/employee';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquareText, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, Clock, Lightbulb } from 'lucide-react';
+import { MessageSquareText, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, Clock, Lightbulb, Smile, Frown, Meh } from 'lucide-react';
 import SentimentBreakdown from './SentimentBreakdown';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,12 @@ const SAMPLE_TEXTS = [
 type SentimentAnalyzerProps = {
   onResultChange?: (result: SentimentResult | null) => void;
 };
+
+function getSentimentIcon(score: number) {
+  if (score > 0.15) return Smile;
+  if (score < -0.15) return Frown;
+  return Meh;
+}
 
 export function SentimentAnalyzer({ onResultChange }: SentimentAnalyzerProps) {
   const [text, setText] = useState('');
@@ -126,6 +132,7 @@ export function SentimentAnalyzer({ onResultChange }: SentimentAnalyzerProps) {
     : '';
 
   const ScoreIcon = result?.label === 'Positive' ? TrendingUp : result?.label === 'Negative' ? TrendingDown : Minus;
+  const SentimentIcon = result ? getSentimentIcon(result.score) : Meh;
 
   return (
     <motion.div
@@ -195,7 +202,12 @@ export function SentimentAnalyzer({ onResultChange }: SentimentAnalyzerProps) {
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Overall Sentiment</p>
                   <div className="mt-1 flex items-center gap-3">
-                    <span className="text-4xl">{getSentimentEmoji(result.score)}</span>
+                    <div className={`flex h-14 w-14 items-center justify-center rounded-full ${
+                      result.label === 'Positive' ? 'bg-risk-low/10' :
+                      result.label === 'Negative' ? 'bg-risk-high/10' : 'bg-secondary'
+                    }`}>
+                      <SentimentIcon className={`h-8 w-8 ${scoreColor}`} />
+                    </div>
                     <div>
                       <p className={`text-2xl font-bold ${scoreColor}`}>{result.label}</p>
                       <p className="text-sm text-muted-foreground">

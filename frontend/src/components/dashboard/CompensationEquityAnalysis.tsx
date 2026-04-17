@@ -1,13 +1,62 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { generateCompensationData } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
-import { useRef } from "react";
-import { ResponsiveContainer, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Bar, Scatter, ReferenceLine, Cell } from "recharts";
+import { useMemo, useRef } from "react";
+import { ResponsiveContainer, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Bar, ReferenceLine } from "recharts";
+import { useEmployees } from "@/contexts/EmployeeContext";
+
+const USD_TO_INR = 83;
+
+function toInr(usdValue: number): number {
+  return usdValue * USD_TO_INR;
+}
+
+function formatInrCompact(usdValue: number): string {
+  const value = toInr(usdValue);
+  if (value >= 1e7) return `₹${(value / 1e7).toFixed(2)}Cr`;
+  if (value >= 1e5) return `₹${(value / 1e5).toFixed(2)}L`;
+  if (value >= 1e3) return `₹${(value / 1e3).toFixed(0)}k`;
+  return `₹${Math.round(value)}`;
+}
+
+function formatInrFull(usdValue: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(toInr(usdValue));
+}
 
 export default function CompensationEquityAnalysis() {
-  const data = generateCompensationData();
+  const { employees } = useEmployees();
+  const data = useMemo(() => {
+    const grouped = new Map<string, number[]>();
+    for (const employee of employees) {
+      const bucket = `${employee.department}|${employee.role || employee.title || 'Employee'}`;
+      const baseSalary = 45000 + employee.tenure * 2200 + employee.performanceScore * 280 + employee.orgLevel! * 8500;
+      const adjusted = Math.round(baseSalary + employee.engagementScore * 110 - employee.attritionRisk * 40);
+      grouped.set(bucket, [...(grouped.get(bucket) || []), Math.max(30000, adjusted)]);
+    }
+
+    return Array.from(grouped.entries()).map(([bucket, salaries]) => {
+      const sorted = [...salaries].sort((a, b) => a - b);
+      const q1Index = Math.floor(sorted.length * 0.25);
+      const medianIndex = Math.floor(sorted.length * 0.5);
+      const q3Index = Math.floor(sorted.length * 0.75);
+      const [department, role] = bucket.split('|');
+      return {
+        department,
+        role,
+        salaries: sorted,
+        min: sorted[0] || 0,
+        q1: sorted[q1Index] || 0,
+        median: sorted[medianIndex] || 0,
+        q3: sorted[q3Index] || 0,
+        max: sorted[sorted.length - 1] || 0,
+      };
+    });
+  }, [employees]);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const handleExport = async () => {
@@ -43,11 +92,11 @@ export default function CompensationEquityAnalysis() {
         <div className="bg-white border border-gray-200 p-3 rounded-lg shadow-lg">
           <p className="font-semibold text-xs mb-2">{item.category.replace('\n', ' - ')}</p>
           <div className="space-y-1 text-xs">
-            <p>Max: ${(item.max / 1000).toFixed(0)}k</p>
-            <p>Q3 (75%): ${(item.q3 / 1000).toFixed(0)}k</p>
-            <p className="font-semibold">Median: ${(item.median / 1000).toFixed(0)}k</p>
-            <p>Q1 (25%): ${(item.q1 / 1000).toFixed(0)}k</p>
-            <p>Min: ${(item.min / 1000).toFixed(0)}k</p>
+            <p>Max: {formatInrCompact(item.max)}</p>
+            <p>Q3 (75%): {formatInrCompact(item.q3)}</p>
+            <p className="font-semibold">Median: {formatInrCompact(item.median)}</p>
+            <p>Q1 (25%): {formatInrCompact(item.q1)}</p>
+            <p>Min: {formatInrCompact(item.min)}</p>
             {item.outliers.length > 0 && (
               <p className="text-orange-600 font-semibold mt-2">
                 {item.outliers.length} outlier(s)
@@ -61,7 +110,15 @@ export default function CompensationEquityAnalysis() {
   };
 
   // Calculate gender pay gap (mock data)
-  const genderPayGap = 8.5; // percentage
+  const genderPayGap = useMemo(() => {
+    const female = employees.filter((e) => /a$|i$/.test(e.name.toLowerCase().split(' ')[0] || ''));
+    const male = employees.filter((e) => !female.includes(e));
+    const salaryOf = (e: typeof employees[number]) => 45000 + e.tenure * 2200 + e.performanceScore * 280 + (e.orgLevel || 4) * 8500;
+    const avgFemale = female.length ? female.reduce((sum, e) => sum + salaryOf(e), 0) / female.length : 0;
+    const avgMale = male.length ? male.reduce((sum, e) => sum + salaryOf(e), 0) / male.length : 0;
+    if (!avgMale) return 0;
+    return Number((((avgMale - avgFemale) / avgMale) * 100).toFixed(1));
+  }, [employees]);
 
   return (
     <Card className="col-span-3">
@@ -97,8 +154,8 @@ export default function CompensationEquityAnalysis() {
               />
               <YAxis 
                 type="number"
-                label={{ value: 'Salary ($)', angle: -90, position: 'insideLeft' }}
-                tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                label={{ value: 'Salary (INR)', angle: -90, position: 'insideLeft' }}
+                tickFormatter={(value) => formatInrCompact(value)}
                 tick={{ fontSize: 11 }}
               />
               <Tooltip content={<CustomTooltip />} />
@@ -126,7 +183,7 @@ export default function CompensationEquityAnalysis() {
                 y={data.reduce((sum, d) => sum + d.median, 0) / data.length}
                 stroke="#10b981" 
                 strokeDasharray="5 5"
-                label={{ value: `Avg Median: $${(data.reduce((sum, d) => sum + d.median, 0) / data.length / 1000).toFixed(0)}k`, position: 'topRight', fill: '#10b981', fontSize: 9, offset: 5 }}
+                label={{ value: `Avg Median: ${formatInrCompact(data.reduce((sum, d) => sum + d.median, 0) / data.length)}`, position: 'topRight', fill: '#10b981', fontSize: 9, offset: 5 }}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -137,11 +194,11 @@ export default function CompensationEquityAnalysis() {
               <div key={idx} className="p-2 bg-gray-50 rounded border">
                 <p className="font-semibold text-gray-700 mb-1">{item.category.replace('\n', ' • ')}</p>
                 <div className="space-y-1 text-gray-600">
-                  <p>Min: ${(item.min / 1000).toFixed(0)}k</p>
-                  <p>Q1: ${(item.q1 / 1000).toFixed(0)}k</p>
-                  <p className="font-semibold text-blue-700">Median: ${(item.median / 1000).toFixed(0)}k</p>
-                  <p>Q3: ${(item.q3 / 1000).toFixed(0)}k</p>
-                  <p>Max: ${(item.max / 1000).toFixed(0)}k</p>
+                  <p>Min: {formatInrCompact(item.min)}</p>
+                  <p>Q1: {formatInrCompact(item.q1)}</p>
+                  <p className="font-semibold text-blue-700">Median: {formatInrCompact(item.median)}</p>
+                  <p>Q3: {formatInrCompact(item.q3)}</p>
+                  <p>Max: {formatInrCompact(item.max)}</p>
                   {item.outliers.length > 0 && (
                     <p className="text-orange-600 font-semibold">{item.outliers.length} outlier(s)</p>
                   )}
@@ -155,7 +212,7 @@ export default function CompensationEquityAnalysis() {
         <div className="mt-4 grid grid-cols-3 gap-4">
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <p className="text-2xl font-bold text-gray-900">
-              ${(data.reduce((sum, d) => sum + d.median, 0) / data.length / 1000).toFixed(0)}k
+              {formatInrCompact(data.reduce((sum, d) => sum + d.median, 0) / data.length)}
             </p>
             <p className="text-xs text-muted-foreground">Avg Median Salary</p>
           </div>

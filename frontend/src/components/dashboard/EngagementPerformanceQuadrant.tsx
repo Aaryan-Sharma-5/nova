@@ -2,15 +2,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
-import { generateQuadrantEmployees, QuadrantEmployee } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
+import { useEmployees } from "@/contexts/EmployeeContext";
+
+type QuadrantEmployee = {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  engagement: number;
+  performance: number;
+  quadrant: 'stars' | 'engaged-underperformers' | 'disengaged-high-performers' | 'at-risk';
+};
 
 export default function EngagementPerformanceQuadrant() {
-  const data = generateQuadrantEmployees();
+  const { employees } = useEmployees();
+  const data = useMemo<QuadrantEmployee[]>(() => {
+    return employees.slice(0, 80).map((employee) => {
+      let quadrant: QuadrantEmployee['quadrant'] = 'at-risk';
+      if (employee.engagementScore >= 50 && employee.performanceScore >= 50) quadrant = 'stars';
+      else if (employee.engagementScore >= 50 && employee.performanceScore < 50) quadrant = 'engaged-underperformers';
+      else if (employee.engagementScore < 50 && employee.performanceScore >= 50) quadrant = 'disengaged-high-performers';
+
+      return {
+        id: employee.id,
+        name: employee.name,
+        role: employee.role,
+        department: employee.department,
+        engagement: employee.engagementScore,
+        performance: employee.performanceScore,
+        quadrant,
+      };
+    });
+  }, [employees]);
   const chartRef = useRef<HTMLDivElement>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<QuadrantEmployee | null>(null);
 

@@ -2,12 +2,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, ComposedChart, Cell } from "recharts";
-import { generateTenureDistribution } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
+import { useEmployees } from "@/contexts/EmployeeContext";
 
 export default function EmployeeTenureDistribution() {
-  const data = generateTenureDistribution();
+  const { employees } = useEmployees();
+  const data = useMemo(() => {
+    const buckets = [
+      { range: '0-6m', min: 0, max: 6 },
+      { range: '6-12m', min: 6, max: 12 },
+      { range: '1-2y', min: 12, max: 24 },
+      { range: '2-5y', min: 24, max: 60 },
+      { range: '5y+', min: 60, max: 600 },
+    ];
+
+    return buckets.map((bucket) => {
+      const cohort = employees.filter((employee) => employee.tenure >= bucket.min && employee.tenure < bucket.max);
+      const attritionRisk = cohort.length
+        ? Math.round(cohort.reduce((sum, employee) => sum + employee.attritionRisk, 0) / cohort.length)
+        : 0;
+      const industryBenchmark = Math.round(18 + (bucket.min / 60) * 10);
+
+      return {
+        range: bucket.range,
+        count: cohort.length,
+        attritionRisk,
+        industryBenchmark,
+      };
+    });
+  }, [employees]);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const handleExport = async () => {

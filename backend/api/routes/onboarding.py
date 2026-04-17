@@ -48,6 +48,12 @@ def _build_employee_detail(employee_id: str) -> dict[str, Any]:
             "org_level": 4,
         }
 
+    engagement_score = round(seeded.uniform(0.45, 0.95), 2)
+    sentiment_score = round(seeded.uniform(-0.45, 0.85), 2)
+    overtime_factor = seeded.uniform(0.0, 1.0)
+    burnout_risk = round(min(1.0, max(0.0, 0.25 + overtime_factor * 0.55 + (0.45 - engagement_score) * 0.6)), 2)
+    attrition_risk = round(min(1.0, max(0.0, 0.2 + (0.5 - sentiment_score) * 0.4 + burnout_risk * 0.35)), 2)
+
     payload: dict[str, Any] = {
         **base,
         "attendance_rate": round(seeded.uniform(0.75, 1.0), 2),
@@ -58,6 +64,12 @@ def _build_employee_detail(employee_id: str) -> dict[str, Any]:
         "feedback_submissions_count": seeded.randint(0, 8),
         "after_hours_sessions_weekly": seeded.randint(0, 6),
         "tenure_days": seeded.randint(30, 1800),
+        "engagement_score": engagement_score,
+        "sentiment_score": sentiment_score,
+        "burnout_risk": burnout_risk,
+        "attrition_risk": attrition_risk,
+        "project_load": seeded.randint(1, 6),
+        "absence_days": seeded.randint(0, 12),
     }
 
     present = sum(1 for field in REQUIRED_DATA_FIELDS if payload.get(field) is not None)

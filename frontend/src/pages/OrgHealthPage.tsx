@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Printer, Share2, TrendingUp, TrendingDown, AlertTriangle, Sparkles, Info, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, Printer, Share2, TrendingUp, TrendingDown, AlertTriangle, AlertCircle, Sparkles, Info, RefreshCw, ChevronDown, ChevronUp, CalendarDays, Users, BarChart3, ClipboardList, type LucideIcon } from "lucide-react";
 import AnomalyIndicator from "@/components/anomalies/AnomalyIndicator";
 import InterventionRecommendations from "@/components/interventions/InterventionRecommendations";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,14 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployees } from "@/contexts/EmployeeContext";
-import { 
-  calculateWorkforceHealthScore,
-  generateManagerScores,
-  generateAttritionForecast,
-  generateTenureDistribution,
-  generateAbsenteeismData,
-  generateSkillsData,
-} from "@/utils/mockAnalyticsData";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
@@ -104,6 +96,21 @@ type ROISummaryPayload = {
   net_impact_inr: number;
   intervention_count: number;
   avg_roi_percent: number;
+};
+
+type AlertItem = {
+  id: string;
+  tone: "red" | "amber";
+  text: string;
+  to: string;
+  icon: LucideIcon;
+};
+
+type QuickAction = {
+  label: string;
+  count: number;
+  to: string;
+  icon: LucideIcon;
 };
 
 function formatINR(value: number): string {
@@ -191,7 +198,48 @@ export default function OrgHealthPage() {
   const { token, hasRole, user } = useAuth();
   const { employees } = useEmployees();
   const [anonymizeEmployees, setAnonymizeEmployees] = useState(false);
-  const healthScore = calculateWorkforceHealthScore();
+  const healthScore = useMemo(() => {
+    if (employees.length === 0) {
+      return {
+        score: 0,
+        delta: 0,
+        components: {
+          burnout: 0,
+          attrition: 0,
+          engagement: 0,
+          sentiment: 0,
+        },
+      };
+    }
+
+    const averages = employees.reduce(
+      (acc, employee) => {
+        acc.burnout += employee.burnoutRisk;
+        acc.attrition += employee.attritionRisk;
+        acc.engagement += employee.engagementScore;
+        acc.sentiment += ((employee.sentimentScore + 1) / 2) * 100;
+        return acc;
+      },
+      { burnout: 0, attrition: 0, engagement: 0, sentiment: 0 },
+    );
+
+    const burnoutInverse = 100 - averages.burnout / employees.length;
+    const attritionInverse = 100 - averages.attrition / employees.length;
+    const engagement = averages.engagement / employees.length;
+    const sentiment = averages.sentiment / employees.length;
+    const score = (burnoutInverse + attritionInverse + engagement + sentiment) / 4;
+
+    return {
+      score,
+      delta: ((engagement + sentiment) / 2 - (100 - (burnoutInverse + attritionInverse) / 2)) / 10,
+      components: {
+        burnout: burnoutInverse,
+        attrition: attritionInverse,
+        engagement,
+        sentiment,
+      },
+    };
+  }, [employees]);
   const [computedAt, setComputedAt] = useState<Date>(() => new Date());
   const [now, setNow] = useState<Date>(() => new Date());
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -209,11 +257,6 @@ export default function OrgHealthPage() {
   });
   const lastUpdatedLabel = formatRelativeTime(computedAt, now);
   const greetingName = user?.full_name?.split(' ')[0] || user?.full_name || 'there';
-  const managers = generateManagerScores();
-  const attrition = generateAttritionForecast();
-  const tenure = generateTenureDistribution();
-  const absenteeism = generateAbsenteeismData();
-  const skills = generateSkillsData();
   const [impact, setImpact] = useState<CostImpactPayload | null>(null);
   const [roiRecommendations, setROIRecommendations] = useState<ROIRecommendationPayload[]>([]);
   const [roiSummary, setROISummary] = useState<ROISummaryPayload | null>(null);
@@ -498,27 +541,57 @@ export default function OrgHealthPage() {
       ? {
           id: 'critical-employees',
           tone: 'red',
-          text: `🔴 ${criticalEmployeeCount} employees require immediate intervention`,
+          text: `${criticalEmployeeCount} employees require immediate intervention`,
           to: '/employees',
+          icon: AlertTriangle,
         }
       : null,
     flaggedDepartment
       ? {
           id: 'dept-review',
           tone: 'amber',
-          text: `🟡 ${flaggedDepartment.name} is flagged for urgent review`,
+          text: `${flaggedDepartment.name} is flagged for urgent review`,
           to: '/departments/heatmap',
+          icon: AlertCircle,
         }
       : null,
     pendingSessionsCount > 5
       ? {
           id: 'pending-sessions',
           tone: 'amber',
-          text: `📋 ${pendingSessionsCount} feedback sessions awaiting HR review`,
+          text: `${pendingSessionsCount} feedback sessions awaiting HR review`,
           to: '/hr/sessions-review',
+          icon: ClipboardList,
         }
       : null,
-  ].filter(Boolean) as Array<{ id: string; tone: string; text: string; to: string }>;
+  ].filter(Boolean) as AlertItem[];
+
+  const quickActions: QuickAction[] = [
+    {
+      label: 'Schedule Sessions',
+      count: pendingSessionsCount,
+      to: '/hr/sessions-schedule',
+      icon: CalendarDays,
+    },
+    {
+      label: 'Review At-Risk',
+      count: criticalEmployeeCount,
+      to: '/employees',
+      icon: Users,
+    },
+    {
+      label: 'Run Appraisals',
+      count: Math.max(1, interventions.length),
+      to: '/hr/appraisals',
+      icon: BarChart3,
+    },
+    {
+      label: 'Review Feedback',
+      count: 50,
+      to: '/hr/feedback-analyzer',
+      icon: ClipboardList,
+    },
+  ];
 
   const interventions = useMemo(() => {
     return roiRecommendations.map((item, idx) => ({
@@ -575,7 +648,10 @@ export default function OrgHealthPage() {
       {/* Header with Actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Good {now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'}, {greetingName} 👋</h1>
+          <h1 className="flex items-center gap-2 text-3xl font-bold">
+            <span>Good {now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'}, {greetingName}</span>
+            <Sparkles className="h-6 w-6 text-amber-500" />
+          </h1>
           <p className="text-muted-foreground mt-1">{todayLabel}</p>
           <p className="text-sm font-semibold mt-2">Last updated: {lastUpdatedLabel}</p>
         </div>
@@ -620,10 +696,11 @@ export default function OrgHealthPage() {
             <button
               key={item.id}
               type="button"
-              className={`w-full text-left rounded-lg border px-4 py-2 text-sm ${item.tone === 'red' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-900'}`}
+              className={`flex w-full items-center gap-2 rounded-lg border px-4 py-2 text-sm text-left ${item.tone === 'red' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-900'}`}
               onClick={() => navigate(item.to)}
             >
-              {item.text}
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span>{item.text}</span>
             </button>
           ))}
         </div>
@@ -692,22 +769,20 @@ export default function OrgHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <button type="button" onClick={() => navigate('/hr/sessions-schedule')} className="rounded-lg border p-3 text-left hover:bg-muted/40">
-                <p className="font-medium">📅 Schedule Sessions</p>
-                <p className="text-xs text-muted-foreground">{pendingSessionsCount}</p>
-              </button>
-              <button type="button" onClick={() => navigate('/employees')} className="rounded-lg border p-3 text-left hover:bg-muted/40">
-                <p className="font-medium">👥 Review At-Risk</p>
-                <p className="text-xs text-muted-foreground">{criticalEmployeeCount}</p>
-              </button>
-              <button type="button" onClick={() => navigate('/hr/appraisals')} className="rounded-lg border p-3 text-left hover:bg-muted/40">
-                <p className="font-medium">📊 Run Appraisals</p>
-                <p className="text-xs text-muted-foreground">{Math.max(1, interventions.length)}</p>
-              </button>
-              <button type="button" onClick={() => navigate('/hr/feedback-analyzer')} className="rounded-lg border p-3 text-left hover:bg-muted/40">
-                <p className="font-medium">📋 Review Feedback</p>
-                <p className="text-xs text-muted-foreground">50</p>
-              </button>
+              {quickActions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => navigate(action.to)}
+                  className="rounded-lg border p-3 text-left hover:bg-muted/40"
+                >
+                  <div className="flex items-center gap-2">
+                    <action.icon className="h-4 w-4 text-amber-600" />
+                    <p className="font-medium">{action.label}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{action.count}</p>
+                </button>
+              ))}
             </div>
           </CardContent>
         </Card>

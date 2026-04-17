@@ -2,23 +2,60 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { generateManagerScores, ManagerScore } from "@/utils/mockAnalyticsData";
 import html2canvas from "html2canvas";
-import { useRef, useState, Fragment } from "react";
+import { useMemo, useRef, useState, Fragment } from "react";
 import { LineChart, Line, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
+import { useEmployees } from "@/contexts/EmployeeContext";
+
+type ManagerScore = {
+  managerId: string;
+  managerName: string;
+  teamSize: number;
+  avgPerformance: number;
+  avgSentiment: number;
+  turnoverRate: number;
+  enpsScore: number;
+  trend: number[];
+  directReports: string[];
+};
 
 export default function ManagerEffectivenessScorecard() {
   const { token } = useAuth();
-  const data = generateManagerScores();
+  const { employees } = useEmployees();
+  const data = useMemo<ManagerScore[]>(() => {
+    const managers = employees.filter((employee) => /manager|vp|chief/i.test(employee.role || ''));
+    return managers.map((manager) => {
+      const directReports = employees.filter((employee) => employee.reportsTo === manager.id);
+      const teamSize = directReports.length;
+      const safeTeam = teamSize || 1;
+      const avgPerformance = directReports.reduce((sum, item) => sum + item.performanceScore, 0) / safeTeam;
+      const avgSentiment = directReports.reduce((sum, item) => sum + ((item.sentimentScore + 1) / 2) * 100, 0) / safeTeam;
+      const turnoverRate = directReports.reduce((sum, item) => sum + item.attritionRisk, 0) / safeTeam / 5;
+      const enpsScore = Math.round(avgSentiment - 50);
+      const trend = Array.from({ length: 8 }, (_, index) => Math.max(0, Math.min(100, Math.round(avgPerformance + (index - 4) * 1.4))));
+
+      return {
+        managerId: manager.id,
+        managerName: manager.name,
+        teamSize,
+        avgPerformance,
+        avgSentiment,
+        turnoverRate,
+        enpsScore,
+        trend,
+        directReports: directReports.map((item) => item.name),
+      };
+    });
+  }, [employees]);
   const chartRef = useRef<HTMLDivElement>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sortConfig, setSortConfig] = useState<{ key: keyof ManagerScore; direction: 'asc' | 'desc' } | null>(null);
-  const [selectedManagerId, setSelectedManagerId] = useState<string>('mgr-0');
+  const [selectedManagerId, setSelectedManagerId] = useState<string>('NOVA-ENG005');
   const [scores360, setScores360] = useState<any>(null);
 
   useEffect(() => {

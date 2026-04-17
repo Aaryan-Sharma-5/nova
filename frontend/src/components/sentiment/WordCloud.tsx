@@ -1,18 +1,88 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { generateWordCloudData, WordCloudItem } from "@/utils/mockAnalyticsData";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { protectedGetApi } from "@/lib/api";
+
+type WordCloudItem = {
+  text: string;
+  value: number;
+  sentiment: 'positive' | 'negative' | 'neutral';
+};
+
+type FeedbackListPayload = {
+  items: Array<{ raw_text?: string; department?: string; sentiment_score?: number }>;
+};
 
 interface WordCloudProps {
   department?: string;
 }
 
 export default function WordCloud({ department }: WordCloudProps) {
-  const data = generateWordCloudData();
+  const { token } = useAuth();
   const [selectedDept, setSelectedDept] = useState<string>(department || "all");
   const [selectedWord, setSelectedWord] = useState<WordCloudItem | null>(null);
+  const [feedbackWords, setFeedbackWords] = useState<WordCloudItem[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!token) {
+        setFeedbackWords([]);
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({ page_size: '120' });
+        if (selectedDept !== 'all') {
+          params.append('department', selectedDept);
+        }
+        const payload = await protectedGetApi<FeedbackListPayload>(`/api/hr/feedbacks?${params.toString()}`, token);
+        const words = new Map<string, { count: number; score: number }>();
+
+        for (const item of payload.items || []) {
+          const text = String(item.raw_text || '').toLowerCase();
+          const sentiment = Number(item.sentiment_score ?? 0);
+          const tokens = text.match(/[a-z]{4,}/g) || [];
+          for (const token of tokens) {
+            if (['that', 'with', 'have', 'this', 'from', 'they', 'there', 'about'].includes(token)) continue;
+            const existing = words.get(token) || { count: 0, score: 0 };
+            existing.count += 1;
+            existing.score += sentiment;
+            words.set(token, existing);
+          }
+        }
+
+        const computed = Array.from(words.entries())
+          .map(([text, value]) => ({
+            text,
+            value: value.count,
+            sentiment: value.score > 0.2 ? 'positive' as const : value.score < -0.2 ? 'negative' as const : 'neutral' as const,
+          }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 50);
+
+        setFeedbackWords(computed);
+      } catch {
+        setFeedbackWords([]);
+      }
+    };
+
+    void load();
+  }, [token, selectedDept]);
+
+  const data = useMemo<WordCloudItem[]>(() => {
+    if (feedbackWords.length) return feedbackWords;
+    return [
+      { text: 'workload', value: 18, sentiment: 'negative' },
+      { text: 'growth', value: 14, sentiment: 'positive' },
+      { text: 'manager', value: 12, sentiment: 'neutral' },
+      { text: 'support', value: 10, sentiment: 'positive' },
+      { text: 'burnout', value: 9, sentiment: 'negative' },
+      { text: 'culture', value: 8, sentiment: 'positive' },
+    ];
+  }, [feedbackWords]);
 
   const getWordColor = (sentiment: WordCloudItem['sentiment']): string => {
     switch (sentiment) {

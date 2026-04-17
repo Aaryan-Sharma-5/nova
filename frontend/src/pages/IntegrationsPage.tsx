@@ -6,7 +6,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { Copy, CheckCheck, Github, ExternalLink } from "lucide-react";
+import { Copy, CheckCheck, RefreshCw, Loader2, CheckCircle2, XCircle } from "lucide-react";
+
+const API_BASE = "";
+const ORG_ID = "demo-org";
 
 function CopyBlock({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -28,19 +31,34 @@ function CopyBlock({ value, label }: { value: string; label?: string }) {
   );
 }
 
-interface IntegrationStatus {
-  jira?: { connected: boolean; last_sync_at: string | null; mode: string };
-  [key: string]: unknown;
+interface ComposioConnection {
+  app_name: string;
+  is_active: boolean;
+  last_synced_at: string | null;
+  connected_at: string | null;
+  connection_status?: string;
+  is_pending?: boolean;
+  redirect_url?: string;
 }
+
 
 export default function IntegrationsPage() {
   useDocumentTitle("NOVA — Integrations");
   const { token } = useAuth();
-  const [status, setStatus] = useState<IntegrationStatus>({});
+
   const [loading, setLoading] = useState(false);
+
+  // Slack / Composio state
+  const [slackConn, setSlackConn] = useState<ComposioConnection | null>(null);
+  const [slackLoading, setSlackLoading] = useState(false);
+  const [connectingSlack, setConnectingSlack] = useState(false);
+  const [syncingSlack, setSyncingSlack] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const webhookBase = window.location.origin;
 
+  // Load Jira status
   useEffect(() => {
     const load = async () => {
       if (!token) return;
@@ -49,31 +67,254 @@ export default function IntegrationsPage() {
         const res = await fetch("/api/integrations/status", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) return;
-        setStatus(await res.json());
-      } catch {
-        /* ignore */
-      } finally {
-        setLoading(false);
-      }
+        if (res.ok) await res.json();
+      } catch { /* ignore */ }
+      finally { setLoading(false); }
     };
     void load();
   }, [token]);
 
+  // Load Slack connection status
+  const loadSlackStatus = async () => {
+    if (!token) return;
+    setSlackLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/composio/status/${ORG_ID}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const slack = (data.connections as ComposioConnection[])?.find(
+        (c) => c.app_name === "slack"
+      ) ?? null;
+      setSlackConn(slack);
+    } catch { /* ignore */ }
+    finally { setSlackLoading(false); }
+  };
+
+  useEffect(() => { void loadSlackStatus(); }, [token]);
+
+  // When the user returns from the OAuth tab, re-check status automatically
+  useEffect(() => {
+    const handleFocus = () => { void loadSlackStatus(); };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [token]);
+
+  // Connect Slack — opens OAuth in new tab
+  const connectSlack = async () => {
+    if (!token) return;
+    setConnectingSlack(true);
+    setConnectError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/composio/connect`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ app_name: "slack", org_id: ORG_ID }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setConnectError(err.detail ?? `Error ${res.status}: ${res.statusText}`);
+        return;
+      }
+      const data = await res.json();
+      if (data.redirect_url) {
+        window.open(data.redirect_url, "_blank", "noopener,noreferrer");
+      }
+      setTimeout(() => void loadSlackStatus(), 5000);
+    } catch (e) {
+      setConnectError(`Network error — is the backend running on port 8000?`);
+    } finally {
+      setConnectingSlack(false);
+    }
+  };
+
+  // Trigger Slack sync
+  const triggerSync = async () => {
+    if (!token) return;
+    setSyncingSlack(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/composio/sync/trigger`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org_id: ORG_ID,
+          entity_id: ORG_ID,
+          apps: ["slack"],
+          since_hours: 168,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setSyncResult(err.detail ?? "Sync failed — check backend logs.");
+        return;
+      }
+      setSyncResult("Sync started! Sentiment analysis will run in the background.");
+      void loadSlackStatus();
+    } catch {
+      setSyncResult("Network error — is the backend running?");
+    } finally {
+      setSyncingSlack(false);
+    }
+  };
+
   const comingSoon = [
-    { name: "Slack", reason: "Requires org-wide communication consent policy — deliberately excluded to protect employee privacy." },
     { name: "Google Calendar", reason: "Will enable meeting load analysis. Requires Google Workspace admin OAuth. Coming next release." },
     { name: "HRMS / SAP", reason: "Direct HRMS sync will auto-import employee records and org structure. Requires IT API access." },
   ];
+
+  const slackIsActive = Boolean(slackConn?.is_active);
+  const slackIsPending = Boolean(
+    slackConn &&
+    !slackConn.is_active &&
+    ((slackConn.is_pending === true) || (slackConn.connection_status || "").toUpperCase() === "INITIATED")
+  );
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Integrations</h1>
         <p className="text-sm text-muted-foreground">
-          Connect external tools to NOVA via webhooks. No API keys needed — events are pushed to NOVA automatically.
+          Connect external tools to NOVA. Slack uses OAuth via Composio — no API keys needed.
         </p>
       </div>
+
+      {/* ── SLACK Integration ── */}
+      <Card className="border-2 border-foreground shadow-[2px_2px_0px_#000]">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-[#4A154B] text-white text-xs font-black">#</span>
+              Slack
+            </span>
+            {slackLoading ? (
+              <Skeleton className="h-5 w-24" />
+            ) : slackIsActive ? (
+              <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Connected
+              </Badge>
+            ) : slackIsPending ? (
+              <Badge className="bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                <Loader2 className="h-3 w-3" /> Auth pending
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <XCircle className="h-3 w-3" /> Not connected
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm">
+            Once connected, NOVA can pull Slack message metadata on manual sync and via nightly auto-sync.
+            Sentiment processing for buffered messages runs every 2 minutes.
+            Raw message text is <strong>never stored</strong> — only emotion scores and risk signals.
+          </p>
+
+          <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
+            <li>Connect your Slack workspace via OAuth below</li>
+            <li>Trigger a sync to pull the last 7 days of messages (or wait for nightly auto-sync)</li>
+            <li>Sentiment scores feed into burnout and flight-risk models automatically</li>
+          </ol>
+
+          <Separator />
+
+          {slackIsActive ? (
+            <div className="space-y-3">
+              <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-xs space-y-1">
+                <p className="font-semibold text-emerald-900">Slack workspace connected</p>
+                {slackConn.last_synced_at && (
+                  <p className="text-emerald-700">
+                    Last synced: {new Date(slackConn.last_synced_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => void triggerSync()}
+                  disabled={syncingSlack}
+                  className="flex items-center gap-2"
+                >
+                  {syncingSlack
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Syncing…</>
+                    : <><RefreshCw className="h-4 w-4" /> Sync Now (last 7 days)</>
+                  }
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => void loadSlackStatus()}>
+                  Refresh status
+                </Button>
+              </div>
+
+              {syncResult && (
+                <p className="text-xs text-muted-foreground border border-muted bg-muted/30 p-2">
+                  {syncResult}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {slackIsPending && (
+                <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs space-y-2">
+                  <p className="font-semibold text-amber-900">Slack authorization pending</p>
+                  <p className="text-amber-800">
+                    OAuth was initiated but not completed yet. Finish authorization in Slack, then refresh status.
+                  </p>
+                  {slackConn?.redirect_url && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(slackConn.redirect_url, "_blank", "noopener,noreferrer")}
+                    >
+                      Resume OAuth
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs space-y-1">
+                <p className="font-semibold text-amber-900">Before connecting</p>
+                <p className="text-amber-800">
+                  Make sure your team members' Slack profile emails match their NOVA account emails.
+                  Slack Settings → Profile → Edit → Email.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button
+                  onClick={() => void connectSlack()}
+                  disabled={connectingSlack}
+                  className="flex items-center gap-2"
+                >
+                  {connectingSlack
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening OAuth…</>
+                    : "Connect Slack Workspace"
+                  }
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={slackLoading}
+                  onClick={() => void loadSlackStatus()}
+                  className="flex items-center gap-2"
+                >
+                  {slackLoading
+                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Checking…</>
+                    : <><RefreshCw className="h-3 w-3" /> Refresh status</>
+                  }
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                After authorizing in Slack, come back here and click "Refresh status" (or switch to this tab — it checks automatically).
+              </p>
+              {connectError && (
+                <p className="text-xs text-red-600 border border-red-200 bg-red-50 p-2">{connectError}</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── JIRA Integration ── */}
       <Card className="border-2 border-foreground shadow-[2px_2px_0px_#000]">
@@ -93,9 +334,7 @@ export default function IntegrationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm">
-            When a Jira issue is created, NOVA automatically:
-          </p>
+          <p className="text-sm">When a Jira issue is created, NOVA automatically:</p>
           <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
             <li>Extracts required skills from the ticket using AI</li>
             <li>Finds the best-matched employee by skill profile</li>
@@ -110,7 +349,7 @@ export default function IntegrationsPage() {
             <CopyBlock value={`${webhookBase}/api/webhook/jira`} label="POST endpoint" />
             <p className="text-xs text-muted-foreground">
               In Jira: <strong>Project Settings → Webhooks → Create Webhook</strong>.
-              Select the <code className="bg-muted px-1">jira:issue_created</code>,{" "}
+              Select <code className="bg-muted px-1">jira:issue_created</code>,{" "}
               <code className="bg-muted px-1">sprint_created</code>, and{" "}
               <code className="bg-muted px-1">sprint_started</code> events.
             </p>
@@ -119,7 +358,7 @@ export default function IntegrationsPage() {
           <Separator />
 
           <div className="rounded border border-muted bg-muted/30 p-3 text-xs space-y-2">
-            <p className="font-semibold">Expected payload (Jira sends automatically):</p>
+            <p className="font-semibold">Expected payload:</p>
             <pre className="font-mono text-[10px] overflow-x-auto text-muted-foreground whitespace-pre-wrap">{`{
   "webhookEvent": "jira:issue_created",
   "issue": {
@@ -143,7 +382,7 @@ export default function IntegrationsPage() {
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-[#24292e] text-white">
-                <Github className="h-4 w-4" />
+                <span className="text-xs font-bold">GH</span>
               </span>
               GitHub
             </span>
@@ -153,14 +392,12 @@ export default function IntegrationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm">
-            When an employee pushes commits, NOVA automatically:
-          </p>
+          <p className="text-sm">When an employee pushes commits, NOVA automatically:</p>
           <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
             <li>Analyses the diff using AI to extract skills</li>
-            <li>Rates the code quality (0-100, with label: good / neutral / poor)</li>
+            <li>Rates the code quality (0–100)</li>
             <li>Updates the employee's skill profile and rolling quality score</li>
-            <li>The profile is then used to match incoming Jira tickets</li>
+            <li>Profile is used to match incoming Jira tickets</li>
           </ol>
 
           <Separator />
@@ -170,8 +407,7 @@ export default function IntegrationsPage() {
             <CopyBlock value={`${webhookBase}/api/webhook/github`} label="POST endpoint" />
             <p className="text-xs text-muted-foreground">
               In GitHub: <strong>Repo Settings → Webhooks → Add webhook</strong>.
-              Set content type to <code className="bg-muted px-1">application/json</code>{" "}
-              and select the <code className="bg-muted px-1">push</code> event.
+              Content type: <code className="bg-muted px-1">application/json</code>, event: <code className="bg-muted px-1">push</code>.
             </p>
           </div>
 
@@ -182,31 +418,14 @@ export default function IntegrationsPage() {
             <p className="text-amber-800">
               Employees must link their GitHub username in{" "}
               <a href="/work-profiles" className="underline font-medium">Work Profiles</a>{" "}
-              before commits will be attributed to them. Unlinked pushes are silently ignored.
+              before commits will be attributed to them.
             </p>
-          </div>
-
-          <div className="rounded border border-muted bg-muted/30 p-3 text-xs space-y-2">
-            <p className="font-semibold">Commit diff inclusion (recommended GitHub Action):</p>
-            <p className="text-muted-foreground">
-              GitHub push webhooks do not include diffs by default. For full analysis, include
-              the diff in each commit object. You can do this with a GitHub Action that calls
-              the webhook with diff content, or use the manual commit submission endpoint.
-            </p>
-            <a
-              href="https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#push"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary underline"
-            >
-              GitHub push webhook docs <ExternalLink className="h-3 w-3" />
-            </a>
           </div>
         </CardContent>
       </Card>
 
       {/* ── Coming soon ── */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         {comingSoon.map((item) => (
           <Card key={item.name} className="border-2 border-muted opacity-60">
             <CardHeader>

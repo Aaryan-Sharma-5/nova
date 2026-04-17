@@ -34,7 +34,7 @@ export default function WordCloud({ department }: WordCloudProps) {
       }
 
       try {
-        const params = new URLSearchParams({ page_size: '120' });
+        const params = new URLSearchParams({ page_size: '100' });
         if (selectedDept !== 'all') {
           params.append('department', selectedDept);
         }
@@ -72,17 +72,7 @@ export default function WordCloud({ department }: WordCloudProps) {
     void load();
   }, [token, selectedDept]);
 
-  const data = useMemo<WordCloudItem[]>(() => {
-    if (feedbackWords.length) return feedbackWords;
-    return [
-      { text: 'workload', value: 18, sentiment: 'negative' },
-      { text: 'growth', value: 14, sentiment: 'positive' },
-      { text: 'manager', value: 12, sentiment: 'neutral' },
-      { text: 'support', value: 10, sentiment: 'positive' },
-      { text: 'burnout', value: 9, sentiment: 'negative' },
-      { text: 'culture', value: 8, sentiment: 'positive' },
-    ];
-  }, [feedbackWords]);
+  const data = useMemo<WordCloudItem[]>(() => feedbackWords, [feedbackWords]);
 
   const getWordColor = (sentiment: WordCloudItem['sentiment']): string => {
     switch (sentiment) {
@@ -133,6 +123,11 @@ export default function WordCloud({ department }: WordCloudProps) {
             className="rounded-lg p-8 min-h-[400px] flex flex-wrap items-center justify-center gap-4 border"
             style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
           >
+            {data.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center">
+                No feedback data yet. Word cloud will populate from HR survey responses.
+              </p>
+            )}
             {data.map((word, i) => (
               <button
                 key={i}
@@ -222,13 +217,13 @@ export default function WordCloud({ department }: WordCloudProps) {
             </div>
           </div>
 
-          {/* Insights */}
-          <div className="mt-4 p-3 border rounded-md" style={{ backgroundColor: 'var(--alert-banner-bg)', borderColor: 'var(--border-color)' }}>
-            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-              <strong>Key Themes:</strong> Most frequent terms indicate concerns around workload management and 
-              compensation, balanced by positive sentiment around growth opportunities and team collaboration.
-            </p>
-          </div>
+          {data.length > 0 && (
+            <div className="mt-4 p-3 border rounded-md" style={{ backgroundColor: 'var(--alert-banner-bg)', borderColor: 'var(--border-color)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                <strong>Key Themes:</strong> Showing {data.length} terms extracted from {data.reduce((s, w) => s + w.value, 0)} HR feedback responses.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

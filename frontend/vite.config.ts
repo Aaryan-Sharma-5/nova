@@ -10,6 +10,14 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      "/api": { target: "http://localhost:8000", changeOrigin: true },
+      "/auth": { target: "http://localhost:8000", changeOrigin: true },
+      "/hr": { target: "http://localhost:8000", changeOrigin: true },
+      "/manager": { target: "http://localhost:8000", changeOrigin: true },
+      "/leadership": { target: "http://localhost:8000", changeOrigin: true },
+      "/employee": { target: "http://localhost:8000", changeOrigin: true },
+    },
   },
   plugins: [react()],
   resolve: {

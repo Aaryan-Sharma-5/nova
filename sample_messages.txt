@@ -1,0 +1,41 @@
+# Sample Slack messages for NOVA sentiment pipeline demo
+# Format: employee_email | message_text
+# Run: cd backend && python scripts/seed_message_buffer.py
+
+# --- ANAMAY (High Stress / Burnout Risk) ---
+anamay.narkar.102@gmail.com | I've been working until midnight every day this week and I still can't catch up
+anamay.narkar.102@gmail.com | Another meeting that could have been an email. I have zero time to actually do my work
+anamay.narkar.102@gmail.com | I'm completely overwhelmed with the sprint. There's no way we're hitting this deadline
+anamay.narkar.102@gmail.com | Haven't taken a proper break in 3 weeks. Running on empty honestly
+anamay.narkar.102@gmail.com | yeah sure add another thing to my plate, great, just what I needed
+anamay.narkar.102@gmail.com | The pressure from leadership is unbearable lately. I dread opening my laptop in the morning
+anamay.narkar.102@gmail.com | I feel totally ignored in these planning meetings. Nobody listens anyway
+anamay.narkar.102@gmail.com | I can't keep doing this. I'm exhausted and my work is suffering for it
+
+# --- AARYAN (Frustrated / Disengaged) ---
+aaryan2sharma5@gmail.com | Been blocked on this PR for 4 days waiting for a review. This process is broken
+aaryan2sharma5@gmail.com | No one told me the requirements changed again. Found out from a random Slack message
+aaryan2sharma5@gmail.com | Third time this month the deployment broke because of someone else's untested code
+aaryan2sharma5@gmail.com | I feel like my work doesn't really matter here
+aaryan2sharma5@gmail.com | Why do we even have standups if decisions are made in side channels
+aaryan2sharma5@gmail.com | Another sprint planning where my estimates were completely ignored
+aaryan2sharma5@gmail.com | I've raised this performance issue twice in the last month and nothing has changed
+
+# --- ADITYA (Positive / Engaged) ---
+adityatarit@gmail.com | Just shipped the new dashboard feature, really happy with how it turned out!
+adityatarit@gmail.com | The team standup today was really energizing, great alignment on priorities
+adityatarit@gmail.com | Finished the refactor ahead of schedule, feeling good about the codebase now
+adityatarit@gmail.com | I love working on this project, the challenges are genuinely interesting
+adityatarit@gmail.com | Got great feedback from the client demo, really motivated to keep pushing
+adityatarit@gmail.com | The new onboarding process is so much smoother, great work everyone
+adityatarit@gmail.com | Really appreciate the support from the team this week, we crushed it
+
+# --- AGNIV (Anxious / Uncertain + Sarcasm) ---
+agnivkdutta@gmail.com | Has anyone heard anything about the restructuring? The silence is making me nervous
+agnivkdutta@gmail.com | I'm worried we're not going to meet the Q2 targets, what's the fallback plan?
+agnivkdutta@gmail.com | I don't fully understand what's expected of me in this new role
+agnivkdutta@gmail.com | Oh great, another urgent request at 5pm on a Friday, love this job
+agnivkdutta@gmail.com | Yeah right, like that's actually going to work in production
+agnivkdutta@gmail.com | Wow amazing, we're adding a new process to the process that fixes our broken process
+agnivkdutta@gmail.com | Sure I'll just work through the weekend, as if I had any plans anyway
+agnivkdutta@gmail.com | The codebase is so complex I'm afraid to touch anything without breaking something

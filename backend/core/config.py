@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     ORG_SECTOR: str = "IT Services"
+    STARTUP_DNS_CHECK_TIMEOUT_SECONDS: float = 1.5
+    SCHEDULER_RUN_JOBS_ON_STARTUP: bool = False
 
     # JIRA Integration
     JIRA_BASE_URL: str = ""
@@ -35,6 +37,16 @@ class Settings(BaseSettings):
     ML_FEATURE_TABLE: str = ""
     ML_FEATURE_EMPLOYEE_KEY: str = "employee_id"
     ML_FEATURE_COLUMN_MAP_JSON: str = ""
+
+    # Composio Integration
+    COMPOSIO_API_KEY: str = ""
+    COMPOSIO_WEBHOOK_SECRET: str = ""
+    COMPOSIO_CONNECT_TIMEOUT_SECONDS: int = 45
+    COMPOSIO_CONNECT_MAX_ATTEMPTS: int = 2
+
+    # Slack Native Integration
+    SLACK_SIGNING_SECRET: str = ""
+    SLACK_BOT_TOKEN: str = ""
     
     class Config:
         env_file = str(Path(__file__).resolve().parents[1] / ".env")

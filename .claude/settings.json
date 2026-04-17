@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(py --version)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

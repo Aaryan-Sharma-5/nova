@@ -1,13 +1,18 @@
 import logging
 import time
 import uuid
+import asyncio
+from datetime import datetime
 from typing import Tuple
 from fastapi import FastAPI
+from fastapi import HTTPException
 from fastapi import Request
+from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from core.audit import audit_log, consume_access_reason, set_audit_context
 from core.config import settings
-from core.database import get_supabase_hostname, is_supabase_host_resolvable
+from core.database import get_supabase_admin, get_supabase_hostname, is_supabase_host_resolvable
 from core.security import decode_access_token
 from api.routes import auth, hr, manager, leadership, employee
 from api.routes.ai import router as ai_router
@@ -40,6 +45,8 @@ from api.routes.webhooks import router as webhooks_router
 from api.routes.task_assignments import router as task_assignments_router
 from api.routes.job_board import router as job_board_router
 from api.routes.work_profiles import router as work_profiles_router
+from api.routes.composio_admin import router as composio_admin_router
+from api.routes.composio_sync import router as composio_sync_router
 
 # Configure logging
 logging.basicConfig(
@@ -112,6 +119,8 @@ app.include_router(webhooks_router)
 app.include_router(task_assignments_router)
 app.include_router(job_board_router)
 app.include_router(work_profiles_router)
+app.include_router(composio_admin_router)
+app.include_router(composio_sync_router)
 
 
 _SENSITIVE_GET_PREFIXES = (
@@ -186,6 +195,20 @@ async def request_logging_middleware(request: Request, call_next):
 
     try:
         response = await call_next(request)
+    except HTTPException as exc:
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.warning(
+            "⬅️ [%s] %s %s -> %s in %.2fms (%s)",
+            request_id,
+            request.method,
+            request.url.path,
+            exc.status_code,
+            duration_ms,
+            exc.detail,
+        )
+        response = JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        response.headers["X-Request-ID"] = request_id
+        return response
     except Exception:
         duration_ms = (time.perf_counter() - start_time) * 1000
         logger.exception(
@@ -230,11 +253,164 @@ async def request_logging_middleware(request: Request, call_next):
     return response
 
 
+async def _process_sentiment_buffer() -> None:
+    """Every 2 min: batch-analyze buffered messages per employee, delete after."""
+    from collections import defaultdict
+    from datetime import timezone
+    from ai.schemas import SentimentRequest
+    from ai.sentiment import analyze_sentiment
+    from services.ingestion_service import IngestionService
+
+    sb = get_supabase_admin()
+    try:
+        rows = (
+            sb.table("message_buffer")
+            .select("id, org_id, employee_email, message_text")
+            .order("created_at")
+            .limit(500)
+            .execute()
+        ).data or []
+    except Exception as exc:
+        logger.error("[SentimentBuffer] fetch failed: %s", exc)
+        return
+
+    if not rows:
+        return
+
+    logger.info("[SentimentBuffer] Fetched %d buffered messages to process", len(rows))
+
+    buckets: dict[tuple, list[str]] = defaultdict(list)
+    ids_by_key: dict[tuple, list[str]] = defaultdict(list)
+    for row in rows:
+        key = (row["org_id"], row["employee_email"])
+        buckets[key].append(row["message_text"])
+        ids_by_key[key].append(row["id"])
+
+    for (org_id, email), msg_list in buckets.items():
+        logger.info(
+            "[SentimentBuffer] Bucket — org=%s email=%s message_count=%d",
+            org_id, email, len(msg_list),
+        )
+
+    for (org_id, email), texts in buckets.items():
+        try:
+            logger.info(
+                "[SentimentBuffer] Running sentiment — org=%s email=%s messages=%d",
+                org_id, email, len(texts),
+            )
+            result = await analyze_sentiment(SentimentRequest(employee_id=email, texts=texts))
+            emotions = (
+                result.emotions
+                if isinstance(result.emotions, dict)
+                else result.emotions.model_dump()
+            )
+            svc = IngestionService(org_id=org_id, entity_id=org_id)
+            svc._store_signal_row(
+                employee_email=email,
+                source="slack",
+                signal_type="sentiment_batch",
+                occurred_at=datetime.now(tz=timezone.utc),
+                metadata={
+                    "sentiment_score": result.score,
+                    "label": result.label,
+                    "dominant_emotion": result.dominant_emotion,
+                    "emotions": emotions,
+                    "sarcasm_detected": result.sarcasm_detected,
+                    "confidence": result.confidence,
+                    "message_count": len(texts),
+                },
+            )
+            sb.table("message_buffer").delete().in_("id", ids_by_key[(org_id, email)]).execute()
+            logger.info("[SentimentBuffer] processed %d msgs → %s (score=%.2f)", len(texts), email, result.score)
+        except Exception as exc:
+            logger.error("[SentimentBuffer] failed for %s: %s", email, exc)
+
+
+async def _composio_nightly_sync() -> None:
+    """Pull last 24h of signals for every active Composio-connected org."""
+    from services.ingestion_service import IngestionService
+    sb = get_supabase_admin()
+    try:
+        connections = (
+            sb.table("composio_connections")
+            .select("org_id, composio_entity_id, app_name")
+            .eq("is_active", True)
+            .execute()
+        ).data or []
+    except Exception as exc:
+        logger.error("[Composio] Nightly sync: could not fetch connections: %s", exc)
+        return
+
+    # Group by org
+    org_map: dict[str, dict] = {}
+    for row in connections:
+        oid = row["org_id"]
+        if oid not in org_map:
+            org_map[oid] = {"entity_id": row["composio_entity_id"], "apps": []}
+        org_map[oid]["apps"].append(row["app_name"])
+
+    for org_id, info in org_map.items():
+        svc = IngestionService(org_id=org_id, entity_id=info["entity_id"])
+        for app in info["apps"]:
+            try:
+                if app == "slack":
+                    await svc.sync_slack_with_sentiment(since_hours=24)
+                elif app == "gmail":
+                    await svc.sync_gmail(since_hours=24)
+            except Exception as exc:
+                logger.error("[Composio] Nightly sync failed org=%s app=%s: %s", org_id, app, exc)
+
+        try:
+            sb.table("composio_connections").update({"last_synced_at": "now()"}).eq(
+                "org_id", org_id
+            ).execute()
+        except Exception:
+            pass
+
+
 @app.on_event("startup")
 async def startup_event():
     """Log startup information."""
+    startup_t0 = time.perf_counter()
     supabase_host = get_supabase_hostname()
-    supabase_dns_ok = is_supabase_host_resolvable()
+    dns_timeout_seconds = max(float(settings.STARTUP_DNS_CHECK_TIMEOUT_SECONDS), 0.1)
+    try:
+        supabase_dns_ok = await asyncio.wait_for(
+            run_in_threadpool(is_supabase_host_resolvable),
+            timeout=dns_timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        supabase_dns_ok = False
+        logger.warning(
+            "⚠️ Supabase DNS check timed out after %.1fs (host=%s). Continuing startup.",
+            dns_timeout_seconds,
+            supabase_host,
+        )
+    except Exception as exc:
+        supabase_dns_ok = False
+        logger.warning("⚠️ Supabase DNS check failed for host=%s: %s", supabase_host, exc)
+
+    from core.scheduler import get_scheduler
+    scheduler = get_scheduler()
+    scheduler.register_job(
+        "sentiment_buffer_flush",
+        _process_sentiment_buffer,
+        interval_seconds=120,  # every 2 minutes
+    )
+    scheduler.register_job(
+        "composio_nightly_sync",
+        _composio_nightly_sync,
+        interval_seconds=86400,
+    )
+
+    if not settings.SCHEDULER_RUN_JOBS_ON_STARTUP:
+        now = datetime.utcnow()
+        for job_id in ("sentiment_buffer_flush", "composio_nightly_sync"):
+            job = scheduler.jobs.get(job_id)
+            if job and job.last_run is None:
+                job.last_run = now
+
+    await scheduler.start()
 
     logger.info("=" * 60)
     logger.info("🎉 NOVA API Server Started Successfully!")
@@ -257,6 +433,10 @@ async def startup_event():
     logger.info("  GET  /manager/* - Manager role endpoints")
     logger.info("  GET  /leadership/* - Leadership role endpoints")
     logger.info("  GET  /employee/* - Employee endpoints")
+    logger.info(
+        "⏱️ Startup completed in %.2fms",
+        (time.perf_counter() - startup_t0) * 1000,
+    )
     logger.info("=" * 60)
 
 
@@ -264,6 +444,8 @@ async def startup_event():
 async def shutdown_event():
     """Log shutdown information."""
     logger.info("👋 NOVA API Server shutting down...")
+    from core.scheduler import stop_scheduler
+    await stop_scheduler()
     logger.info("🧹 Cleanup complete. Goodbye.")
 
 

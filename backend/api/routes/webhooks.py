@@ -10,12 +10,16 @@ payload; you can add HMAC validation later via X-Hub-Signature-256).
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+
+from core.config import settings
 
 from ai.commit_analyzer import analyze_commit
 from ai.text_cleanup import sanitize_task_title
@@ -462,3 +466,112 @@ async def _update_work_profile(sb, email: str, profile: dict, analysis: dict) ->
         "total_commits": new_total,
         "new_avg_quality": round(new_avg_quality, 2),
     }
+
+
+# ── Slack Native Events API ───────────────────────────────────────────────────
+
+def _verify_slack_signature(body: bytes, headers) -> bool:
+    """Return True if request is genuinely from Slack (HMAC-SHA256)."""
+    secret = (settings.SLACK_SIGNING_SECRET or "").strip()
+    if not secret:
+        return True  # skip in dev when secret not configured
+    timestamp = headers.get("x-slack-request-timestamp", "")
+    sig_header = headers.get("x-slack-signature", "")
+    basestring = f"v0:{timestamp}:{body.decode('utf-8')}"
+    expected = "v0=" + hmac.new(secret.encode(), basestring.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, sig_header)
+
+
+@router.post("/slack")
+async def handle_slack_event(request: Request):
+    """
+    Slack Events API endpoint.
+
+    Handles:
+    - url_verification challenge (Slack sends this when you first register the URL)
+    - message events from subscribed channels (buffers text for sentiment analysis)
+
+    Set this URL in Slack App → Event Subscriptions:
+        https://<your-ngrok-or-domain>/api/webhook/slack
+
+    Subscribe to bot events: message.channels, message.groups, message.im, message.mpim
+    """
+    body = await request.body()
+
+    if not _verify_slack_signature(body, request.headers):
+        logger.warning("[Slack] Webhook signature mismatch — rejected")
+        raise HTTPException(status_code=401, detail="Invalid Slack signature")
+
+    try:
+        payload: dict = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    # ── URL verification handshake (Slack sends this once when you add the URL)
+    if payload.get("type") == "url_verification":
+        challenge = payload.get("challenge", "")
+        logger.info("[Slack] URL verification challenge received — responding")
+        return {"challenge": challenge}
+
+    event_type = payload.get("type")
+    event = payload.get("event") or {}
+    org_id = "demo-org"  # single-tenant; extend to multi-tenant via team_id lookup
+
+    logger.info("[Slack] Event received type=%s event_type=%s", event_type, event.get("type"))
+
+    # Only handle message events with actual text; ignore bot messages and edits
+    if event.get("type") not in ("message", "message.channels", "message.groups"):
+        return {"ok": True}
+    if event.get("bot_id") or event.get("subtype"):
+        return {"ok": True}
+
+    slack_user_id = event.get("user")
+    text = (event.get("text") or "").strip()
+    channel_id = event.get("channel") or ""
+
+    if not slack_user_id or not text:
+        return {"ok": True}
+
+    # Resolve Slack user ID → email via Slack Users API
+    slack_token = (settings.SLACK_BOT_TOKEN or "").strip()
+    email: str | None = None
+    if slack_token:
+        try:
+            import httpx
+            r = httpx.get(
+                "https://slack.com/api/users.info",
+                params={"user": slack_user_id},
+                headers={"Authorization": f"Bearer {slack_token}"},
+                timeout=5,
+            )
+            data = r.json()
+            email = (
+                (data.get("user") or {}).get("profile", {}).get("email")
+                or (data.get("user") or {}).get("email")
+            )
+            if email:
+                email = email.strip().lower()
+        except Exception as exc:
+            logger.warning("[Slack] users.info failed for %s: %s", slack_user_id, exc)
+
+    if not email:
+        logger.info("[Slack] Could not resolve email for user=%s — skipping", slack_user_id)
+        return {"ok": True}
+
+    logger.info(
+        "[MessageBuffer] Queueing message — org=%s email=%s channel=%s len=%d",
+        org_id, email, channel_id, len(text),
+    )
+    try:
+        sb = get_supabase_admin()
+        sb.table("message_buffer").insert({
+            "org_id": org_id,
+            "employee_email": email,
+            "source": "slack",
+            "message_text": text,
+        }).execute()
+        logger.info("[MessageBuffer] Buffered OK — org=%s email=%s", org_id, email)
+    except Exception as exc:
+        logger.warning("[MessageBuffer] Insert failed — org=%s email=%s error=%s", org_id, email, exc)
+
+    return {"ok": True}

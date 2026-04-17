@@ -97,8 +97,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Overview',
           items: [
-            { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
             { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
           ],
         },
         {
@@ -117,8 +117,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Workspace',
           items: [
-            { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
             { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
             { to: '/employees', icon: Users, label: 'Employees' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
             { to: '/hr/feedback-analyzer', icon: MessageSquareText, label: 'Feedback Analyzer' },
@@ -152,8 +152,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Overview',
           items: [
-            { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
             { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Pulse' },
+            { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
           ],
         },
         {

@@ -725,7 +725,7 @@ export default function OrgHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
+              <div className="metric-card text-center p-4">
                 <p className="text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>
                   {healthScore.score.toFixed(0)}
                 </p>
@@ -742,25 +742,25 @@ export default function OrgHealthPage() {
                 </div>
               </div>
 
-              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
+              <div className="metric-card text-center p-4">
                 <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>246</p>
                 <p className="text-sm text-muted-foreground mt-1">Total Headcount</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>+8 this month</p>
               </div>
 
-              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
+              <div className="metric-card text-center p-4">
                 <p className="text-3xl font-bold" style={{ color: 'var(--button-primary-bg)' }}>10.7%</p>
                 <p className="text-sm text-muted-foreground mt-1">Avg Attrition Rate</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--button-primary-bg)' }}>vs 12% target</p>
               </div>
 
-              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
+              <div className="metric-card text-center p-4">
                 <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>78.8</p>
                 <p className="text-sm text-muted-foreground mt-1">Avg Performance</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>Above target</p>
               </div>
 
-              <div className="text-center p-4 border-2 border-foreground bg-card shadow-[2px_2px_0px_#000]">
+              <div className="metric-card text-center p-4">
                 <p className="text-3xl font-bold" style={{ color: 'var(--alert-critical)' }}>58</p>
                 <p className="text-sm text-muted-foreground mt-1">Burnout Score</p>
                 <p className="text-sm font-medium mt-2" style={{ color: 'var(--alert-critical)' }}>Needs attention</p>
@@ -780,7 +780,7 @@ export default function OrgHealthPage() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.to)}
-                  className="rounded-lg border p-3 text-left hover:bg-muted/40"
+                  className="metric-card w-full cursor-pointer p-3 text-left hover:bg-[#FFF9D6]"
                 >
                   <div className="flex items-center gap-2">
                     <action.icon className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />

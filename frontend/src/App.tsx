@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { lazy, Suspense } from "react";
 
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
 const SentimentPage = lazy(() => import("./pages/SentimentPage"));
@@ -58,13 +59,14 @@ const App = () => (
           >
             <Suspense fallback={<RouteFallback />}>
               <Routes>
+                <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/forbidden" element={<ForbiddenPage />} />
                 <Route path="/careers" element={<CareersPage />} />
 
                 <Route
-                  path="/"
+                  path="/home"
                   element={
                     <ProtectedRoute>
                       <RoleHomeRedirect />

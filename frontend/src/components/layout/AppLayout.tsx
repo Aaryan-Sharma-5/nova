@@ -51,7 +51,7 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 const ROLE_HOME_PATH: Record<UserRole, string> = {
-  employee: '/',
+  employee: '/your-data',
   manager: '/org-health',
   hr: '/org-health',
   leadership: '/org-health',
@@ -68,7 +68,7 @@ function resolvePageTitle(pathname: string, navItems: NavItem[], role?: UserRole
     if (role === 'leadership') return 'Executive Pulse';
   }
   if (pathname === '/') {
-    if (role === 'employee') return 'Home';
+    return 'Home';
   }
 
   const exact = navItems.find((item) => item.to === pathname);
@@ -97,8 +97,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Overview',
           items: [
-            { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
+            { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
           ],
         },
         {
@@ -117,8 +117,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Workspace',
           items: [
-            { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
+            { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { to: '/employees', icon: Users, label: 'Employees' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
             { to: '/hr/feedback-analyzer', icon: MessageSquareText, label: 'Feedback Analyzer' },
@@ -152,8 +152,8 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'Overview',
           items: [
-            { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Pulse' },
             { to: '/org-health', icon: HeartPulse, label: 'Org Info' },
+            { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Pulse' },
           ],
         },
         {
@@ -180,7 +180,7 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
         {
           title: 'My Workspace',
           items: [
-            { to: '/', icon: Home, label: 'Home' },
+            { to: '/your-data', icon: Home, label: 'Home' },
             { to: '/your-data', icon: UserCircle, label: 'Your Data' },
             { to: '/feedback-session', icon: MessageSquare, label: 'Feedback Session' },
             { to: '/work-profiles', icon: GitCommit, label: 'My Work Profile' },
@@ -219,7 +219,7 @@ function buildMobileBottomNav(role: UserRole): NavItem[] {
       ];
     case 'employee':
       return [
-        { to: '/', icon: Home, label: 'Home' },
+        { to: '/your-data', icon: Home, label: 'Home' },
         { to: '/feedback-session', icon: MessageSquare, label: 'Feedback' },
         { to: '/employee/profile', icon: UserCircle, label: 'Profile' },
       ];

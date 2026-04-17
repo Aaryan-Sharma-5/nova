@@ -102,8 +102,10 @@ def _aggregate_weekly_brief_context(scope: Scope, team_id: str | None, week_offs
     if scope == "team":
         team_name = team_id or "payments-core"
         baseline_health = 68
-        health_score = max(52, min(85, baseline_health + min(week_offset, 4)))
-        health_delta_pct = round(-4.2 + min(week_offset, 4) * 0.9, 1)
+        # Higher score further in the past means health is declining over time
+        health_score = max(52, min(85, baseline_health + min(week_offset * 2, 8)))
+        last_week_score = max(52, min(85, baseline_health + min((week_offset + 1) * 2, 8)))
+        health_delta_pct = round(((health_score - last_week_score) / last_week_score) * 100, 1)
         sentiment_trend = round(-0.06 + min(week_offset, 4) * 0.015, 3)
         top_risk = max(70, 84 + min(week_offset, 4) * 2)
         secondary_risk = max(63, 76 + min(week_offset, 4) * 2)
@@ -146,8 +148,10 @@ def _aggregate_weekly_brief_context(scope: Scope, team_id: str | None, week_offs
         }
 
     baseline_health = 76
-    health_score = max(60, min(92, baseline_health + min(week_offset, 6)))
-    health_delta_pct = round(1.1 - min(week_offset, 6) * 0.35, 1)
+    # Lower score further in the past means health is improving/stable over time
+    health_score = max(60, min(92, baseline_health - min(week_offset * 1, 6)))
+    last_week_score = max(60, min(92, baseline_health - min((week_offset + 1) * 1, 6)))
+    health_delta_pct = round(((health_score - last_week_score) / last_week_score) * 100, 1)
     sentiment_trend = round(0.02 - min(week_offset, 6) * 0.01, 3)
     sales_risk = max(72, 81 + min(week_offset, 6) * 2)
     payments_risk = max(66, 74 + min(week_offset, 6) * 2)
@@ -173,38 +177,24 @@ def _aggregate_weekly_brief_context(scope: Scope, team_id: str | None, week_offs
 def _weekly_brief_fallback_narrative(ctx: dict[str, Any]) -> str:
     if ctx["scope"] == "team":
         return (
-            f"This week the {ctx['team_name']} team (n={ctx['team_size']}) held a health score of "
-            f"{ctx['health_score']} with a {ctx['health_delta_pct']}% week-over-week change. "
-            f"Two members surfaced as elevated-risk. {ctx['at_risk'][0]['alias']} is the priority "
-            f"signal — tenure of {ctx['at_risk'][0]['tenure_months']} months paired with after-hours spikes "
-            "and no recognition events suggests isolation-driven burnout rather than pure workload. "
-            f"{ctx['at_risk'][1]['alias']} shows a slower decline: stale PTO plus an overdue skip-level "
-            "is the classic disengagement pattern. Context matters — "
-            f"{ctx['context_note']} Two interventions are already in flight; the skip-level 1:1 is the "
-            "highest-leverage action this week. Suggested follow-through: confirm the skip-level happens on "
-            "time, pair it with a workload rebalance review, and re-check sentiment after seven days. If "
-            "neither signal improves by next brief, escalate to HR partner review."
+            f"The {ctx['team_name']} team's health is {ctx['health_score']} ({ctx['health_delta_pct']}% WoW). "
+            f"Primary risk: {ctx['at_risk'][0]['alias']} shows burnout signals. "
+            f"Secondary: {ctx['at_risk'][1]['alias']} shows disengagement. "
+            f"Action: Confirm the skip-level 1:1 happens this week and review workloads."
         )
     return (
-        f"Org-wide workforce health sits at {ctx['health_score']} ({ctx['health_delta_pct']:+.1f}% WoW), "
-        "with risk concentrated in two teams rather than spread broadly. Sales EMEA is the sharpest signal "
-        "— pipeline pressure compounded by missed 1:1 cadence is the usual precursor to attrition clusters. "
-        "Payments Core is showing post-crunch fatigue, which typically self-corrects in 2–3 weeks if "
-        "leadership visibly slows the pace. Eleven interventions are active with a 63% success rate, "
-        "consistent with prior cycles. Priority for the coming week: ensure Sales EMEA managers confirm "
-        "1:1 cadence is restored, and hold Payments Core leadership accountable to protecting focus time. "
-        "Sentiment slope is flat-to-positive, so the intervention posture should stay targeted, not broad. "
-        "Re-evaluate after one cycle and escalate only if Sales EMEA risk fails to decline."
+        f"Org health is {ctx['health_score']} ({ctx['health_delta_pct']:+.1f}% WoW). "
+        "Risks are concentrated: Sales EMEA shows pipeline pressure and 1:1 gaps, while Payments Core faces post-crunch fatigue. "
+        "Action: Ensure 1:1 cadences are restored in Sales EMEA and protect focus time in Payments Core."
     )
 
 
 async def _generate_weekly_brief_narrative(ctx: dict[str, Any]) -> str:
     system = (
-        "You are a senior People Analytics advisor writing a weekly Workforce Pulse Brief for an HR leader. "
-        "Write exactly one continuous passage, 180–220 words, plain English, no headings, no bullet points. "
-        "Be specific, empathetic, and action-oriented. Reference the data you were given — do not invent "
-        "metrics. Flag the top risks, give one concrete intervention per risk, and close with what to watch "
-        "for next week. Tone: thoughtful colleague, not corporate."
+        "You are a senior People Analytics advisor writing a weekly Workforce Pulse for an HR leader. "
+        "Write exactly one short paragraph (40-60 words). Get straight to the point: state the overall health, "
+        "the most critical risk from the data, and the concrete action required. "
+        "No fluff, no headings, no bullet points. Tone: sharp, thoughtful colleague."
     )
     user_payload = (
         f"Scope: {ctx['scope']}. Week of: {ctx['week_of']}. Data: {ctx}. "
@@ -216,7 +206,7 @@ async def _generate_weekly_brief_narrative(ctx: dict[str, Any]) -> str:
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_payload},
             ],
-            max_tokens=420,
+            max_tokens=150,
             temperature=0.3,
         )
         content = response.choices[0].message.content if response and response.choices else ""
@@ -268,7 +258,7 @@ async def get_weekly_brief(
     week_offset: int = Query(0, ge=0, le=12),
     current_user: User = Depends(require_role([UserRole.HR, UserRole.LEADERSHIP, UserRole.MANAGER])),
 ) -> dict:
-    """Narrative Weekly Brief — 200-word People-Ops-advisor-style workforce pulse."""
+    """Narrative Weekly Brief — 50-word People-Ops-advisor-style workforce pulse."""
     # Managers are scoped to team briefs only; org briefs require HR/Leadership.
     effective_scope: Scope = scope
     if current_user.role == UserRole.MANAGER:

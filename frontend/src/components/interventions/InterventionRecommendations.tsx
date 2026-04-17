@@ -53,19 +53,13 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
   const [simulatorOpen, setSimulatorOpen] = useState<boolean>(false);
   const [simulatorInterventionLabel, setSimulatorInterventionLabel] = useState<string>('');
   const [simulatorInterventionType, setSimulatorInterventionType] = useState<string>('');
+  const [selectedActionByIndex, setSelectedActionByIndex] = useState<Record<number, '' | 'execute' | 'simulate'>>({});
   const [simulatorInputs, setSimulatorInputs] = useState<{
     meetingLoadReductionPct: number;
     workHoursNormalizationPct: number;
     teamSizeAdjustmentPct: number;
     managerOneOnOneFrequency: number;
   } | null>(null);
-
-  const urgencyColors: Record<string, string> = {
-    low: 'bg-blue-50 border-blue-200 text-blue-700',
-    medium: 'bg-yellow-50 border-yellow-200 text-yellow-700',
-    high: 'bg-orange-50 border-orange-200 text-orange-700',
-    critical: 'bg-red-50 border-red-200 text-red-700',
-  };
 
   const urgencyIcons: Record<string, React.ReactNode> = {
     low: <Clock className="w-4 h-4" />,
@@ -80,8 +74,6 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     high: 'High Priority',
     critical: 'Critical - Act Immediately',
   };
-
-  const isDarkTheme = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
   const interventionPrefillMap: Record<string, {
     meetingLoadReductionPct: number;
@@ -149,6 +141,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
         executionNotes
       );
       setExecutionNotes('');
+      setSelectedActionByIndex((prev) => ({ ...prev, [index]: '' }));
       setExecutingIndex(null);
     } catch (error) {
       console.error('Failed to execute intervention:', error);
@@ -187,6 +180,22 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     await onExecuteIntervention(simulatorInterventionType, notes);
   };
 
+  const handleRowAction = (index: number, rec: InterventionRecommendation, action: '' | 'execute' | 'simulate') => {
+    setSelectedActionByIndex((prev) => ({ ...prev, [index]: action }));
+    if (!action) {
+      return;
+    }
+    if (action === 'simulate') {
+      openSimulatorForRecommendation(rec);
+      return;
+    }
+    if (onExecuteIntervention) {
+      setExecutingIndex(index);
+    } else {
+      openSimulatorForRecommendation(rec);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -201,20 +210,19 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     <div className="space-y-4">
       {/* Header */}
       <div
-        className={`border-l-4 p-4 rounded-r-lg ${isDarkTheme ? urgencyColors[overallUrgency] : ''}`}
-        style={
-          isDarkTheme
-            ? { backgroundColor: 'var(--alert-banner-bg)' }
-            : {
-                backgroundColor: 'var(--bg-card)',
-                borderLeftColor: 'var(--accent-primary)',
-                color: 'var(--text-primary)',
-              }
-        }
+        className="border-l-4 p-4 rounded-r-lg"
+        style={{
+          backgroundColor: 'var(--alert-banner-bg)',
+          borderLeftColor: overallUrgency === 'critical' ? 'var(--alert-critical)' : 'var(--accent-primary)',
+          color: 'var(--text-primary)',
+          borderTop: '1px solid var(--border-color)',
+          borderRight: '1px solid var(--border-color)',
+          borderBottom: '1px solid var(--border-color)',
+        }}
       >
         <div className="flex items-center gap-3 mb-2">
           {urgencyIcons[overallUrgency]}
-          <h3 className="font-semibold" style={{ color: isDarkTheme ? 'var(--accent-primary)' : '#1a1a1a' }}>
+          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
             Intervention Recommendations for {employeeName}
           </h3>
         </div>
@@ -225,7 +233,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
       {/* Recommendations List */}
       <div className="space-y-3">
         {recommendations.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>{emptyStateMessage}</p>
           </div>
@@ -233,14 +241,17 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
           recommendations.map((rec, index) => (
             <div
               key={index}
-              className={`border rounded-lg overflow-hidden transition-all ${
-                expandedIndex === index ? 'border-gray-400 shadow-md' : 'border-gray-200'
-              }`}
+              className="border rounded-lg overflow-hidden transition-all"
+              style={{
+                borderColor: expandedIndex === index ? 'var(--accent-primary)' : 'var(--border-color)',
+                backgroundColor: 'var(--bg-card)',
+              }}
             >
               {/* Collapsed Header */}
               <button
                 onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                className="w-full text-left p-4 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                className="w-full text-left p-4 transition-colors flex items-center justify-between"
+                style={{ backgroundColor: expandedIndex === index ? 'var(--bg-secondary)' : 'var(--bg-card)' }}
               >
                 <div className="flex-1 flex items-center gap-3">
                   <div
@@ -258,95 +269,85 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                     <h4 className="font-semibold capitalize">
                       {rec.intervention_type.replace(/-/g, ' ')}
                     </h4>
-                    <p className="text-sm text-gray-600">{rec.description}</p>
+                    <p className="text-sm text-muted-foreground">{rec.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 ml-4">
                   <div className="text-right mr-2">
-                    <div className="text-xs font-semibold text-gray-600 uppercase">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase">
                       {rec.urgency}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {Math.round(rec.priority_score * 100)}% priority
                     </div>
                   </div>
                   {expandedIndex === index ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
                   )}
                 </div>
               </button>
 
               {/* Expanded Details */}
               {expandedIndex === index && (
-                <div className="border-t bg-gray-50 p-4 space-y-3">
+                <div className="border-t p-4 space-y-3" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
                   <div>
-                    <h5 className="font-semibold text-sm text-gray-700 mb-1">
+                    <h5 className="font-semibold text-sm text-foreground mb-1">
                       Estimated Impact
                     </h5>
-                    <p className="text-sm text-gray-600">{rec.estimated_impact}</p>
+                    <p className="text-sm text-muted-foreground">{rec.estimated_impact}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h5 className="font-semibold text-sm text-gray-700 mb-1">
+                      <h5 className="font-semibold text-sm text-foreground mb-1">
                         Timing Window
                       </h5>
-                      <p className="text-sm text-gray-600">{rec.timing_window}</p>
+                      <p className="text-sm text-muted-foreground">{rec.timing_window}</p>
                     </div>
                     <div>
-                      <h5 className="font-semibold text-sm text-gray-700 mb-1">
+                      <h5 className="font-semibold text-sm text-foreground mb-1">
                         Risks If Delayed
                       </h5>
-                      <p className="text-sm text-red-600">{rec.risks_if_delayed}</p>
+                      <p className="text-sm" style={{ color: 'var(--alert-critical)' }}>{rec.risks_if_delayed}</p>
                     </div>
                   </div>
 
-                  {/* Execution Section */}
-                  {onExecuteIntervention && executingIndex !== index && (
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={() => setExecutingIndex(index)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold"
+                  {/* Action Row */}
+                  {executingIndex !== index && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <select
+                        value={selectedActionByIndex[index] ?? ''}
+                        onChange={(event) => handleRowAction(index, rec, event.target.value as '' | 'execute' | 'simulate')}
+                        className="h-9 rounded-md border border-foreground bg-background px-3 text-sm"
                       >
-                        Mark as Executed
-                      </button>
-                      <button
-                        onClick={() => openSimulatorForRecommendation(rec)}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold"
-                      >
-                        Simulate Intervention
-                      </button>
+                        <option value="">Select action...</option>
+                        {onExecuteIntervention && <option value="execute">Mark as Executed</option>}
+                        <option value="simulate">Simulate Intervention</option>
+                      </select>
                     </div>
                   )}
 
-                  {!onExecuteIntervention && (
-                    <button
-                      onClick={() => openSimulatorForRecommendation(rec)}
-                      className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold"
-                    >
-                      Simulate Intervention
-                    </button>
-                  )}
-
                   {executingIndex === index && (
-                    <div className="mt-3 p-3 border border-green-200 bg-green-50 rounded space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700">
+                    <div className="mt-3 p-3 border rounded space-y-2" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
+                      <label className="block text-sm font-semibold text-foreground">
                         Execution Notes (Optional)
                       </label>
                       <textarea
                         value={executionNotes}
                         onChange={(e) => setExecutionNotes(e.target.value)}
                         placeholder="Document any relevant notes about this intervention..."
-                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full p-2 border rounded text-sm focus:outline-none"
+                        style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                         rows={3}
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleExecute(index)}
                           disabled={isLoading}
-                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-semibold"
+                          className="px-4 py-2 rounded disabled:opacity-50 transition-colors text-sm font-semibold"
+                          style={{ backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' }}
                         >
                           {isLoading ? 'Saving...' : 'Confirm Execution'}
                         </button>
@@ -354,8 +355,10 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
                           onClick={() => {
                             setExecutingIndex(null);
                             setExecutionNotes('');
+                            setSelectedActionByIndex((prev) => ({ ...prev, [index]: '' }));
                           }}
-                          className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors text-sm"
+                          className="px-4 py-2 rounded transition-colors text-sm"
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
                         >
                           Cancel
                         </button>
@@ -387,7 +390,7 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
       />
 
       {/* Support Text */}
-      <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+      <div className="p-3 border rounded text-sm" style={{ backgroundColor: 'var(--alert-banner-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
         <p>
           <strong>Tip:</strong> Implement interventions in priority order. Track execution
           in the database for audit trails and impact analysis.

@@ -322,7 +322,7 @@ export function VoiceAssistant() {
       setMicState('processing');
 
       if (GUIDED_TOUR_PATTERN.test(trimmed)) {
-        const intro = 'Perfect. Starting your guided NOVA walkthrough now. I will take you through Org Wellbeing, Employees, and Org Tree in sequence.';
+        const intro = 'Perfect. Starting your guided NOVA walkthrough now. I will take you through Org Info, Employees, and Org Tree in sequence.';
         const introId = newId();
         appendMessage({ id: introId, role: 'assistant', content: intro });
         speak(intro, introId);
@@ -331,7 +331,7 @@ export function VoiceAssistant() {
           {
             delay: 700,
             to: '/org-health',
-            message: 'Step 1 of 3: Org Wellbeing. Focus on the workforce score, active alerts, and quick actions for the leadership summary.',
+            message: 'Step 1 of 3: Org Info. Focus on the workforce score, active alerts, and quick actions for the leadership summary.',
           },
           {
             delay: 3600,

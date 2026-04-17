@@ -20,7 +20,7 @@ export default function DashboardPage() {
     <div className="space-y-4 dashboard-blue-theme">
       <nav className="text-xs text-muted-foreground" aria-label="Breadcrumb">
         <Link to="/org-health" className="hover:text-foreground underline-offset-2 hover:underline">
-          Org Wellbeing
+          Org Info
         </Link>
         <span className="mx-2">›</span>
         <span className="text-foreground font-semibold">Analytics Dashboard</span>

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { List, Network, Search } from 'lucide-react';
 import { EmployeeTable } from '@/components/employees/EmployeeTable';
-import PeerNetworkGraph from '@/components/employees/PeerNetworkGraph';
 import FocusedOrgTree from '@/components/org/FocusedOrgTree';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useEmployees } from '@/contexts/EmployeeContext';
@@ -14,7 +13,7 @@ export default function EmployeesPage() {
   useDocumentTitle('NOVA — Employee Intelligence');
   const { employees } = useEmployees();
   const [searchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState<'list' | 'tree'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'tree'>('tree');
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
@@ -116,15 +115,12 @@ export default function EmployeesPage() {
           riskFilter={riskFilter}
         />
       ) : (
-        <div className="space-y-6">
-          <FocusedOrgTree
-            searchQuery={search}
-            onSearchQueryChange={setSearch}
-            selectedDepartment={deptFilter === 'all' ? 'All' : deptFilter}
-            onSelectedDepartmentChange={(value) => setDeptFilter(value === 'All' ? 'all' : value)}
-          />
-          <PeerNetworkGraph />
-        </div>
+        <FocusedOrgTree
+          searchQuery={search}
+          onSearchQueryChange={setSearch}
+          selectedDepartment={deptFilter === 'all' ? 'All' : deptFilter}
+          onSelectedDepartmentChange={(value) => setDeptFilter(value === 'All' ? 'all' : value)}
+        />
       )}
     </div>
   );

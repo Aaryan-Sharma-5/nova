@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
 async def _build_executive_summary(payload: dict[str, Any]) -> str:
     prompt = (
-        "Write a 150-word executive summary for an HR org wellbeing report. "
+        "Write a 150-word executive summary for an HR org info report. "
         "Be concise, business-friendly, and action-oriented."
     )
     user_payload = (

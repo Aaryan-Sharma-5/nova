@@ -203,6 +203,20 @@ def _compute_priority_score(
     return min(score, 1.0)
 
 
+def _intervention_priority_adjustment(intervention_type: InterventionType) -> float:
+    adjustment_map = {
+        InterventionType.WORKLOAD_REDUCTION: 0.04,
+        InterventionType.ONE_ON_ONE: 0.03,
+        InterventionType.MENTORING: 0.02,
+        InterventionType.WELLNESS_PROGRAM: 0.018,
+        InterventionType.PROMOTION_DISCUSSION: 0.016,
+        InterventionType.FLEXIBLE_SCHEDULE: 0.014,
+        InterventionType.TEAM_BUILDING: 0.012,
+        InterventionType.SABBATICAL: 0.01,
+    }
+    return adjustment_map.get(intervention_type, 0.0)
+
+
 def _select_interventions(request: InterventionRequest) -> list[tuple[InterventionType, str]]:
     """Select interventions based on rules."""
     interventions: list[tuple[InterventionType, str]] = []
@@ -512,7 +526,7 @@ async def get_interventions(request: InterventionRequest) -> InterventionRespons
             intervention_type=intervention_type,
             description=description,
             urgency=urgency,
-            priority_score=priority_score,
+            priority_score=min(1.0, priority_score + _intervention_priority_adjustment(intervention_type)),
             estimated_impact=_get_impact_estimate(intervention_type),
             timing_window=_get_timing_window(urgency),
             risks_if_delayed=_get_delay_risks(intervention_type),

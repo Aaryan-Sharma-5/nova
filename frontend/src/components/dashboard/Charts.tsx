@@ -75,8 +75,8 @@ export function PerformanceScatterPlot() {
       className="chart-container"
     >
       <h3 className="mb-4 text-sm font-bold font-heading text-foreground uppercase tracking-wider">Performance vs Engagement</h3>
-      <ResponsiveContainer width="100%" height={260}>
-        <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+      <ResponsiveContainer width="100%" height={320}>
+        <ScatterChart margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#000000" strokeOpacity={0.15} />
           <XAxis dataKey="performance" name="Performance" type="number" domain={[0, 100]} tick={{ fontSize: 11 }} stroke="#1A1A1A" />
           <YAxis dataKey="engagement" name="Engagement" type="number" domain={[0, 100]} tick={{ fontSize: 11 }} stroke="#1A1A1A" />

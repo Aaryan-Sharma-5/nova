@@ -265,6 +265,7 @@ export default function OrgHealthPage() {
   const [benchmark, setBenchmark] = useState<any>(null);
   const [showMonthlySummary, setShowMonthlySummary] = useState(false);
   const [showDeepAnalytics, setShowDeepAnalytics] = useState(false);
+  const [deepAnalyticsFilter, setDeepAnalyticsFilter] = useState<'all' | 'risk' | 'people' | 'ops'>('all');
 
   const canViewAnomalyInsights = hasRole(['hr', 'leadership']);
   const canViewInterventionInsights = hasRole(['manager', 'hr', 'leadership']);
@@ -396,7 +397,7 @@ export default function OrgHealthPage() {
       const dateLabel = new Date().toISOString().split('T')[0];
 
       doc.setFontSize(22);
-      doc.text("NOVA Org Wellbeing Report", 20, 30);
+      doc.text("NOVA Org Info Report", 20, 30);
       doc.setFontSize(12);
       doc.text(`Organization: ${orgName}`, 20, 42);
       doc.text(`Date: ${dateLabel}`, 20, 50);
@@ -609,9 +610,9 @@ export default function OrgHealthPage() {
   ];
 
   const getTrendIcon = (trend: string) => {
-    if (trend === 'up') return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (trend === 'down') return <TrendingDown className="h-4 w-4 text-red-600" />;
-    return <div className="h-4 w-4 text-gray-600">→</div>;
+    if (trend === 'up') return <TrendingUp className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />;
+    if (trend === 'down') return <TrendingDown className="h-4 w-4" style={{ color: 'var(--alert-critical)' }} />;
+    return <div className="h-4 w-4 text-muted-foreground">→</div>;
   };
 
   const getPriorityBadge = (urgency: string, rank: number) => {
@@ -619,15 +620,15 @@ export default function OrgHealthPage() {
       return <Badge variant="destructive">#{rank} Critical</Badge>;
     }
     if (urgency === 'high') {
-      return <Badge className="bg-amber-500">#{rank} High</Badge>;
+      return <Badge style={{ backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' }}>#{rank} High</Badge>;
     }
-    return <Badge className="bg-green-600">#{rank} Medium</Badge>;
+    return <Badge style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}>#{rank} Medium</Badge>;
   };
 
-  const getRoiClass = (roiPercent: number) => {
-    if (roiPercent > 200) return 'bg-green-600';
-    if (roiPercent >= 50) return 'bg-amber-500';
-    return 'bg-red-600';
+  const getRoiStyle = (roiPercent: number) => {
+    if (roiPercent > 200) return { backgroundColor: 'var(--accent-primary)', color: 'var(--button-primary-text)' };
+    if (roiPercent >= 50) return { backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' };
+    return { backgroundColor: 'var(--alert-critical)', color: '#ffffff' };
   };
 
   // Generate AI summary
@@ -696,10 +697,15 @@ export default function OrgHealthPage() {
             <button
               key={item.id}
               type="button"
-              className={`flex w-full items-center gap-2 rounded-lg border px-4 py-2 text-sm text-left ${item.tone === 'red' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-900'}`}
+              className="flex w-full items-center gap-2 rounded-lg border px-4 py-2 text-sm text-left"
+              style={{
+                backgroundColor: 'var(--alert-banner-bg)',
+                borderColor: item.tone === 'red' ? 'var(--alert-critical)' : 'var(--border-color)',
+                color: 'var(--text-primary)',
+              }}
               onClick={() => navigate(item.to)}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              <item.icon className="h-4 w-4 shrink-0" style={{ color: item.tone === 'red' ? 'var(--alert-critical)' : 'var(--accent-primary)' }} />
               <span>{item.text}</span>
             </button>
           ))}
@@ -719,45 +725,45 @@ export default function OrgHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-5 gap-4">
-              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                <p className="text-3xl font-bold text-blue-700">
+              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <p className="text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>
                   {healthScore.score.toFixed(0)}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">Workforce Health</p>
                 <div className="flex items-center justify-center gap-1 mt-2">
                   {healthScore.delta >= 0 ? (
-                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <TrendingUp className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />
                   ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600" />
+                    <TrendingDown className="h-4 w-4" style={{ color: 'var(--alert-critical)' }} />
                   )}
-                  <span className={`text-sm font-medium ${healthScore.delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className="text-sm font-medium" style={{ color: healthScore.delta >= 0 ? 'var(--accent-primary)' : 'var(--alert-critical)' }}>
                     {Math.abs(healthScore.delta).toFixed(1)}%
                   </span>
                 </div>
               </div>
 
-              <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-                <p className="text-3xl font-bold text-green-700">246</p>
+              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>246</p>
                 <p className="text-sm text-muted-foreground mt-1">Total Headcount</p>
-                <p className="text-sm text-green-600 font-medium mt-2">+8 this month</p>
+                <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>+8 this month</p>
               </div>
 
-              <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg">
-                <p className="text-3xl font-bold text-amber-700">10.7%</p>
+              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <p className="text-3xl font-bold" style={{ color: 'var(--button-primary-bg)' }}>10.7%</p>
                 <p className="text-sm text-muted-foreground mt-1">Avg Attrition Rate</p>
-                <p className="text-sm text-amber-600 font-medium mt-2">vs 12% target</p>
+                <p className="text-sm font-medium mt-2" style={{ color: 'var(--button-primary-bg)' }}>vs 12% target</p>
               </div>
 
-              <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                <p className="text-3xl font-bold text-purple-700">78.8</p>
+              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>78.8</p>
                 <p className="text-sm text-muted-foreground mt-1">Avg Performance</p>
-                <p className="text-sm text-purple-600 font-medium mt-2">Above target</p>
+                <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>Above target</p>
               </div>
 
-              <div className="text-center p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-lg">
-                <p className="text-3xl font-bold text-red-700">58</p>
+              <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <p className="text-3xl font-bold" style={{ color: 'var(--alert-critical)' }}>58</p>
                 <p className="text-sm text-muted-foreground mt-1">Burnout Score</p>
-                <p className="text-sm text-red-600 font-medium mt-2">Needs attention</p>
+                <p className="text-sm font-medium mt-2" style={{ color: 'var(--alert-critical)' }}>Needs attention</p>
               </div>
             </div>
           </CardContent>
@@ -777,7 +783,7 @@ export default function OrgHealthPage() {
                   className="rounded-lg border p-3 text-left hover:bg-muted/40"
                 >
                   <div className="flex items-center gap-2">
-                    <action.icon className="h-4 w-4 text-amber-600" />
+                    <action.icon className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />
                     <p className="font-medium">{action.label}</p>
                   </div>
                   <p className="text-xs text-muted-foreground">{action.count}</p>
@@ -853,7 +859,10 @@ export default function OrgHealthPage() {
                     <TableCell className="font-medium">{dept.department}</TableCell>
                     <TableCell className="text-center">{dept.headcount}</TableCell>
                     <TableCell className="text-center">
-                      <span className={dept.attritionRate > 12 ? 'text-red-600 font-semibold' : ''}>
+                      <span
+                        className={dept.attritionRate > 12 ? 'font-semibold' : ''}
+                        style={dept.attritionRate > 12 ? { color: 'var(--alert-critical)' } : undefined}
+                      >
                         {dept.attritionRate}%
                       </span>
                     </TableCell>
@@ -861,7 +870,10 @@ export default function OrgHealthPage() {
                     <TableCell className="text-center">{dept.avgSentiment}</TableCell>
                     <TableCell className="text-center">{dept.avgTenure}</TableCell>
                     <TableCell className="text-center">
-                      <span className={dept.burnoutScore > 60 ? 'text-red-600 font-semibold' : ''}>
+                      <span
+                        className={dept.burnoutScore > 60 ? 'font-semibold' : ''}
+                        style={dept.burnoutScore > 60 ? { color: 'var(--alert-critical)' } : undefined}
+                      >
                         {dept.burnoutScore}
                       </span>
                     </TableCell>
@@ -877,7 +889,7 @@ export default function OrgHealthPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <AlertTriangle className="h-5 w-5" style={{ color: 'var(--alert-critical)' }} />
               Top 5 Employees at Flight Risk
             </CardTitle>
           </CardHeader>
@@ -1009,7 +1021,7 @@ export default function OrgHealthPage() {
                         </Popover>
                       </span>
                     </TableCell>
-                    <TableCell className="text-right text-green-600 font-medium">
+                    <TableCell className="text-right font-medium" style={{ color: 'var(--accent-primary)' }}>
                       <span className="inline-flex items-center gap-1 justify-end">
                         <span>{formatINR(item.potentialSavings)}</span>
                         <Popover>
@@ -1025,15 +1037,15 @@ export default function OrgHealthPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Badge className={getRoiClass(item.roiPercent)}>{item.roiPercent.toFixed(1)}%</Badge>
+                      <Badge style={getRoiStyle(item.roiPercent)}>{item.roiPercent.toFixed(1)}%</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
 
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm font-semibold text-green-800">
+            <div className="mt-4 p-4 border rounded-lg" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Total Investment:{' '}
                 <ExplainableValue
                   value={formatINR(roiSummary?.total_investment_inr || 0)}
@@ -1065,18 +1077,18 @@ export default function OrgHealthPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm font-semibold text-green-800 mb-2">Improvements</p>
-                    <ul className="text-sm space-y-1 text-green-700">
+                  <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                    <p className="text-sm font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>Improvements</p>
+                    <ul className="text-sm space-y-1 text-foreground">
                       <li>• Operations sentiment up 4.2%</li>
                       <li>• Engineering performance up 3.1%</li>
                       <li>• Overall tenure increased to 3.1 years</li>
                       <li>• 12 employees promoted</li>
                     </ul>
                   </div>
-                  <div className="p-4 bg-red-50 rounded-lg">
-                    <p className="text-sm font-semibold text-red-800 mb-2">Concerns</p>
-                    <ul className="text-sm space-y-1 text-red-700">
+                  <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                    <p className="text-sm font-semibold mb-2" style={{ color: 'var(--alert-critical)' }}>Concerns</p>
+                    <ul className="text-sm space-y-1 text-foreground">
                       <li>• Sales attrition up 2.3%</li>
                       <li>• Burnout scores increased across 3 departments</li>
                       <li>• 5 high performers flagged as flight risk</li>
@@ -1148,31 +1160,115 @@ export default function OrgHealthPage() {
         {/* Deep Analytics — charts moved off the HR dashboard live here */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl font-bold font-heading uppercase tracking-wider">Deep Analytics</CardTitle>
+            <div className="space-y-2">
+              <CardTitle className="text-xl font-bold font-heading uppercase tracking-wider">Deep Analytics</CardTitle>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'risk', label: 'Risk' },
+                  { key: 'people', label: 'People' },
+                  { key: 'ops', label: 'Ops' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setDeepAnalyticsFilter(item.key as 'all' | 'risk' | 'people' | 'ops')}
+                    className="border-2 border-foreground px-2 py-1 text-[10px] font-bold uppercase tracking-wider"
+                    style={
+                      deepAnalyticsFilter === item.key
+                        ? { backgroundColor: 'var(--nav-active-bg)', color: 'var(--nav-active-text)' }
+                        : { backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }
+                    }
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Button variant="outline" size="sm" onClick={() => setShowDeepAnalytics((value) => !value)}>
               {showDeepAnalytics ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
               {showDeepAnalytics ? "Hide Charts" : "Show Charts"}
             </Button>
           </CardHeader>
           {showDeepAnalytics && (
-            <CardContent className="space-y-6">
-              <AttritionPredictionTimeline />
-              <EmployeeTenureDistribution />
-              <EngagementPerformanceQuadrant />
+            <CardContent>
+              <div className="space-y-4">
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'risk') && (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="min-w-0">
+                      <AttritionPredictionTimeline />
+                    </div>
+                    <div className="min-w-0">
+                      <SentimentPieChart />
+                    </div>
+                  </div>
+                )}
 
-              <div className="grid gap-4 lg:grid-cols-2">
-                <SentimentPieChart />
-                <PerformanceScatterPlot />
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'people') && (
+                  <div className="min-w-0">
+                    <EmployeeTenureDistribution />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'people') && (
+                  <div className="min-w-0">
+                    <EngagementPerformanceQuadrant />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'risk') && (
+                  <div className="min-w-0">
+                    <PerformanceScatterPlot />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'risk') && (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="min-w-0">
+                      <BurnoutHeatmap />
+                    </div>
+                    <div className="min-w-0">
+                      <BurnoutPropagationMap />
+                    </div>
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'risk') && (
+                  <div className="min-w-0">
+                    <DepartmentRiskHeatmap />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'people') && (
+                  <div className="min-w-0">
+                    <SkillsGapRadar />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'people') && (
+                  <div className="min-w-0">
+                    <CompensationEquityAnalysis />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'ops') && (
+                  <div className="min-w-0">
+                    <HiringFunnel />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'ops') && (
+                  <div className="min-w-0">
+                    <AbsenteeismPatterns />
+                  </div>
+                )}
+
+                {(deepAnalyticsFilter === 'all' || deepAnalyticsFilter === 'ops') && (
+                  <div className="min-w-0">
+                    <ManagerEffectivenessScorecard />
+                  </div>
+                )}
               </div>
-
-              <BurnoutHeatmap />
-              <BurnoutPropagationMap />
-              <SkillsGapRadar />
-              <CompensationEquityAnalysis />
-              <HiringFunnel />
-              <AbsenteeismPatterns />
-              <ManagerEffectivenessScorecard />
-              <DepartmentRiskHeatmap />
             </CardContent>
           )}
         </Card>

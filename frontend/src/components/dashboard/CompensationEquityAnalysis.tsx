@@ -28,6 +28,22 @@ function formatInrFull(usdValue: number): string {
   }).format(toInr(usdValue));
 }
 
+function abbreviateRoleLabel(label: string): string {
+  return label
+    .replace(/Engineering/gi, 'Eng')
+    .replace(/Executive/gi, 'Exec')
+    .replace(/Officer/gi, 'Off')
+    .replace(/Senior/gi, 'Sr')
+    .replace(/Manager/gi, 'Mgr')
+    .replace(/Software/gi, 'SWE')
+    .replace(/Developer/gi, 'Dev')
+    .replace(/Quality Assurance/gi, 'QA')
+    .replace(/Vice President/gi, 'VP')
+    .replace(/Technology/gi, 'Tech')
+    .replace(/Operations/gi, 'Ops')
+    .trim();
+}
+
 export default function CompensationEquityAnalysis() {
   const { employees } = useEmployees();
   const data = useMemo(() => {
@@ -72,6 +88,7 @@ export default function CompensationEquityAnalysis() {
   // Transform data for box plot visualization
   const transformedData = data.map((d, i) => ({
     category: `${d.department}\n${d.role}`,
+    axisLabel: abbreviateRoleLabel(d.role),
     index: i,
     min: d.min,
     q1: d.q1,
@@ -84,6 +101,10 @@ export default function CompensationEquityAnalysis() {
       s < d.q1 - 1.5 * (d.q3 - d.q1) || s > d.q3 + 1.5 * (d.q3 - d.q1)
     ),
   })).slice(0, 8); // Show subset for readability
+
+  const avgMedianSalary = data.length
+    ? data.reduce((sum, item) => sum + item.median, 0) / data.length
+    : 0;
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -143,14 +164,16 @@ export default function CompensationEquityAnalysis() {
           </div>
           
           <ResponsiveContainer width="100%" height={350}>
-            <ComposedChart data={transformedData} margin={{ top: 20, right: 30, left: 60, bottom: 100 }}>
+            <ComposedChart data={transformedData} margin={{ top: 20, right: 24, left: 52, bottom: 90 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
-                dataKey="category" 
-                angle={-45}
+                dataKey="axisLabel"
+                interval={0}
+                minTickGap={24}
+                angle={-30}
                 textAnchor="end"
-                height={120}
-                tick={{ fontSize: 10 }}
+                height={95}
+                tick={{ fontSize: 11 }}
               />
               <YAxis 
                 type="number"
@@ -180,10 +203,10 @@ export default function CompensationEquityAnalysis() {
 
               {/* Average salary reference line */}
               <ReferenceLine 
-                y={data.reduce((sum, d) => sum + d.median, 0) / data.length}
+                y={avgMedianSalary}
                 stroke="#10b981" 
                 strokeDasharray="5 5"
-                label={{ value: `Avg Median: ${formatInrCompact(data.reduce((sum, d) => sum + d.median, 0) / data.length)}`, position: 'topRight', fill: '#10b981', fontSize: 9, offset: 5 }}
+                label={{ value: `Avg Median: ${formatInrCompact(avgMedianSalary)}`, position: 'topRight', fill: '#10b981', fontSize: 9, offset: 5 }}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -212,7 +235,7 @@ export default function CompensationEquityAnalysis() {
         <div className="mt-4 grid grid-cols-3 gap-4">
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <p className="text-2xl font-bold text-gray-900">
-              {formatInrCompact(data.reduce((sum, d) => sum + d.median, 0) / data.length)}
+              {formatInrCompact(avgMedianSalary)}
             </p>
             <p className="text-xs text-muted-foreground">Avg Median Salary</p>
           </div>

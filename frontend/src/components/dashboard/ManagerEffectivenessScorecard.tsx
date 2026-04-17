@@ -25,6 +25,7 @@ type ManagerScore = {
 };
 
 export default function ManagerEffectivenessScorecard() {
+  const ROWS_PER_PAGE = 10;
   const { token } = useAuth();
   const { employees } = useEmployees();
   const data = useMemo<ManagerScore[]>(() => {
@@ -55,6 +56,7 @@ export default function ManagerEffectivenessScorecard() {
   const chartRef = useRef<HTMLDivElement>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sortConfig, setSortConfig] = useState<{ key: keyof ManagerScore; direction: 'asc' | 'desc' } | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedManagerId, setSelectedManagerId] = useState<string>('NOVA-ENG005');
   const [scores360, setScores360] = useState<any>(null);
 
@@ -122,6 +124,17 @@ export default function ManagerEffectivenessScorecard() {
     return 0;
   });
 
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / ROWS_PER_PAGE));
+  const currentPageSafe = Math.min(currentPage, totalPages);
+  const paginatedData = sortedData.slice(
+    (currentPageSafe - 1) * ROWS_PER_PAGE,
+    currentPageSafe * ROWS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortConfig, data.length]);
+
   const getTrafficLight = (value: number, metric: string): { color: string; label: string } => {
     if (metric === 'turnoverRate') {
       if (value <= 10) return { color: 'bg-green-500', label: 'Good' };
@@ -152,6 +165,17 @@ export default function ManagerEffectivenessScorecard() {
       </ResponsiveContainer>
     );
   };
+
+  const highPerformingTeams = sortedData.filter(
+    (manager) => getTrafficLight(manager.avgPerformance, 'performance').color === 'bg-green-500',
+  ).length;
+  const teamsAtRisk = sortedData.filter(
+    (manager) => getTrafficLight(manager.turnoverRate, 'turnoverRate').color === 'bg-yellow-500',
+  ).length;
+  const avgEnpsScore = sortedData.length
+    ? Number((sortedData.reduce((sum, manager) => sum + manager.enpsScore, 0) / sortedData.length).toFixed(0))
+    : 0;
+  const totalTeamMembers = sortedData.reduce((sum, manager) => sum + manager.teamSize, 0);
 
   return (
     <Card className="col-span-4">
@@ -218,7 +242,7 @@ export default function ManagerEffectivenessScorecard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedData.map((manager) => (
+              {paginatedData.map((manager) => (
                 <Fragment key={manager.managerId}>
                   <TableRow className="hover:bg-gray-50">
                     <TableCell>
@@ -308,35 +332,60 @@ export default function ManagerEffectivenessScorecard() {
           </Table>
         </div>
 
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Showing {sortedData.length === 0 ? 0 : (currentPageSafe - 1) * ROWS_PER_PAGE + 1}-
+            {Math.min(currentPageSafe * ROWS_PER_PAGE, sortedData.length)} of {sortedData.length} managers
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPageSafe === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-xs text-muted-foreground">Page {currentPageSafe} / {totalPages}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={currentPageSafe === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+
         {/* Summary Stats */}
-        <div className="mt-4 grid grid-cols-4 gap-4">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-green-600">
-              {sortedData.filter(m => getTrafficLight(m.avgPerformance, 'performance').color === 'bg-green-500').length}
-            </p>
-            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="burnout" className="inline-block" />
-            <p className="text-xs text-muted-foreground">High Performing Teams</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="metric-card text-center">
+            <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#00C853' }} />
+            <p className="text-3xl font-bold tabular-nums" style={{ color: '#00C853' }}>{highPerformingTeams}</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">High Performing Teams</p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="burnout" className="mt-1 inline-block" />
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-yellow-600">
-              {sortedData.filter(m => getTrafficLight(m.turnoverRate, 'turnoverRate').color === 'bg-yellow-500').length}
-            </p>
-            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="attrition" className="inline-block" />
-            <p className="text-xs text-muted-foreground">Teams at Risk</p>
+
+          <div className="metric-card text-center">
+            <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#FFB300' }} />
+            <p className="text-3xl font-bold tabular-nums" style={{ color: '#FFB300' }}>{teamsAtRisk}</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">Teams at Risk</p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="attrition" className="mt-1 inline-block" />
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">
-              {(sortedData.reduce((sum, m) => sum + m.enpsScore, 0) / sortedData.length).toFixed(0)}
-            </p>
-            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="engagement" className="inline-block" />
-            <p className="text-xs text-muted-foreground">Avg eNPS Score</p>
+
+          <div className="metric-card text-center">
+            <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#4ECDC4' }} />
+            <p className="text-3xl font-bold tabular-nums text-foreground">{avgEnpsScore}</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">Avg eNPS Score</p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="engagement" className="mt-1 inline-block" />
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">
-              {sortedData.reduce((sum, m) => sum + m.teamSize, 0)}
-            </p>
-            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="engagement" className="inline-block" />
-            <p className="text-xs text-muted-foreground">Total Team Members</p>
+
+          <div className="metric-card text-center">
+            <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#2563eb' }} />
+            <p className="text-3xl font-bold tabular-nums text-foreground">{totalTeamMembers}</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">Total Team Members</p>
+            <ScoreExplanationDrawer employeeId="org-manager-summary" scoreType="engagement" className="mt-1 inline-block" />
           </div>
         </div>
 

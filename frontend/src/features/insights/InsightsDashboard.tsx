@@ -113,7 +113,7 @@ export function InsightsDashboard() {
                       ) : (
                         <TrendingDown className="h-3 w-3" />
                       )}
-                      {Math.abs(scoreDelta)} pts vs 7d
+                      {Math.abs(scoreDelta)} pts {scoreDelta > 0 ? 'spike' : 'drop'} vs 7d
                     </span>
                   )}
                   {weightedBars.length > 0 && (

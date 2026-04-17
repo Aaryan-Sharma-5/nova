@@ -6,6 +6,7 @@ import {
   type EfficiencyDimension,
 } from '@/hooks/useDepartmentHeatmap';
 import DeptDrilldownPanel from '@/components/departments/DeptDrilldownPanel';
+import PeerNetworkGraph from '@/components/employees/PeerNetworkGraph';
 import { Card } from '@/components/ui/card';
 import { patchAgentContext } from '@/lib/agentBus';
 import {
@@ -38,7 +39,6 @@ const DEPT_HEADCOUNT: Record<string, number> = {
   Finance: 11,
 };
 
-/** Lerp between two hex colors; t in [0,1]. */
 function lerpColor(a: [number, number, number], b: [number, number, number], t: number): string {
   const r = Math.round(a[0] + (b[0] - a[0]) * t);
   const g = Math.round(a[1] + (b[1] - a[1]) * t);
@@ -52,7 +52,6 @@ const GREEN: [number, number, number] = [34, 197, 94];
 
 function cellColor(value: number, isNegative: boolean): string {
   const effective = isNegative ? 1 - value : value;
-  // effective: 0 (red) → 0.5 (yellow) → 1.0 (green)
   if (effective <= 0.5) {
     const t = effective / 0.5;
     return lerpColor(RED, YELLOW, t);
@@ -136,88 +135,99 @@ export default function DeptHeatmapPage() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
-      <Card className="border-2 border-foreground shadow-[4px_4px_0px_#000] lg:col-span-3 bg-card">
-        <div className="flex items-center justify-between border-b-2 border-foreground px-4 py-3">
-          <div>
-            <h2 className="text-base font-bold font-heading uppercase tracking-wider">
-              Department Efficiency
-            </h2>
-            <p className="text-[10px] text-muted-foreground">
-              Click any cell to drill down · Hover for details
-            </p>
+      <div className="space-y-4 lg:col-span-3">
+        <Card className="border-2 border-foreground shadow-[4px_4px_0px_#000] bg-card">
+          <div className="flex items-center justify-between border-b-2 border-foreground px-4 py-3">
+            <div>
+              <h2 className="text-base font-bold font-heading uppercase tracking-wider">
+                Department Efficiency
+              </h2>
+              <p className="text-[10px] text-muted-foreground">
+                Click any cell to drill down · Hover for details
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSortByEfficiency((prev) => !prev)}
+              className={`inline-flex items-center gap-1 border-2 border-foreground px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-[2px_2px_0px_#000] ${
+                sortByEfficiency ? 'bg-[#FFE500]' : 'bg-background'
+              }`}
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              Sort by Overall Efficiency
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setSortByEfficiency((prev) => !prev)}
-            className={`inline-flex items-center gap-1 border-2 border-foreground px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-[2px_2px_0px_#000] ${
-              sortByEfficiency ? 'bg-[#FFE500]' : 'bg-background'
-            }`}
-          >
-            <ArrowUpDown className="h-3 w-3" />
-            Sort by Overall Efficiency
-          </button>
-        </div>
 
-        <div className="overflow-x-auto p-4">
-          <div
-            className="grid gap-1"
-            style={{
-              gridTemplateColumns: `minmax(180px, 1fr) repeat(${data.dimensions.length}, minmax(90px, 1fr))`,
-            }}
-          >
-            <div />
-            {data.dimensions.map((dim) => (
-              <div
-                key={dim}
-                className="flex items-end justify-center pb-2"
-                style={{ height: 100 }}
-              >
-                <span
-                  className="whitespace-nowrap text-[11px] font-bold uppercase tracking-wider"
-                  style={{ transform: 'rotate(-45deg)', transformOrigin: 'left bottom' }}
-                >
-                  {DIMENSION_LABELS[dim]}
+          <div className="overflow-x-auto p-4">
+            <div
+              className="grid gap-1"
+              style={{
+                gridTemplateColumns: `minmax(180px, 1fr) repeat(${data.dimensions.length}, minmax(90px, 1fr))`,
+              }}
+            >
+              <div className="flex items-end pb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Department
                 </span>
               </div>
-            ))}
+              {data.dimensions.map((dim) => (
+                <div
+                  key={dim}
+                  className="flex items-end justify-center pb-2"
+                  style={{ height: 100 }}
+                >
+                  <span
+                    className="whitespace-nowrap text-[11px] font-bold uppercase tracking-wider"
+                    style={{ transform: 'rotate(-45deg)', transformOrigin: 'left bottom' }}
+                  >
+                    {DIMENSION_LABELS[dim]}
+                  </span>
+                </div>
+              ))}
 
-            {orderedDepartments.map((dept) => {
-              const isSelected = dept === selectedDept;
-              const flags = data.risk_flags[dept] ?? [];
-              return (
-                <HeatmapRow
-                  key={dept}
-                  dept={dept}
-                  dims={data.matrix[dept]}
-                  dimensions={data.dimensions}
-                  orgAverages={orgAverages}
-                  flags={flags}
-                  isSelected={isSelected}
-                  onSelect={setSelectedDept}
-                  onHoverDimension={setHoveredDimension}
+              {orderedDepartments.map((dept) => {
+                const isSelected = dept === selectedDept;
+                const flags = data.risk_flags[dept] ?? [];
+                return (
+                  <HeatmapRow
+                    key={dept}
+                    dept={dept}
+                    dims={data.matrix[dept]}
+                    dimensions={data.dimensions}
+                    orgAverages={orgAverages}
+                    flags={flags}
+                    isSelected={isSelected}
+                    onSelect={setSelectedDept}
+                    onHoverDimension={setHoveredDimension}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="mt-6 border-t-2 border-foreground pt-4">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Legend
+              </p>
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-3 w-48 border-2 border-foreground"
+                  style={{
+                    background: 'linear-gradient(to right, #ef4444, #eab308, #22c55e)',
+                  }}
                 />
-              );
-            })}
-          </div>
-
-          <div className="mt-6 border-t-2 border-foreground pt-4">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Legend
-            </p>
-            <div className="flex items-center gap-2">
-              <div
-                className="h-3 w-48 border-2 border-foreground"
-                style={{
-                  background: 'linear-gradient(to right, #ef4444, #eab308, #22c55e)',
-                }}
-              />
-              <span className="text-[10px] font-bold">
-                Needs Attention → Average → Excellent
-              </span>
+                <span className="text-[10px] font-bold">
+                  Needs Attention → Average → Excellent
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+
+        <PeerNetworkGraph
+          departmentFilter={selectedDept ?? undefined}
+          className="border-2 border-foreground shadow-[4px_4px_0px_#000] bg-card"
+        />
+      </div>
 
       <Card className="border-2 border-foreground shadow-[4px_4px_0px_#000] lg:col-span-2 bg-card">
         <DeptDrilldownPanel

@@ -94,7 +94,7 @@ export default function EngagementPerformanceQuadrant() {
 
   return (
     <>
-      <Card className="col-span-3">
+      <Card className="w-full">
         <CardHeader className="flex flex-row items-center justify-between">
         <div className="flex items-center gap-3">
           <CardTitle>Engagement vs Performance Matrix</CardTitle>

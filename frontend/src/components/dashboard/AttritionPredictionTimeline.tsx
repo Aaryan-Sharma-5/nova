@@ -36,23 +36,24 @@ export default function AttritionPredictionTimeline() {
   const { employees } = useEmployees();
   const data = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
     const deptBase = (department: string) => {
       const cohort = employees.filter((employee) => employee.department.toLowerCase() === department.toLowerCase());
       if (!cohort.length) return 0;
       return cohort.reduce((sum, employee) => sum + employee.attritionRisk, 0) / cohort.length;
     };
 
-    const engineeringBase = deptBase('Engineering') / 10;
-    const salesBase = deptBase('Sales') / 10;
-    const marketingBase = deptBase('Marketing') / 10;
-    const operationsBase = deptBase('Operations') / 10;
+    const engineeringBase = clamp((deptBase('Engineering') || 68) / 10, 7.2, 10.8);
+    const salesBase = clamp((deptBase('Sales') || 74) / 10, 7.8, 11.8);
+    const marketingBase = clamp((deptBase('Marketing') || 62) / 10, 6.4, 9.4);
+    const operationsBase = clamp((deptBase('Operations') || 66) / 10, 6.8, 10.2);
 
     return months.map((month, index) => {
-      const slope = index * 0.6;
-      const engineering = Number((engineeringBase + slope * 0.45).toFixed(1));
-      const sales = Number((salesBase + slope * 0.55).toFixed(1));
-      const marketing = Number((marketingBase + slope * 0.35).toFixed(1));
-      const operations = Number((operationsBase + slope * 0.4).toFixed(1));
+      const progression = index / (months.length - 1);
+      const engineering = Number((engineeringBase + progression * 3.2).toFixed(1));
+      const sales = Number((salesBase + progression * 3.9).toFixed(1));
+      const marketing = Number((marketingBase + progression * 2.6).toFixed(1));
+      const operations = Number((operationsBase + progression * 2.9).toFixed(1));
 
       return {
         month,
@@ -229,11 +230,11 @@ export default function AttritionPredictionTimeline() {
                 </div>
             {monthEvents.length > 0 && (
               <div className="mt-2 border-t pt-2">
-                <p className="text-xs font-semibold text-slate-700 mb-1">Event Correlation</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Event Correlation</p>
                 {monthEvents.slice(0, 2).map((event) => (
-                  <div key={event.event_id} className="text-xs text-slate-700 mb-1">
+                  <div key={event.event_id} className="text-xs mb-1" style={{ color: 'var(--text-primary)' }}>
                     <p className="font-medium">{event.event_type}</p>
-                    <p className="text-slate-600">{event.impact_summary}</p>
+                    <p style={{ color: 'var(--text-secondary)' }}>{event.impact_summary}</p>
                   </div>
                 ))}
               </div>
@@ -246,7 +247,7 @@ export default function AttritionPredictionTimeline() {
   };
 
   return (
-    <Card className="col-span-2">
+    <Card className="w-full">
       <CardHeader className="space-y-3">
         <div className="flex flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -418,10 +419,10 @@ export default function AttritionPredictionTimeline() {
           </div>
         )}
         {eventCorrelations.length > 0 && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm font-semibold text-red-800 mb-1">Recent Event Correlations</p>
+          <div className="mt-3 p-3 border rounded-md" style={{ backgroundColor: 'var(--alert-banner-bg)', borderColor: 'var(--border-color)' }}>
+            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Recent Event Correlations</p>
             {eventCorrelations.slice(0, 3).map((event) => (
-              <p key={event.event_id} className="text-xs text-red-700 mb-1">
+              <p key={event.event_id} className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
                 {new Date(event.date).toLocaleDateString()} - {event.impact_summary}
               </p>
             ))}

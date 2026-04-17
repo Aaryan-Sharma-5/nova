@@ -39,7 +39,7 @@ class GeneralNovaAgent(BaseAgent):
         lowered = (message or "").lower()
         # Only pull the org summary when the question is clearly org-wide;
         # keeps routine nav questions fast.
-        triggers = ("workforce wellbeing", "org wellbeing", "overall", "company", "organization")
+        triggers = ("workforce wellbeing", "org wellbeing", "org info", "overall", "company", "organization")
         if not any(t in lowered for t in triggers):
             return None
 

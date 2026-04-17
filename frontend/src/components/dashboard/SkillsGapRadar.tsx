@@ -88,7 +88,7 @@ export default function SkillsGapRadar() {
   };
 
   return (
-    <Card className="col-span-2">
+    <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Skills Gap Analysis</CardTitle>
         <div className="flex items-center gap-2">

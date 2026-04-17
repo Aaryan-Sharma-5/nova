@@ -43,6 +43,11 @@ type NetworkMetrics = {
   propagationRisk: Map<string, number>;
 };
 
+type PeerNetworkGraphProps = {
+  departmentFilter?: string | null;
+  className?: string;
+};
+
 function computeNetworkMetrics(nodes: NetworkNode[], links: NetworkLink[]): NetworkMetrics {
   const connectionCount = new Map<string, number>();
   const weightedConnections = new Map<string, number>();
@@ -113,15 +118,22 @@ function computeNetworkMetrics(nodes: NetworkNode[], links: NetworkLink[]): Netw
   return { connectionCount, weightedConnections, centrality, entropy, propagationRisk };
 }
 
-export default function PeerNetworkGraph() {
+export default function PeerNetworkGraph({ departmentFilter, className }: PeerNetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
-  const [selectedDept, setSelectedDept] = useState<string>("all");
+  const [selectedDept, setSelectedDept] = useState<string>(departmentFilter ?? "all");
   const [hoveredNode, setHoveredNode] = useState<NetworkNode | null>(null);
   const { employees } = useEmployees();
   const { token } = useAuth();
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
   const [links, setLinks] = useState<NetworkLink[]>([]);
+
+  useEffect(() => {
+    setSelectedDept(departmentFilter ?? "all");
+  }, [departmentFilter]);
+
+  const isExternallyFiltered = typeof departmentFilter === "string";
+  const activeDepartment = departmentFilter ?? selectedDept;
 
   useEffect(() => {
     const load = async () => {
@@ -174,9 +186,9 @@ export default function PeerNetworkGraph() {
   }
 
   const filteredGraph = useMemo(() => {
-    const scopedNodes = selectedDept === "all"
+    const scopedNodes = activeDepartment === "all"
       ? nodes
-      : nodes.filter((node) => node.department === selectedDept);
+      : nodes.filter((node) => node.department === activeDepartment);
     const scopedIds = new Set(scopedNodes.map((node) => node.id));
     const scopedLinks = links.filter((link) => {
       const sourceId = typeof link.source === "string" ? link.source : (link.source as any).id;
@@ -184,12 +196,17 @@ export default function PeerNetworkGraph() {
       return scopedIds.has(sourceId) && scopedIds.has(targetId);
     });
     return { nodes: scopedNodes, links: scopedLinks };
-  }, [selectedDept, nodes, links]);
+  }, [activeDepartment, nodes, links]);
 
   const metrics = useMemo(
     () => computeNetworkMetrics(filteredGraph.nodes, filteredGraph.links),
     [filteredGraph],
   );
+
+  const departmentOptions = useMemo(() => {
+    const values = new Set(nodes.map((node) => node.department).filter(Boolean));
+    return Array.from(values).sort((left, right) => left.localeCompare(right));
+  }, [nodes]);
 
   const isolatedEmployees = useMemo(
     () => filteredGraph.nodes.filter((node) => (metrics.connectionCount.get(node.id) || 0) <= 2),
@@ -394,20 +411,29 @@ export default function PeerNetworkGraph() {
   }, [filteredGraph, metrics]);
 
   return (
-    <Card className="col-span-4">
+    <Card className={className ?? "col-span-4"}>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Peer Collaboration Network</CardTitle>
         <div className="flex items-center gap-2">
-          <Select value={selectedDept} onValueChange={setSelectedDept}>
+          <Select
+            value={activeDepartment}
+            onValueChange={(value) => {
+              if (!isExternallyFiltered) {
+                setSelectedDept(value);
+              }
+            }}
+            disabled={isExternallyFiltered}
+          >
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Select department" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Departments</SelectItem>
-              <SelectItem value="Engineering">Engineering</SelectItem>
-              <SelectItem value="Sales">Sales</SelectItem>
-              <SelectItem value="Marketing">Marketing</SelectItem>
-              <SelectItem value="Operations">Operations</SelectItem>
+              {departmentOptions.map((department) => (
+                <SelectItem key={department} value={department}>
+                  {department}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={handleExport}>
@@ -446,6 +472,7 @@ export default function PeerNetworkGraph() {
           {/* Legend */}
           <div className="absolute top-4 left-4 backdrop-blur p-3 rounded-lg border shadow-sm z-10" style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 90%, transparent)", borderColor: "var(--border-color)" }}>
             <p className="text-xs font-semibold mb-2">How to read quickly</p>
+            <p className="text-[11px] mb-2 text-muted-foreground">Executive view: collaboration exposure and intervention urgency.</p>
             <p className="text-xs mb-2 text-muted-foreground">Bigger node = more influence</p>
             <div className="space-y-1">
               <div className="flex items-center gap-2">

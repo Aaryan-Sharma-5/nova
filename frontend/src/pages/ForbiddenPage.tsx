@@ -13,7 +13,7 @@ export default function ForbiddenPage() {
         <p className="text-lg font-semibold">Access denied for this route.</p>
         <p className="text-sm text-muted-foreground">Attempted path: {attempted}</p>
         <Link to="/org-health" className="underline text-foreground font-semibold">
-          Go to Org Wellbeing
+          Go to Org Info
         </Link>
       </div>
     </div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "nova-app-shell-v4";
+const CACHE_NAME = "nova-app-shell-v5";
 const APP_SHELL = ["/", "/index.html", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -29,6 +29,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const isNavigationRequest = event.request.mode === "navigate" || event.request.destination === "document";
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -38,6 +40,20 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/index.html"))),
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) {
+          return cached;
+        }
+
+        if (isNavigationRequest) {
+          const appShell = await caches.match("/index.html");
+          if (appShell) {
+            return appShell;
+          }
+        }
+
+        throw new TypeError("Network request failed and no cache entry was found.");
+      }),
   );
 });

@@ -111,6 +111,7 @@ type QuickAction = {
   count: number;
   to: string;
   icon: LucideIcon;
+  accentColor: string;
 };
 
 function formatINR(value: number): string {
@@ -588,24 +589,28 @@ export default function OrgHealthPage() {
       count: pendingSessionsCount,
       to: '/hr/sessions-schedule',
       icon: CalendarDays,
+      accentColor: '#4ECDC4',
     },
     {
       label: 'Review At-Risk',
       count: criticalEmployeeCount,
       to: '/employees',
       icon: Users,
+      accentColor: '#FF1744',
     },
     {
       label: 'Run Appraisals',
       count: Math.max(1, interventions.length),
       to: '/hr/appraisals',
       icon: BarChart3,
+      accentColor: '#2563eb',
     },
     {
       label: 'Review Feedback',
       count: 50,
       to: '/hr/feedback-analyzer',
       icon: ClipboardList,
+      accentColor: '#00C853',
     },
   ];
 
@@ -725,45 +730,50 @@ export default function OrgHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-              <div className="metric-card text-center p-4">
-                <p className="text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>
+              <div className="metric-card text-center">
+                <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#4ECDC4' }} />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Workforce Health</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: 'var(--accent-primary)' }}>
                   {healthScore.score.toFixed(0)}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">Workforce Health</p>
                 <div className="flex items-center justify-center gap-1 mt-2">
                   {healthScore.delta >= 0 ? (
                     <TrendingUp className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />
                   ) : (
                     <TrendingDown className="h-4 w-4" style={{ color: 'var(--alert-critical)' }} />
                   )}
-                  <span className="text-sm font-medium" style={{ color: healthScore.delta >= 0 ? 'var(--accent-primary)' : 'var(--alert-critical)' }}>
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: healthScore.delta >= 0 ? 'var(--accent-primary)' : 'var(--alert-critical)' }}>
                     {Math.abs(healthScore.delta).toFixed(1)}%
                   </span>
                 </div>
               </div>
 
-              <div className="metric-card text-center p-4">
-                <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>246</p>
-                <p className="text-sm text-muted-foreground mt-1">Total Headcount</p>
-                <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>+8 this month</p>
+              <div className="metric-card text-center">
+                <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#00C853' }} />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Headcount</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>246</p>
+                <p className="mt-1 text-xs text-muted-foreground">+8 this month</p>
               </div>
 
-              <div className="metric-card text-center p-4">
-                <p className="text-3xl font-bold" style={{ color: 'var(--button-primary-bg)' }}>10.7%</p>
-                <p className="text-sm text-muted-foreground mt-1">Avg Attrition Rate</p>
-                <p className="text-sm font-medium mt-2" style={{ color: 'var(--button-primary-bg)' }}>vs 12% target</p>
+              <div className="metric-card text-center">
+                <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#2563eb' }} />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Avg Attrition Rate</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: 'var(--button-primary-bg)' }}>10.7%</p>
+                <p className="mt-1 text-xs text-muted-foreground">vs 12% target</p>
               </div>
 
-              <div className="metric-card text-center p-4">
-                <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>78.8</p>
-                <p className="text-sm text-muted-foreground mt-1">Avg Performance</p>
-                <p className="text-sm font-medium mt-2" style={{ color: 'var(--accent-primary)' }}>Above target</p>
+              <div className="metric-card text-center">
+                <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#4ECDC4' }} />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Avg Performance</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>78.8</p>
+                <p className="mt-1 text-xs text-muted-foreground">Above target</p>
               </div>
 
-              <div className="metric-card text-center p-4">
-                <p className="text-3xl font-bold" style={{ color: 'var(--alert-critical)' }}>58</p>
-                <p className="text-sm text-muted-foreground mt-1">Burnout Score</p>
-                <p className="text-sm font-medium mt-2" style={{ color: 'var(--alert-critical)' }}>Needs attention</p>
+              <div className="metric-card text-center">
+                <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: '#FF1744' }} />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Burnout Score</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums" style={{ color: 'var(--alert-critical)' }}>58</p>
+                <p className="mt-1 text-xs text-muted-foreground">Needs attention</p>
               </div>
             </div>
           </CardContent>
@@ -771,7 +781,7 @@ export default function OrgHealthPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="font-heading uppercase tracking-wider">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -780,13 +790,21 @@ export default function OrgHealthPage() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.to)}
-                  className="metric-card w-full cursor-pointer p-3 text-left hover:bg-[#FFF9D6]"
+                  className="metric-card w-full cursor-pointer text-left hover:bg-[#FFF9D6]"
                 >
-                  <div className="flex items-center gap-2">
-                    <action.icon className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />
-                    <p className="font-medium">{action.label}</p>
+                  <div className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground" style={{ backgroundColor: action.accentColor }} />
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{action.label}</p>
+                      <p className="mt-2 text-3xl font-bold tabular-nums text-foreground">{action.count}</p>
+                    </div>
+                    <div
+                      className="flex h-8 w-8 items-center justify-center border-2 border-foreground shadow-[2px_2px_0px_#000]"
+                      style={{ backgroundColor: action.accentColor }}
+                    >
+                      <action.icon className="h-4 w-4 text-[#1A1A1A]" />
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">{action.count}</p>
                 </button>
               ))}
             </div>

@@ -37,6 +37,7 @@ export function InsightsDashboard() {
   const { data, loading, error } = useInsights(employeeId);
   const { getEmployee } = useEmployees();
   const employee = employeeId ? getEmployee(employeeId) : undefined;
+  const isDarkTheme = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
   const composite = employee
     ? calculateCompositeRisk({
         workHoursPerWeek: employee.workHoursPerWeek,
@@ -79,7 +80,7 @@ export function InsightsDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 insights-dark-theme">
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Card>
         <CardHeader>
@@ -105,6 +106,7 @@ export function InsightsDashboard() {
                           ? "bg-red-100 text-red-700"
                           : "bg-emerald-100 text-emerald-700"
                       }`}
+                      style={isDarkTheme ? { backgroundColor: scoreDelta > 0 ? '#3f1d1d' : '#113026', color: scoreDelta > 0 ? '#fca5a5' : '#86efac' } : undefined}
                     >
                       {scoreDelta > 0 ? (
                         <TrendingUp className="h-3 w-3" />
@@ -117,7 +119,10 @@ export function InsightsDashboard() {
                   {weightedBars.length > 0 && (
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="inline-flex items-center text-blue-700 hover:text-blue-800">
+                        <button
+                          className="inline-flex items-center"
+                          style={{ color: isDarkTheme ? '#93c5fd' : '#1d4ed8' }}
+                        >
                           <Info className="h-4 w-4" />
                         </button>
                       </PopoverTrigger>
@@ -130,10 +135,13 @@ export function InsightsDashboard() {
                                 <span>{bar.label}</span>
                                 <span>{bar.value.toFixed(1)}%</span>
                               </div>
-                              <div className="h-2 w-full rounded bg-slate-200">
+                              <div className="h-2 w-full rounded" style={{ backgroundColor: isDarkTheme ? '#334155' : '#e2e8f0' }}>
                                 <div
-                                  className="h-2 rounded bg-blue-600"
-                                  style={{ width: `${Math.max(0, Math.min(bar.value, 100))}%` }}
+                                  className="h-2 rounded"
+                                  style={{
+                                    backgroundColor: isDarkTheme ? '#60a5fa' : '#2563eb',
+                                    width: `${Math.max(0, Math.min(bar.value, 100))}%`,
+                                  }}
                                 />
                               </div>
                             </div>
@@ -150,19 +158,25 @@ export function InsightsDashboard() {
                   style={{ width: `${scoreToday}%` }}
                 />
               </div>
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+              <div
+                className="rounded-md border p-2"
+                style={{
+                  borderColor: isDarkTheme ? '#334155' : '#cbd5e1',
+                  backgroundColor: isDarkTheme ? '#1e293b' : '#f8fafc',
+                }}
+              >
                 <p className="text-xs font-semibold">Why did this score change?</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Today: {scoreToday}% vs 7 days ago: {score7dAgo}%
                 </p>
                 {hasBackendCompositeSignal && backendComposite?.changed_signals && backendComposite.changed_signals.length > 0 ? (
-                  <ul className="mt-1 list-disc pl-4 text-xs text-slate-700">
+                  <ul className="mt-1 list-disc pl-4 text-xs text-foreground">
                     {backendComposite.changed_signals.slice(0, 3).map((item, idx) => (
                       <li key={idx}>{item}</li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs text-slate-700 mt-1">
+                  <p className="text-xs text-foreground mt-1">
                     No major anomaly shifts were detected; showing baseline composite risk from workload, sentiment, performance, and engagement.
                   </p>
                 )}
@@ -208,9 +222,15 @@ export function InsightsDashboard() {
             </div>
           ) : (
             <>
-              <div className="rounded-md border bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">Objective</p>
-                <p className="text-sm text-slate-900 mt-1">{data.action_playbook.objective}</p>
+              <div
+                className="rounded-md border p-3"
+                style={{
+                  borderColor: isDarkTheme ? '#334155' : '#cbd5e1',
+                  backgroundColor: isDarkTheme ? '#1e293b' : '#f8fafc',
+                }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Objective</p>
+                <p className="text-sm text-foreground mt-1">{data.action_playbook.objective}</p>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -226,13 +246,19 @@ export function InsightsDashboard() {
                     <p className="text-xs text-muted-foreground">
                       Timeline: <span className="font-medium text-foreground">{priority.timeline}</span>
                     </p>
-                    <ul className="list-disc pl-4 text-xs text-slate-700 space-y-1">
+                    <ul className="list-disc pl-4 text-xs text-foreground space-y-1">
                       {priority.actions.slice(0, 2).map((action, actionIdx) => (
                         <li key={actionIdx}>{action}</li>
                       ))}
                     </ul>
-                    <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1">
-                      <p className="text-[11px] text-emerald-800">Success signal: {priority.success_signal}</p>
+                    <div
+                      className="rounded border px-2 py-1"
+                      style={{
+                        borderColor: isDarkTheme ? '#14532d' : '#a7f3d0',
+                        backgroundColor: isDarkTheme ? '#0f2a22' : '#ecfdf5',
+                      }}
+                    >
+                      <p className="text-[11px]" style={{ color: isDarkTheme ? '#6ee7b7' : '#065f46' }}>Success signal: {priority.success_signal}</p>
                     </div>
                   </div>
                 ))}

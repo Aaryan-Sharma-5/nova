@@ -25,6 +25,7 @@ export function PerformanceCard({
   structured_insight,
 }: PerformanceCardProps) {
   const badgeClass = BAND_STYLES[predicted_band] ?? "bg-muted text-foreground";
+  const isDarkTheme = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 
   return (
     <Card className="h-full">
@@ -46,9 +47,15 @@ export function PerformanceCard({
             </Badge>
           ))}
         </div>
-        <div className="rounded-md border border-blue-300 bg-blue-50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Recommended Action</p>
-          <p className="text-sm text-blue-900">{structured_insight.recommended_action || suggested_actions[0]}</p>
+        <div
+          className="rounded-md border p-3"
+          style={{
+            borderColor: isDarkTheme ? '#1e3a5f' : '#93c5fd',
+            backgroundColor: isDarkTheme ? '#0f1f36' : '#eff6ff',
+          }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: isDarkTheme ? '#93c5fd' : '#1e3a8a' }}>Recommended Action</p>
+          <p className="text-sm" style={{ color: isDarkTheme ? '#e2e8f0' : '#1e3a8a' }}>{structured_insight.recommended_action || suggested_actions[0]}</p>
         </div>
       </CardContent>
     </Card>

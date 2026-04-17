@@ -27,7 +27,7 @@ const ROI_TILES = [
     label: 'Productivity Gain',
     value: '18%',
     desc: 'From wellbeing interventions',
-    color: '#FFE500',
+    color: '#2563eb',
   },
   {
     icon: Clock,
@@ -73,7 +73,8 @@ export default function ExecutiveDashboard() {
         </div>
         <Link
           to="/org-health"
-          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 border-foreground bg-[#1A1A1A] text-[#FFE500] shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] transition-all"
+          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 border-foreground shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] transition-all"
+          style={{ backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' }}
         >
           <Download className="h-3 w-3" /> Board Report
         </Link>
@@ -126,7 +127,7 @@ export default function ExecutiveDashboard() {
       <section className="metric-card">
         <div
           className="h-1 -mx-5 -mt-5 mb-4 border-b-2 border-foreground"
-          style={{ backgroundColor: '#FFE500' }}
+          style={{ backgroundColor: '#2563eb' }}
         />
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -157,7 +158,7 @@ export default function ExecutiveDashboard() {
                 className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-2 border-foreground"
                 style={{
                   backgroundColor:
-                    row.avgBurnout >= 60 ? '#FF1744' : row.avgBurnout >= 40 ? '#FFB300' : '#00C853',
+                    row.avgBurnout >= 60 ? '#FF1744' : row.avgBurnout >= 40 ? '#2563eb' : '#00C853',
                   color: row.avgBurnout >= 60 ? '#fff' : '#1A1A1A',
                 }}
               >
@@ -167,7 +168,7 @@ export default function ExecutiveDashboard() {
                 className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-2 border-foreground"
                 style={{
                   backgroundColor:
-                    row.avgAttrition >= 60 ? '#FF1744' : row.avgAttrition >= 40 ? '#FFB300' : '#00C853',
+                    row.avgAttrition >= 60 ? '#FF1744' : row.avgAttrition >= 40 ? '#2563eb' : '#00C853',
                   color: row.avgAttrition >= 60 ? '#fff' : '#1A1A1A',
                 }}
               >

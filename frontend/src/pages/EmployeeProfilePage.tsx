@@ -182,7 +182,9 @@ export default function EmployeeProfilePage() {
             </div>
             <div className="flex items-center gap-2">
               <Badge>{employee.tenure} months</Badge>
-              {employee.tenure < 3 && <Badge variant="secondary">Onboarding</Badge>}
+              {typeof employee.tenureDays === 'number' && employee.tenureDays > 0 && employee.tenureDays < 90 && (
+                <Badge variant="secondary">Onboarding</Badge>
+              )}
             </div>
           </div>
         </CardContent>

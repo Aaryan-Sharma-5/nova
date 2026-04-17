@@ -16,9 +16,9 @@ export default function WordCloud({ department }: WordCloudProps) {
 
   const getWordColor = (sentiment: WordCloudItem['sentiment']): string => {
     switch (sentiment) {
-      case 'positive': return 'text-green-600 hover:text-green-700';
-      case 'negative': return 'text-red-600 hover:text-red-700';
-      default: return 'text-gray-600 hover:text-gray-700';
+      case 'positive': return 'text-green-500 hover:text-green-400';
+      case 'negative': return 'text-red-500 hover:text-red-400';
+      default: return 'text-muted-foreground hover:text-foreground';
     }
   };
 
@@ -59,7 +59,10 @@ export default function WordCloud({ department }: WordCloudProps) {
           </Select>
         </CardHeader>
         <CardContent>
-          <div className="bg-gray-50 rounded-lg p-8 min-h-[400px] flex flex-wrap items-center justify-center gap-4">
+          <div
+            className="rounded-lg p-8 min-h-[400px] flex flex-wrap items-center justify-center gap-4 border"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+          >
             {data.map((word, i) => (
               <button
                 key={i}
@@ -94,7 +97,7 @@ export default function WordCloud({ department }: WordCloudProps) {
 
           {/* Top Words Summary */}
           <div className="mt-6 grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'color-mix(in srgb, #22c55e 12%, var(--bg-card))', borderColor: 'color-mix(in srgb, #22c55e 45%, transparent)' }}>
               <p className="text-sm font-semibold text-green-800 mb-2">Top Positive</p>
               <div className="space-y-1">
                 {data
@@ -112,7 +115,7 @@ export default function WordCloud({ department }: WordCloudProps) {
               </div>
             </div>
 
-            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
               <p className="text-sm font-semibold text-gray-800 mb-2">Top Neutral</p>
               <div className="space-y-1">
                 {data
@@ -130,7 +133,7 @@ export default function WordCloud({ department }: WordCloudProps) {
               </div>
             </div>
 
-            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+            <div className="text-center p-4 rounded-lg border" style={{ backgroundColor: 'color-mix(in srgb, #ef4444 12%, var(--bg-card))', borderColor: 'color-mix(in srgb, #ef4444 45%, transparent)' }}>
               <p className="text-sm font-semibold text-red-800 mb-2">Top Negative</p>
               <div className="space-y-1">
                 {data
@@ -150,8 +153,8 @@ export default function WordCloud({ department }: WordCloudProps) {
           </div>
 
           {/* Insights */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
+          <div className="mt-4 p-3 border rounded-md" style={{ backgroundColor: 'var(--alert-banner-bg)', borderColor: 'var(--border-color)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
               <strong>Key Themes:</strong> Most frequent terms indicate concerns around workload management and 
               compensation, balanced by positive sentiment around growth opportunities and team collaboration.
             </p>
@@ -195,7 +198,7 @@ export default function WordCloud({ department }: WordCloudProps) {
                 </p>
                 <div className="space-y-2 max-h-80 overflow-y-auto">
                   {getFeedbackForWord(selectedWord.text).map((feedback, i) => (
-                    <div key={i} className="p-3 bg-gray-50 rounded-lg border">
+                    <div key={i} className="p-3 rounded-lg border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
                       <p className="text-sm italic">{feedback}</p>
                       <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                         <span>• Engineering Dept</span>

@@ -110,7 +110,7 @@ export default function ManagerDashboard() {
           label="Overdue 1:1s"
           value={overdueOneOnOnes}
           subtitle="Action this week"
-          color="#FFB300"
+          color="#2563eb"
         />
         <TeamMetric icon={Heart} label="Avg Sentiment" value={avgSentiment} subtitle="Past 14 days" color="#FF6B9D" />
       </div>
@@ -138,7 +138,7 @@ export default function ManagerDashboard() {
                     className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-2 border-foreground"
                     style={{
                       backgroundColor:
-                        emp.burnoutRisk >= 70 ? '#FF1744' : emp.burnoutRisk >= 50 ? '#FFB300' : '#00C853',
+                        emp.burnoutRisk >= 70 ? '#FF1744' : emp.burnoutRisk >= 50 ? '#2563eb' : '#00C853',
                       color: emp.burnoutRisk >= 70 ? '#fff' : '#1A1A1A',
                     }}
                   >

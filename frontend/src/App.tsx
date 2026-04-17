@@ -34,7 +34,6 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const InsightsDashboard = lazy(() => import("@/features/insights/InsightsDashboard").then((module) => ({ default: module.InsightsDashboard })));
 const AnomaliesPage = lazy(() => import("./pages/AnomaliesPage"));
 const DeptHeatmapPage = lazy(() => import("./pages/DeptHeatmapPage"));
-const OrgTreePage = lazy(() => import("./pages/OrgTreePage"));
 const VoiceAssistant = lazy(() => import("@/components/voice/VoiceAssistant"));
 
 const queryClient = new QueryClient();
@@ -238,17 +237,6 @@ const App = () => (
                   <ProtectedRoute allowedRoles={["hr", "manager"]}>
                     <AppLayout>
                       <InsightsDashboard />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/employees/org-tree"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <OrgTreePage />
                     </AppLayout>
                   </ProtectedRoute>
                 }

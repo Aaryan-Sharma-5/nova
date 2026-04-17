@@ -60,13 +60,13 @@ export default function WorkforceHealthScore() {
 
   const getScoreColor = (score: number): string => {
     if (score >= 80) return "text-green-500";
-    if (score >= 60) return "text-yellow-500";
+    if (score >= 60) return "text-blue-500";
     return "text-red-500";
   };
 
   const getGradientColor = (score: number): string => {
     if (score >= 80) return "from-green-500 to-emerald-400";
-    if (score >= 60) return "from-yellow-500 to-amber-400";
+    if (score >= 60) return "from-blue-500 to-cyan-400";
     return "from-red-500 to-orange-400";
   };
 
@@ -104,11 +104,11 @@ export default function WorkforceHealthScore() {
               <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop 
                   offset="0%" 
-                  stopColor={data.score >= 80 ? "#22c55e" : data.score >= 60 ? "#eab308" : "#ef4444"} 
+                  stopColor={data.score >= 80 ? "#22c55e" : data.score >= 60 ? "#3b82f6" : "#ef4444"} 
                 />
                 <stop 
                   offset="100%" 
-                  stopColor={data.score >= 80 ? "#10b981" : data.score >= 60 ? "#f59e0b" : "#f97316"} 
+                  stopColor={data.score >= 80 ? "#10b981" : data.score >= 60 ? "#06b6d4" : "#f97316"} 
                 />
               </linearGradient>
             </defs>

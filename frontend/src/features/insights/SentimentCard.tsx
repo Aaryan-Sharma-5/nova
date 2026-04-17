@@ -20,6 +20,7 @@ const LABEL_STYLES: Record<string, string> = {
 export function SentimentCard({ score, label, summary, confidence, structured_insight }: SentimentCardProps) {
   const normalized = Math.round(((score + 1) / 2) * 100);
   const badgeClass = LABEL_STYLES[label] ?? "bg-muted text-foreground";
+  const isDarkTheme = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 
   return (
     <Card className="h-full">
@@ -50,9 +51,15 @@ export function SentimentCard({ score, label, summary, confidence, structured_in
             </Badge>
           ))}
         </div>
-        <div className="rounded-md border border-blue-300 bg-blue-50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Recommended Action</p>
-          <p className="text-sm text-blue-900">{structured_insight.recommended_action}</p>
+        <div
+          className="rounded-md border p-3"
+          style={{
+            borderColor: isDarkTheme ? '#1e3a5f' : '#93c5fd',
+            backgroundColor: isDarkTheme ? '#0f1f36' : '#eff6ff',
+          }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: isDarkTheme ? '#93c5fd' : '#1e3a8a' }}>Recommended Action</p>
+          <p className="text-sm" style={{ color: isDarkTheme ? '#e2e8f0' : '#1e3a8a' }}>{structured_insight.recommended_action}</p>
         </div>
         <p className="text-xs text-muted-foreground">
           Confidence: {Math.round(confidence * 100)}%

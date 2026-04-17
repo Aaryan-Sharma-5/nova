@@ -4,10 +4,88 @@ import * as d3 from "d3";
 import { generateNetworkData, NetworkNode, NetworkLink } from "@/utils/mockAnalyticsData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Download } from "lucide-react";
+import { Download, Lightbulb, Users, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import html2canvas from "html2canvas";
 import { useEmployees } from "@/contexts/EmployeeContext";
+
+type NetworkMetrics = {
+  connectionCount: Map<string, number>;
+  weightedConnections: Map<string, number>;
+  centrality: Map<string, number>;
+  entropy: Map<string, number>;
+  propagationRisk: Map<string, number>;
+};
+
+function computeNetworkMetrics(nodes: NetworkNode[], links: NetworkLink[]): NetworkMetrics {
+  const connectionCount = new Map<string, number>();
+  const weightedConnections = new Map<string, number>();
+  const neighborWeights = new Map<string, number[]>();
+
+  nodes.forEach((node) => {
+    connectionCount.set(node.id, 0);
+    weightedConnections.set(node.id, 0);
+    neighborWeights.set(node.id, []);
+  });
+
+  links.forEach((link) => {
+    const sourceId = typeof link.source === "string" ? link.source : (link.source as any).id;
+    const targetId = typeof link.target === "string" ? link.target : (link.target as any).id;
+    const strength = typeof (link as any).strength === "number" ? (link as any).strength : 1;
+
+    connectionCount.set(sourceId, (connectionCount.get(sourceId) || 0) + 1);
+    connectionCount.set(targetId, (connectionCount.get(targetId) || 0) + 1);
+    weightedConnections.set(sourceId, (weightedConnections.get(sourceId) || 0) + strength);
+    weightedConnections.set(targetId, (weightedConnections.get(targetId) || 0) + strength);
+    neighborWeights.get(sourceId)?.push(strength);
+    neighborWeights.get(targetId)?.push(strength);
+  });
+
+  const maxConnections = Math.max(...Array.from(connectionCount.values()), 1);
+  const centrality = new Map<string, number>();
+  const entropy = new Map<string, number>();
+  const propagationRisk = new Map<string, number>();
+
+  nodes.forEach((node) => {
+    const degree = connectionCount.get(node.id) || 0;
+    const centralityScore = degree / maxConnections;
+    centrality.set(node.id, centralityScore);
+
+    const weights = neighborWeights.get(node.id) || [];
+    const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1;
+    const distribution = weights.map((weight) => weight / totalWeight);
+    const entropyScore = distribution.length
+      ? -distribution.reduce((sum, probability) => sum + probability * Math.log2(probability), 0) / Math.log2(distribution.length)
+      : 0;
+    entropy.set(node.id, entropyScore);
+
+    const sentimentRisk = 1 - node.sentiment / 100;
+    const rawScore = Math.min(1, centralityScore * 0.65 + sentimentRisk * 0.35);
+    propagationRisk.set(node.id, rawScore);
+  });
+
+  const ranked = nodes
+    .map((node) => ({ nodeId: node.id, score: propagationRisk.get(node.id) || 0 }))
+    .sort((a, b) => a.score - b.score);
+  const lowCutoff = Math.floor(ranked.length * 0.3);
+  const mediumCutoff = Math.floor(ranked.length * 0.8);
+
+  ranked.forEach((entry, index) => {
+    if (index < lowCutoff) {
+      propagationRisk.set(entry.nodeId, 0.2 + (index / Math.max(1, lowCutoff)) * 0.19);
+    } else if (index < mediumCutoff) {
+      const offset = index - lowCutoff;
+      const span = Math.max(1, mediumCutoff - lowCutoff);
+      propagationRisk.set(entry.nodeId, 0.4 + (offset / span) * 0.25);
+    } else {
+      const offset = index - mediumCutoff;
+      const span = Math.max(1, ranked.length - mediumCutoff);
+      propagationRisk.set(entry.nodeId, 0.66 + (offset / span) * 0.29);
+    }
+  });
+
+  return { connectionCount, weightedConnections, centrality, entropy, propagationRisk };
+}
 
 export default function PeerNetworkGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -30,76 +108,63 @@ export default function PeerNetworkGraph() {
     return `${parts[0]} ${parts[parts.length - 1][0]}.`;
   }
 
-  const metrics = (() => {
-    const connectionCount = new Map<string, number>();
-    const weightedConnections = new Map<string, number>();
-    const neighborWeights = new Map<string, number[]>();
-
-    nodes.forEach(n => {
-      connectionCount.set(n.id, 0);
-      weightedConnections.set(n.id, 0);
-      neighborWeights.set(n.id, []);
+  const filteredGraph = useMemo(() => {
+    const scopedNodes = selectedDept === "all"
+      ? nodes
+      : nodes.filter((node) => node.department === selectedDept);
+    const scopedIds = new Set(scopedNodes.map((node) => node.id));
+    const scopedLinks = links.filter((link) => {
+      const sourceId = typeof link.source === "string" ? link.source : (link.source as any).id;
+      const targetId = typeof link.target === "string" ? link.target : (link.target as any).id;
+      return scopedIds.has(sourceId) && scopedIds.has(targetId);
     });
+    return { nodes: scopedNodes, links: scopedLinks };
+  }, [selectedDept, nodes, links]);
 
-    links.forEach(l => {
-      const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-      const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-      const strength = typeof (l as any).strength === 'number' ? (l as any).strength : 1;
+  const metrics = useMemo(
+    () => computeNetworkMetrics(filteredGraph.nodes, filteredGraph.links),
+    [filteredGraph],
+  );
 
-      connectionCount.set(sourceId, (connectionCount.get(sourceId) || 0) + 1);
-      connectionCount.set(targetId, (connectionCount.get(targetId) || 0) + 1);
-      weightedConnections.set(sourceId, (weightedConnections.get(sourceId) || 0) + strength);
-      weightedConnections.set(targetId, (weightedConnections.get(targetId) || 0) + strength);
-      neighborWeights.get(sourceId)?.push(strength);
-      neighborWeights.get(targetId)?.push(strength);
-    });
+  const isolatedEmployees = useMemo(
+    () => filteredGraph.nodes.filter((node) => (metrics.connectionCount.get(node.id) || 0) <= 2),
+    [filteredGraph.nodes, metrics.connectionCount],
+  );
 
-    const maxConnections = Math.max(...Array.from(connectionCount.values()), 1);
+  const priorityWatchlist = useMemo(() => {
+    return [...filteredGraph.nodes]
+      .map((node) => {
+        const connectivity = metrics.connectionCount.get(node.id) || 0;
+        const riskScore = Math.round((metrics.propagationRisk.get(node.id) || 0) * 100);
+        const reason = connectivity <= 2
+          ? "Low collaboration exposure"
+          : node.sentiment < 45
+            ? "Low sentiment trend"
+            : "High influence + elevated risk";
+        return { node, riskScore, reason, connectivity };
+      })
+      .sort((left, right) => right.riskScore - left.riskScore)
+      .slice(0, 3);
+  }, [filteredGraph.nodes, metrics.connectionCount, metrics.propagationRisk]);
 
-    const centrality = new Map<string, number>();
-    const entropy = new Map<string, number>();
-    const propagationRisk = new Map<string, number>();
-
-    nodes.forEach(node => {
-      const degree = connectionCount.get(node.id) || 0;
-      const centralityScore = degree / maxConnections;
-      centrality.set(node.id, centralityScore);
-
-      const weights = neighborWeights.get(node.id) || [];
-      const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1;
-      const distribution = weights.map(weight => weight / totalWeight);
-      const entropyScore = distribution.length
-        ? -distribution.reduce((sum, p) => sum + p * Math.log2(p), 0) / Math.log2(distribution.length)
-        : 0;
-      entropy.set(node.id, entropyScore);
-
-      const sentimentRisk = 1 - node.sentiment / 100;
-      const rawScore = Math.min(1, centralityScore * 0.65 + sentimentRisk * 0.35);
-      propagationRisk.set(node.id, rawScore);
-    });
-
-    const ranked = nodes
-      .map((node) => ({ nodeId: node.id, score: propagationRisk.get(node.id) || 0 }))
-      .sort((a, b) => a.score - b.score);
-    const lowCutoff = Math.floor(ranked.length * 0.3);
-    const mediumCutoff = Math.floor(ranked.length * 0.8);
-
-    ranked.forEach((entry, index) => {
-      if (index < lowCutoff) {
-        propagationRisk.set(entry.nodeId, 0.2 + (index / Math.max(1, lowCutoff)) * 0.19);
-      } else if (index < mediumCutoff) {
-        const offset = index - lowCutoff;
-        const span = Math.max(1, mediumCutoff - lowCutoff);
-        propagationRisk.set(entry.nodeId, 0.4 + (offset / span) * 0.25);
-      } else {
-        const offset = index - mediumCutoff;
-        const span = Math.max(1, ranked.length - mediumCutoff);
-        propagationRisk.set(entry.nodeId, 0.66 + (offset / span) * 0.29);
-      }
-    });
-
-    return { connectionCount, weightedConnections, centrality, entropy, propagationRisk };
-  })();
+  const executiveSummary = useMemo(() => {
+    const highRisk = filteredGraph.nodes.filter((node) => (metrics.propagationRisk.get(node.id) || 0) >= 0.66).length;
+    const avgConnections = filteredGraph.nodes.length
+      ? (filteredGraph.links.length / filteredGraph.nodes.length).toFixed(1)
+      : "0.0";
+    return {
+      highRisk,
+      avgConnections,
+      headline:
+        highRisk >= 4
+          ? "Collaboration risk is concentrated in a few influential employees."
+          : "Collaboration network is stable with a manageable risk profile.",
+      action:
+        isolatedEmployees.length > 0
+          ? "Prioritize check-ins for isolated employees and pair them into active projects this week."
+          : "Protect key connectors and maintain cross-team collaboration routines.",
+    };
+  }, [filteredGraph.nodes, filteredGraph.links.length, isolatedEmployees.length, metrics.propagationRisk]);
 
   const handleExport = async () => {
     if (chartRef.current) {
@@ -117,15 +182,8 @@ export default function PeerNetworkGraph() {
     const width = 800;
     const height = 600;
 
-    // Filter nodes and links based on selected department
-    const filteredNodes = selectedDept === "all" 
-      ? nodes 
-      : nodes.filter(n => n.department === selectedDept);
-    
-    const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
-    const filteredLinks = links.filter(l => 
-      filteredNodeIds.has(l.source as string) && filteredNodeIds.has(l.target as string)
-    );
+    const filteredNodes = filteredGraph.nodes;
+    const filteredLinks = filteredGraph.links;
 
     // Clear previous content
     d3.select(svgRef.current).selectAll("*").remove();
@@ -224,7 +282,7 @@ export default function PeerNetworkGraph() {
       .attr("text-anchor", "middle")
       .attr("font-size", "11px")
       .attr("font-weight", "500")
-      .attr("fill", "#1f2937");
+      .attr("fill", "#e2e8f0");
 
     // Add influence score badges
     node.append("text")
@@ -268,14 +326,7 @@ export default function PeerNetworkGraph() {
     return () => {
       simulation.stop();
     };
-  }, [selectedDept, nodes, links]);
-
-  // Calculate isolated employees (low connectivity)
-  const calculateIsolatedEmployees = () => {
-    return nodes.filter(n => (metrics.connectionCount.get(n.id) || 0) <= 2);
-  };
-
-  const isolatedEmployees = calculateIsolatedEmployees();
+  }, [filteredGraph, metrics]);
 
   return (
     <Card className="col-span-4">
@@ -300,55 +351,69 @@ export default function PeerNetworkGraph() {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 rounded-lg border p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+          <div className="flex items-start gap-2">
+            <Lightbulb className="h-4 w-4 mt-0.5" style={{ color: "var(--accent-primary)" }} />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">What this chart means</p>
+              <p className="text-sm text-muted-foreground">Each dot is an employee and each line is a collaboration link. Bigger dots influence more teammates. Red dots need faster manager attention.</p>
+              <p className="text-sm text-muted-foreground"><strong>Recommended action:</strong> {executiveSummary.action}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-lg border p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+            <p className="text-xs text-muted-foreground">Current Readout</p>
+            <p className="text-sm font-semibold mt-1">{executiveSummary.headline}</p>
+          </div>
+          <div className="rounded-lg border p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+            <p className="text-xs text-muted-foreground">High Priority Employees</p>
+            <p className="text-2xl font-bold" style={{ color: "var(--alert-critical)" }}>{executiveSummary.highRisk}</p>
+          </div>
+          <div className="rounded-lg border p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+            <p className="text-xs text-muted-foreground">Average Collaboration Links</p>
+            <p className="text-2xl font-bold" style={{ color: "var(--accent-primary)" }}>{executiveSummary.avgConnections}</p>
+          </div>
+        </div>
+
         <div ref={chartRef} className="relative">
           {/* Legend */}
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur p-3 rounded-lg border shadow-sm z-10">
-            <p className="text-xs font-semibold mb-2">Node Size = Influence</p>
-            <p className="text-xs font-semibold mb-2">Color = Propagation Risk</p>
+          <div className="absolute top-4 left-4 backdrop-blur p-3 rounded-lg border shadow-sm z-10" style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 90%, transparent)", borderColor: "var(--border-color)" }}>
+            <p className="text-xs font-semibold mb-2">How to read quickly</p>
+            <p className="text-xs mb-2 text-muted-foreground">Bigger node = more influence</p>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-xs">Low Risk</span>
+                <span className="text-xs">Stable</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span className="text-xs">Medium Risk</span>
+                <span className="text-xs">Watch</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-xs">High Risk</span>
+                <span className="text-xs">Action Needed</span>
               </div>
             </div>
           </div>
 
           {/* Hovered node info */}
           {hoveredNode && (
-            <div className="absolute top-4 right-4 bg-white border p-3 rounded-lg shadow-lg z-10">
+            <div className="absolute top-4 right-4 border p-3 rounded-lg shadow-lg z-10" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
               <p className="font-semibold">{hoveredNode.name}</p>
               <p className="text-sm text-muted-foreground">{hoveredNode.department}</p>
               <div className="mt-2 space-y-1">
                 <div className="flex justify-between gap-4 text-sm">
-                  <span>Influence:</span>
+                  <span>Collaboration reach:</span>
                   <span className="font-medium">{hoveredNode.influence.toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between gap-4 text-sm">
-                  <span>Sentiment:</span>
+                  <span>Team mood:</span>
                   <span className="font-medium">{hoveredNode.sentiment.toFixed(0)}%</span>
                 </div>
                 <div className="flex justify-between gap-4 text-sm">
-                  <span>Centrality:</span>
-                  <span className="font-medium">
-                    {Math.round((metrics.centrality.get(hoveredNode.id) || 0) * 100)}%
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4 text-sm">
-                  <span>Collab entropy:</span>
-                  <span className="font-medium">
-                    {Math.round((metrics.entropy.get(hoveredNode.id) || 0) * 100)}%
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4 text-sm">
-                  <span>Propagation risk:</span>
+                  <span>Urgency:</span>
                   <span className="font-medium">
                     {Math.round((metrics.propagationRisk.get(hoveredNode.id) || 0) * 100)}%
                   </span>
@@ -358,58 +423,77 @@ export default function PeerNetworkGraph() {
           )}
 
           {/* D3 SVG */}
-          <div className="bg-gray-50 rounded-lg p-4 border">
+          <div className="rounded-lg p-4 border" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
             <svg ref={svgRef}></svg>
           </div>
         </div>
 
+        {priorityWatchlist.length > 0 && (
+          <div className="mt-4 rounded-md border p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+            <div className="mb-2 flex items-center gap-2">
+              <Users className="h-4 w-4" style={{ color: "var(--accent-primary)" }} />
+              <p className="text-sm font-semibold">Top People to Review This Week</p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+              {priorityWatchlist.map((entry) => (
+                <div key={entry.node.id} className="rounded border p-2" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--bg-card)" }}>
+                  <p className="text-sm font-semibold">{entry.node.name}</p>
+                  <p className="text-xs text-muted-foreground">{entry.node.department}</p>
+                  <p className="mt-1 text-xs"><strong>Why:</strong> {entry.reason}</p>
+                  <p className="text-xs"><strong>Risk:</strong> {entry.riskScore}%</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Isolated Employees Alert */}
         {isolatedEmployees.length > 0 && (
-          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-            <p className="text-sm font-semibold text-orange-800 mb-2">
-              {isolatedEmployees.length} Isolated Employees Detected (Flight Risk Signal)
+          <div className="mt-4 p-3 border rounded-md" style={{ backgroundColor: "var(--alert-banner-bg)", borderColor: "var(--border-color)" }}>
+            <p className="text-sm font-semibold mb-2 inline-flex items-center gap-1" style={{ color: "var(--text-primary)" }}>
+              <AlertTriangle className="h-4 w-4" /> {isolatedEmployees.length} employees have low collaboration exposure
             </p>
             <div className="flex flex-wrap gap-2">
               {isolatedEmployees.slice(0, 5).map((emp, i) => (
-                <Badge key={i} variant="outline" className="text-orange-700 border-orange-300">
+                <Badge key={i} variant="outline" className="border" style={{ borderColor: "var(--border-color)" }}>
                   {emp.name}
                 </Badge>
               ))}
               {isolatedEmployees.length > 5 && (
-                <Badge variant="outline" className="text-orange-700 border-orange-300">
+                <Badge variant="outline" className="border" style={{ borderColor: "var(--border-color)" }}>
                   +{isolatedEmployees.length - 5} more
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-orange-700 mt-2">
-              Low connectivity correlates with increased attrition risk. Consider team-building initiatives.
+            <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+              Simple interpretation: people with very few collaboration links often disengage faster. Assign cross-team work buddies and manager check-ins.
             </p>
           </div>
         )}
 
         {/* Statistics */}
         <div className="mt-4 grid grid-cols-4 gap-4">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">
-              {nodes.length}
+          <div className="text-center p-3 rounded-lg border" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+              {filteredGraph.nodes.length}
             </p>
             <p className="text-xs text-muted-foreground">Total Employees</p>
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-blue-600">
-              {links.length}
+          <div className="text-center p-3 rounded-lg border" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+            <p className="text-2xl font-bold" style={{ color: "var(--accent-primary)" }}>
+              {filteredGraph.links.length}
             </p>
             <p className="text-xs text-muted-foreground">Connections</p>
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-orange-600">
+          <div className="text-center p-3 rounded-lg border" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+            <p className="text-2xl font-bold" style={{ color: "var(--alert-critical)" }}>
               {isolatedEmployees.length}
             </p>
-            <p className="text-xs text-muted-foreground">Isolated (≤2 connections)</p>
+            <p className="text-xs text-muted-foreground">Low Exposure (≤2 links)</p>
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <div className="text-center p-3 rounded-lg border" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
             <p className="text-2xl font-bold text-green-600">
-              {(links.length / nodes.length).toFixed(1)}
+              {filteredGraph.nodes.length > 0 ? (filteredGraph.links.length / filteredGraph.nodes.length).toFixed(1) : "0.0"}
             </p>
             <p className="text-xs text-muted-foreground">Avg Connections/Person</p>
           </div>

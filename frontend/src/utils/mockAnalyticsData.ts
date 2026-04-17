@@ -136,21 +136,33 @@ export interface WordCloudItem {
 // Generate attrition forecast data
 export const generateAttritionForecast = (): AttritionForecast[] => {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  return months.map((month, i) => ({
-    month,
-    engineering: 8 + Math.random() * 4 + i * 0.5,
-    sales: 12 + Math.random() * 5 + i * 0.3,
-    marketing: 10 + Math.random() * 3 + i * 0.4,
-    operations: 7 + Math.random() * 3 + i * 0.2,
-    engineeringLower: 6 + i * 0.5,
-    engineeringUpper: 10 + Math.random() * 4 + i * 0.5,
-    salesLower: 10 + i * 0.3,
-    salesUpper: 15 + Math.random() * 5 + i * 0.3,
-    marketingLower: 8 + i * 0.4,
-    marketingUpper: 12 + Math.random() * 3 + i * 0.4,
-    operationsLower: 5 + i * 0.2,
-    operationsUpper: 9 + Math.random() * 3 + i * 0.2,
-  }));
+  return months.map((month, i) => {
+    const engineeringUpper = 10 + Math.random() * 4 + i * 0.5;
+    const salesUpper = 15 + Math.random() * 5 + i * 0.3;
+    const marketingUpper = 12 + Math.random() * 3 + i * 0.4;
+    const operationsUpper = 9 + Math.random() * 3 + i * 0.2;
+
+    const engineeringLower = Math.max(3, engineeringUpper - 4);
+    const salesLower = Math.max(3, salesUpper - 4);
+    const marketingLower = Math.max(3, marketingUpper - 4);
+    const operationsLower = Math.max(3, operationsUpper - 4);
+
+    return {
+      month,
+      engineering: (engineeringUpper + engineeringLower) / 2,
+      sales: (salesUpper + salesLower) / 2,
+      marketing: (marketingUpper + marketingLower) / 2,
+      operations: (operationsUpper + operationsLower) / 2,
+      engineeringLower,
+      engineeringUpper,
+      salesLower,
+      salesUpper,
+      marketingLower,
+      marketingUpper,
+      operationsLower,
+      operationsUpper,
+    };
+  });
 };
 
 // Generate tenure distribution data

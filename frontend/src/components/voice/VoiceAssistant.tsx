@@ -38,7 +38,6 @@ type MicState = 'idle' | 'listening' | 'processing' | 'speaking';
 const PAGE_TO_AGENT: Array<{ match: (path: string) => boolean; agentId: string; label: string }> = [
   { match: (p) => p === '/org-health' || p === '/dashboard', agentId: 'workforce_overview_agent', label: 'Workforce Overview Agent' },
   { match: (p) => p.startsWith('/job-board') || p.startsWith('/task-assignments') || p.startsWith('/work-profiles'), agentId: 'talent_pipeline_agent', label: 'Talent Pipeline Agent' },
-  { match: (p) => p.startsWith('/employees/org-tree'), agentId: 'org_structure_agent', label: 'Org Structure Agent' },
   { match: (p) => p.startsWith('/employees'), agentId: 'employee_intelligence_agent', label: 'Employee Intelligence Agent' },
   { match: (p) => p.startsWith('/hr/appraisals'), agentId: 'appraisal_agent', label: 'Appraisal Agent' },
   { match: (p) => p.startsWith('/hr/feedback-analyzer'), agentId: 'feedback_agent', label: 'Feedback Agent' },
@@ -85,11 +84,6 @@ const PAGE_SUGGESTIONS: Record<string, string[]> = {
     'Which dept has highest burnout?',
     'Compare Engineering and Sales',
   ],
-  '/employees/org-tree': [
-    'Who has the most at-risk team?',
-    'What is the average span of control?',
-    'Show me the VP Engineering team',
-  ],
   '/job-board': [
     'How many jobs are awaiting approval?',
     'Which skills are most in demand externally?',
@@ -114,7 +108,6 @@ function resolveAgent(pathname: string) {
 
 function sectionKey(pathname: string): string {
   if (pathname === '/org-health' || pathname === '/dashboard') return 'overview';
-  if (pathname.startsWith('/employees/org-tree')) return 'org-tree';
   if (pathname.startsWith('/employees')) return 'employees';
   if (pathname.startsWith('/hr/appraisals')) return 'appraisals';
   if (pathname.startsWith('/hr/feedback-analyzer')) return 'feedback';
@@ -128,8 +121,7 @@ function newId(): string {
 
 function getSuggestedQuestions(pathname: string, context: Record<string, unknown>): string[] {
   let basePath = pathname;
-  if (pathname.startsWith('/employees/org-tree')) basePath = '/employees/org-tree';
-  else if (pathname.startsWith('/employees')) basePath = '/employees';
+  if (pathname.startsWith('/employees')) basePath = '/employees';
   else if (pathname.startsWith('/hr/appraisals')) basePath = '/hr/appraisals';
   else if (pathname.startsWith('/hr/feedback-analyzer')) basePath = '/hr/feedback-analyzer';
   else if (pathname.startsWith('/departments/heatmap')) basePath = '/departments/heatmap';
@@ -569,6 +561,7 @@ export function VoiceAssistant() {
       : micState === 'speaking'
       ? 'Speaking...'
       : 'Click to speak';
+  const isDarkTheme = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
   return (
     <>
@@ -587,13 +580,13 @@ export function VoiceAssistant() {
             className={`nova-voice-fab relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-foreground shadow-[2px_2px_0px_#000] transition-transform hover:-translate-y-0.5 ${
               introBouncing ? 'nova-intro-bounce' : ''
             }`}
-            style={{ backgroundColor: '#F5C518' }}
+            style={{ backgroundColor: isDarkTheme ? '#3b82f6' : '#F5C518' }}
           >
             <span
               className="absolute inset-0 rounded-full"
               style={{ animation: 'nova-voice-pulse 2.4s ease-out infinite' }}
             />
-            <Mic className="h-6 w-6 text-black" />
+            <Mic className="h-6 w-6" style={{ color: isDarkTheme ? '#ffffff' : '#111827' }} />
             <style>{`
               @keyframes nova-voice-pulse {
                 0% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.55); }
@@ -616,13 +609,22 @@ export function VoiceAssistant() {
 
       {open && (
         <div
-          className="fixed bottom-6 right-6 z-[1000] flex flex-col border border-[#e5e7eb] bg-white"
-          style={{ width: 360, height: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', borderRadius: 12, overflow: 'hidden' }}
+          className="fixed bottom-6 right-6 z-[1000] flex flex-col border"
+          style={{
+            borderColor: 'var(--border-color)',
+            backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff',
+            color: 'var(--text-primary)',
+            width: 360,
+            height: 500,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            borderRadius: 12,
+            overflow: 'hidden',
+          }}
         >
-          <div className="h-1 w-full bg-[#F5C518]" />
-          <header className="flex items-center gap-2 border-b-2 border-foreground bg-[#F5C518] px-3 py-2">
-            <div className="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-black">
-              <Bot className="h-4 w-4 text-[#F5C518]" />
+          <div className="h-1 w-full" style={{ backgroundColor: 'var(--accent-primary)' }} />
+          <header className="flex items-center gap-2 border-b-2 border-foreground px-3 py-2" style={{ backgroundColor: isDarkTheme ? '#3b82f6' : '#F5C518' }}>
+            <div className="flex h-8 w-8 items-center justify-center border-2 border-foreground" style={{ backgroundColor: isDarkTheme ? '#0f172a' : '#111827' }}>
+              <Bot className="h-4 w-4" style={{ color: isDarkTheme ? '#f1f5f9' : '#F5C518' }} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold leading-tight">NOVA Assistant</p>
@@ -634,7 +636,8 @@ export function VoiceAssistant() {
               type="button"
               onClick={() => setMuted((v) => !v)}
               title={muted ? 'Unmute voice' : 'Mute voice'}
-              className="mr-1 flex h-7 w-7 items-center justify-center border-2 border-foreground bg-white text-black hover:bg-black hover:text-white"
+              className="mr-1 flex h-7 w-7 items-center justify-center border-2 border-foreground"
+              style={{ backgroundColor: isDarkTheme ? '#334155' : '#ffffff', color: isDarkTheme ? '#f1f5f9' : '#111827' }}
             >
               {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
             </button>
@@ -642,13 +645,17 @@ export function VoiceAssistant() {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Minimize"
-              className="flex h-7 w-7 items-center justify-center border-2 border-foreground bg-white text-black hover:bg-black hover:text-white"
+              className="flex h-7 w-7 items-center justify-center border-2 border-foreground"
+              style={{ backgroundColor: isDarkTheme ? '#334155' : '#ffffff', color: isDarkTheme ? '#f1f5f9' : '#111827' }}
             >
               <Minus className="h-4 w-4" />
             </button>
           </header>
 
-          <div className={`flex-1 overflow-y-auto px-3 py-3 bg-white transition-colors duration-500 ${clearFlash ? 'bg-yellow-50' : ''}`}>
+          <div
+            className={`flex-1 overflow-y-auto px-3 py-3 transition-colors duration-500 ${clearFlash ? 'bg-yellow-50' : ''}`}
+            style={{ backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff' }}
+          >
             {agentSwitchToast && (
               <div className="mx-auto mb-2 w-fit rounded-full bg-gray-100 px-3 py-1 text-[11px] italic text-gray-700 nova-agent-switch-pill">
                 🔄 {agentSwitchToast}
@@ -679,11 +686,22 @@ export function VoiceAssistant() {
                     )}
                     <div className="flex max-w-[78%] flex-col gap-1">
                       <div
-                        className={`px-3 py-2 text-xs leading-snug whitespace-pre-wrap border ${
+                        className="px-3 py-2 text-xs leading-snug whitespace-pre-wrap border rounded-[16px_16px_16px_4px]"
+                        style={
                           isUser
-                            ? 'bg-[#F5C518] text-black border-[#F5C518] rounded-[16px_16px_4px_16px]'
-                            : 'bg-[#f9fafb] text-[#111] border-[#e5e7eb] rounded-[16px_16px_16px_4px]'
-                        }`}
+                            ? {
+                                backgroundColor: isDarkTheme ? '#3b82f6' : '#F5C518',
+                                color: isDarkTheme ? '#ffffff' : '#111827',
+                                borderColor: isDarkTheme ? '#3b82f6' : '#F5C518',
+                                borderRadius: '16px 16px 4px 16px',
+                              }
+                            : {
+                                backgroundColor: isDarkTheme ? '#334155' : '#f9fafb',
+                                color: isDarkTheme ? '#f1f5f9' : '#111111',
+                                borderColor: isDarkTheme ? '#475569' : '#e5e7eb',
+                                borderRadius: '16px 16px 16px 4px',
+                              }
+                        }
                       >
                         {m.content}
                         {!isUser && speakingMessageId === m.id && micState === 'speaking' && (
@@ -818,7 +836,8 @@ export function VoiceAssistant() {
               <button
                 type="submit"
                 disabled={!inputValue.trim() || micState === 'processing'}
-                className="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-[#F5C518] disabled:opacity-40"
+                className="flex h-8 w-8 items-center justify-center border-2 border-foreground disabled:opacity-40"
+                style={{ backgroundColor: isDarkTheme ? '#3b82f6' : '#F5C518', color: isDarkTheme ? '#ffffff' : '#111827' }}
                 aria-label="Send"
               >
                 <Send className="h-4 w-4" />
@@ -869,11 +888,25 @@ export function VoiceAssistant() {
                   micState === 'listening'
                     ? 'bg-red-500 text-white'
                     : micState === 'speaking'
-                    ? 'bg-blue-500 text-white'
+                    ? 'text-white'
                     : micState === 'processing'
                     ? 'bg-gray-300 text-black'
-                    : 'bg-gray-100 text-black hover:bg-[#F5C518]'
+                    : 'text-black'
                 } ${!speechSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                style={{
+                  backgroundColor:
+                    micState === 'speaking'
+                      ? '#3b82f6'
+                      : micState === 'idle'
+                      ? isDarkTheme
+                        ? '#3b82f6'
+                        : '#F5C518'
+                      : undefined,
+                  color:
+                    micState === 'speaking' || (micState === 'idle' && isDarkTheme)
+                      ? '#ffffff'
+                      : undefined,
+                }}
               >
                 {micState === 'speaking' ? (
                   <Volume2 className="h-4 w-4" />

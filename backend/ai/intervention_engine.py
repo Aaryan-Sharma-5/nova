@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import lru_cache
@@ -13,6 +14,24 @@ from pydantic import BaseModel, Field
 
 from ai.groq_client import groq_chat
 from ai.models import StructuredInsight, build_fallback_structured_insight, parse_structured_insight
+
+
+_BANNED_LANGUAGE_TERMS = {
+    "general",
+    "soldier",
+    "warrior",
+    "player",
+    "fighter",
+    "champion",
+    "battle",
+    "war",
+    "troops",
+}
+
+
+def _contains_banned_language(text: str) -> bool:
+    lowered = text.lower()
+    return any(re.search(rf"\\b{re.escape(term)}\\b", lowered) for term in _BANNED_LANGUAGE_TERMS)
 
 
 class InterventionType(str, Enum):
@@ -383,6 +402,9 @@ async def _enrich_with_llm(
                 f"The recommended intervention is: {top_intervention}. "
                 "In 2-3 sentences, explain why this specific intervention is recommended for this employee right now, "
                 "and what outcome HR should expect. Be specific, not generic. Do not use placeholder text.\n\n"
+                "Do not use military metaphors, sports metaphors, or figurative language. "
+                "Write in plain professional HR language only. "
+                "Do not describe employees as 'soldiers', 'generals', 'warriors', 'players', or any non-workplace metaphor.\n\n"
                 "Output JSON with fields: summary, key_signals, recommended_action, confidence, urgency."
             ),
         },
@@ -424,7 +446,39 @@ async def _enrich_with_llm(
         content = response.choices[0].message.content if response and response.choices else ""
         if not content or len(content.strip()) < 20:
             return fallback
-        return parse_structured_insight(content, fallback)
+
+        parsed = parse_structured_insight(content, fallback)
+        combined_text = " ".join(
+            [
+                parsed.summary,
+                " ".join(parsed.key_signals),
+                parsed.recommended_action,
+            ]
+        )
+        if _contains_banned_language(combined_text):
+            retry_response = await groq_chat(messages)
+            retry_content = (
+                retry_response.choices[0].message.content
+                if retry_response and retry_response.choices
+                else ""
+            )
+            if not retry_content or len(retry_content.strip()) < 20:
+                return fallback
+
+            retry_parsed = parse_structured_insight(retry_content, fallback)
+            retry_combined = " ".join(
+                [
+                    retry_parsed.summary,
+                    " ".join(retry_parsed.key_signals),
+                    retry_parsed.recommended_action,
+                ]
+            )
+            if _contains_banned_language(retry_combined):
+                return fallback
+
+            return retry_parsed
+
+        return parsed
     except Exception:
         return fallback
 

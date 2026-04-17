@@ -32,7 +32,7 @@ type TreeMode = "focused" | "full";
 
 const DEPARTMENT_OPTIONS = ["All", "Engineering", "Sales", "HR", "Design", "Finance", "Operations"] as const;
 const NODE_WIDTH = 200;
-const NODE_HEIGHT = 100;
+const NODE_HEIGHT = 85;
 const TREE_WIDTH = 1600;
 const TREE_HEIGHT = 560;
 
@@ -99,26 +99,45 @@ function getRiskLabel(employee?: { burnoutRisk?: number; attritionRisk?: number 
 
 function levelStyles(level: number): { fill: string; border: string; text: string } {
   if (level === 1) return { fill: "#fffbe6", border: "#F5C518", text: "#111827" };
-  if (level === 2) return { fill: "#111827", border: "#111827", text: "#ffffff" };
-  if (level === 3) return { fill: "#374151", border: "#374151", text: "#ffffff" };
+  if (level === 2) return { fill: "#1d4ed8", border: "#60a5fa", text: "#ffffff" };
+  if (level === 3) return { fill: "#334155", border: "#64748b", text: "#ffffff" };
   return { fill: "#f9fafb", border: "#d1d5db", text: "#111827" };
 }
 
-function buildVisibleTree(node: OrgNode, pathIds: Set<string>, mode: TreeMode, rootId: string): OrgNode {
-  if (mode === "full") {
-    const visibleChildren = (node.children || [])
-      .filter((child) => child.org_level <= 3)
-      .map((child) => buildVisibleTree(child, pathIds, mode, rootId));
-    return { ...node, children: visibleChildren };
+function buildVisibleTree(node: OrgNode, collapsedNodeIds: Set<string>): OrgNode {
+  const isCollapsed = collapsedNodeIds.has(node.employee_id);
+  if (isCollapsed) {
+    return { ...node, children: [] };
   }
 
-  const onPath = pathIds.has(node.employee_id);
-  const shouldExpand = node.employee_id === rootId || (onPath && node.employee_id !== rootId && node.children && node.children.length > 0);
-  const visibleChildren = shouldExpand
-    ? (node.children || []).map((child) => buildVisibleTree(child, pathIds, mode, rootId))
-    : [];
+  const visibleChildren = (node.children || []).map((child) => buildVisibleTree(child, collapsedNodeIds));
   return { ...node, children: visibleChildren };
 }
+
+function collectExpandableNodeIds(node: OrgNode): string[] {
+  const ids: string[] = [];
+  const walk = (current: OrgNode) => {
+    if ((current.children || []).length > 0) {
+      ids.push(current.employee_id);
+      (current.children || []).forEach(walk);
+    }
+  };
+  walk(node);
+  return ids;
+}
+
+function buildChildCountMap(root: OrgNode): Map<string, number> {
+  const map = new Map<string, number>();
+  const walk = (node: OrgNode) => {
+    const count = (node.children || []).length;
+    map.set(node.employee_id, count);
+    (node.children || []).forEach(walk);
+  };
+  walk(root);
+  return map;
+}
+
+
 
 function visibleCount(node: OrgNode): number {
   return 1 + (node.children || []).reduce((sum, child) => sum + visibleCount(child), 0);
@@ -157,20 +176,20 @@ function TreeCanvas({
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomLayerRef = useRef<SVGGElement>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const [expandedPathIds, setExpandedPathIds] = useState<string[]>([hierarchy.employee_id]);
+  const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(new Set());
   const [selectedLeaf, setSelectedLeaf] = useState<{ node: OrgNode; x: number; y: number } | null>(null);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
 
   const employeeMap = useMemo(() => new Map(employees.map((employee) => [employee.id, employee])), [employees]);
+  const originalChildCountMap = useMemo(() => buildChildCountMap(hierarchy), [hierarchy]);
 
   const visibleTree = useMemo(() => {
-    const pathIds = new Set(expandedPathIds);
-    return buildVisibleTree(hierarchy, pathIds, mode, hierarchy.employee_id);
-  }, [expandedPathIds, hierarchy, mode]);
+    return buildVisibleTree(hierarchy, collapsedNodeIds);
+  }, [collapsedNodeIds, hierarchy]);
 
   const hierarchyLayout = useMemo(() => {
     const root = d3.hierarchy(visibleTree, (node) => node.children || []);
-    const tree = d3.tree<OrgNode>().nodeSize([220, 160]);
+    const tree = d3.tree<OrgNode>().nodeSize([240, 120]);
     tree(root);
     return root;
   }, [mode, visibleTree]);
@@ -190,7 +209,7 @@ function TreeCanvas({
     const zoomLayer = d3.select(zoomLayerRef.current);
     svg.selectAll(".zoom-listener").remove();
 
-    const initialTransform = d3.zoomIdentity.translate(TREE_WIDTH / 2, 80).scale(0.75);
+    const initialTransform = d3.zoomIdentity.translate(TREE_WIDTH / 2, 60).scale(0.9);
     const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.4, 2.5])
       .on("zoom", (event) => {
@@ -199,6 +218,7 @@ function TreeCanvas({
 
     zoomBehaviorRef.current = zoomBehavior;
     svg.call(zoomBehavior as any);
+    svg.on("dblclick.zoom", null);
     svg.call(zoomBehavior.transform as any, initialTransform as any);
 
     return () => {
@@ -226,7 +246,12 @@ function TreeCanvas({
   }, [nodeById, pendingFocusNodeId]);
 
   useEffect(() => {
-    setExpandedPathIds([hierarchy.employee_id]);
+    const rootChildren = new Set((hierarchy.children || []).map((child) => child.employee_id));
+    const allExpandable = collectExpandableNodeIds(hierarchy);
+    const initiallyCollapsed = allExpandable.filter(
+      (employeeId) => employeeId !== hierarchy.employee_id && !rootChildren.has(employeeId),
+    );
+    setCollapsedNodeIds(new Set(initiallyCollapsed));
     setSelectedLeaf(null);
   }, [hierarchy.employee_id, mode]);
 
@@ -237,7 +262,11 @@ function TreeCanvas({
       if (!employeeId) return;
       const path = findPath(hierarchy, employeeId);
       if (path.length > 0) {
-        setExpandedPathIds(path);
+        setCollapsedNodeIds((previous) => {
+          const next = new Set(previous);
+          path.forEach((id) => next.delete(id));
+          return next;
+        });
         setSelectedLeaf(null);
       }
     };
@@ -249,7 +278,7 @@ function TreeCanvas({
   const handleFitToScreen = () => {
     if (!svgRef.current || !zoomBehaviorRef.current) return;
     const svg = d3.select(svgRef.current);
-    const initialTransform = d3.zoomIdentity.translate(TREE_WIDTH / 2, 80).scale(0.75);
+    const initialTransform = d3.zoomIdentity.translate(TREE_WIDTH / 2, 60).scale(0.9);
     svg.transition().duration(300).call(zoomBehaviorRef.current.transform as any, initialTransform as any);
   };
 
@@ -257,22 +286,18 @@ function TreeCanvas({
     if (!searchQuery.trim()) return;
     const path = findPathByName(hierarchy, searchQuery);
     if (path.length > 0) {
-      setExpandedPathIds(path);
+      setCollapsedNodeIds((previous) => {
+        const next = new Set(previous);
+        path.forEach((id) => next.delete(id));
+        return next;
+      });
       setPendingFocusNodeId(path[path.length - 1]);
     }
   };
 
   const handleNodeClick = (node: d3.HierarchyPointNode<OrgNode>) => {
-    const children = node.data.children || [];
-    if (children.length > 0) {
-      if (expandedPathIds[expandedPathIds.length - 1] === node.data.employee_id) {
-        const collapsed = expandedPathIds.slice(0, Math.max(1, expandedPathIds.length - 1));
-        setExpandedPathIds(collapsed);
-      } else {
-        const path = findPath(hierarchy, node.data.employee_id);
-        setExpandedPathIds(path.length > 0 ? path : [hierarchy.employee_id]);
-      }
-      setSelectedLeaf(null);
+    const reportsCount = originalChildCountMap.get(node.data.employee_id) || 0;
+    if (reportsCount > 0) {
       return;
     }
 
@@ -282,12 +307,30 @@ function TreeCanvas({
     }
   };
 
+  const handleNodeDoubleClick = (node: d3.HierarchyPointNode<OrgNode>) => {
+    const reportsCount = originalChildCountMap.get(node.data.employee_id) || 0;
+    if (reportsCount <= 0) {
+      return;
+    }
+
+    setCollapsedNodeIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(node.data.employee_id)) {
+        next.delete(node.data.employee_id);
+      } else {
+        next.add(node.data.employee_id);
+      }
+      return next;
+    });
+    setSelectedLeaf(null);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Organizational Hierarchy</h2>
-          <p className="text-sm text-muted-foreground">Click any node to expand their team</p>
+          <h2 className="text-2xl font-bold">Org Tree</h2>
+          <p className="text-sm text-muted-foreground">Double-click a node to expand or collapse its team</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -326,7 +369,11 @@ function TreeCanvas({
           <Button
             variant="outline"
             onClick={() => {
-              setExpandedPathIds([hierarchy.employee_id]);
+              const rootChildren = new Set((hierarchy.children || []).map((child) => child.employee_id));
+              const resetCollapsed = collectExpandableNodeIds(hierarchy).filter(
+                (employeeId) => employeeId !== hierarchy.employee_id && !rootChildren.has(employeeId),
+              );
+              setCollapsedNodeIds(new Set(resetCollapsed));
               setSelectedLeaf(null);
               onReset();
             }}
@@ -387,16 +434,17 @@ function TreeCanvas({
                 const riskLabel = getRiskLabel(employee);
                 const chip = roleChip(node.data);
                 const [titleLine1, titleLine2] = splitTitleLines(node.data.title || node.data.role || node.data.department);
-                const reportsCount = node.data.children?.length || 0;
-                const expanded = expandedPathIds[expandedPathIds.length - 1] === node.data.employee_id;
-                const nameFontSize = node.data.name.length > 18 ? 12 : 13;
+                const reportsCount = originalChildCountMap.get(node.data.employee_id) || 0;
+                const expanded = !collapsedNodeIds.has(node.data.employee_id);
+                const nameFontSize = node.data.name.length > 18 ? 13 : 14;
 
                 return (
                   <g
                     key={node.data.employee_id}
                     transform={`translate(${node.x - NODE_WIDTH / 2}, ${node.y - NODE_HEIGHT / 2})`}
-                    style={{ cursor: node.data.children && node.data.children.length > 0 ? "pointer" : "default", opacity }}
+                    style={{ cursor: reportsCount > 0 ? "pointer" : "default", opacity }}
                     onClick={() => handleNodeClick(node)}
+                    onDoubleClick={() => handleNodeDoubleClick(node)}
                   >
                     <title>{node.data.name}</title>
                     <rect
@@ -411,37 +459,33 @@ function TreeCanvas({
                     <text x={NODE_WIDTH / 2} y="18" textAnchor="middle" fill={styles.text} fontSize={nameFontSize} fontWeight="700">
                       {node.data.name}
                     </text>
-                    <text x={NODE_WIDTH / 2} y="35" textAnchor="middle" fill={styles.text} opacity={0.85} fontSize="11">
+                    <text x={NODE_WIDTH / 2} y="35" textAnchor="middle" fill={styles.text} opacity={0.85} fontSize="12">
                       <tspan x={NODE_WIDTH / 2} dy="0">{titleLine1}</tspan>
                       {titleLine2 ? <tspan x={NODE_WIDTH / 2} dy="14">{titleLine2}</tspan> : null}
                     </text>
 
-                    <rect x="16" y="66" width="114" height="22" rx="11" fill={chip.fill} fillOpacity={0.95} stroke={chip.stroke} strokeWidth="0.8" />
-                    <text x="73" y="81" textAnchor="middle" fill={chip.textColor} fontSize="10" fontWeight="700">
+                    <rect x="16" y="56" width="124" height="22" rx="11" fill={chip.fill} fillOpacity={0.95} stroke={chip.stroke} strokeWidth="0.8" />
+                    <text x="78" y="70" textAnchor="middle" fill={chip.textColor} fontSize="11" fontWeight="700">
                       {chip.label}
                     </text>
 
                     {reportsCount > 0 ? (
                       <>
-                        <circle
-                          cx={NODE_WIDTH / 2}
-                          cy={NODE_HEIGHT - 2}
-                          r="9"
-                          fill={expanded ? "#F5C518" : "#e5e7eb"}
-                          stroke="#6b7280"
-                          strokeWidth="1"
-                        />
-                        <text x={NODE_WIDTH / 2} y={NODE_HEIGHT + 2} textAnchor="middle" fill="#111827" fontSize="10" fontWeight="700">
-                          {expanded ? "▴" : "▾"}
-                        </text>
-                        <text x={NODE_WIDTH / 2 + 14} y={NODE_HEIGHT + 2} textAnchor="start" fill={styles.text} opacity={0.85} fontSize="10" fontWeight="600">
-                          {expanded ? "collapse" : `${reportsCount} reports`}
+                        <text
+                          x={NODE_WIDTH / 2}
+                          y={NODE_HEIGHT + 12}
+                          textAnchor="middle"
+                          fill="#94a3b8"
+                          fontSize="10"
+                          fontWeight="600"
+                        >
+                          {expanded ? "▲ collapse" : `▼ ${reportsCount} reports`}
                         </text>
                       </>
                     ) : (
                       <>
-                        <circle cx="172" cy="77" r="5" fill={riskLabel === "At risk" ? "#ef4444" : "#22c55e"} />
-                        <text x="153" y="94" textAnchor="middle" fill={styles.text} opacity={0.8} fontSize="10">
+                        <circle cx="172" cy="60" r="5" fill={riskLabel === "At risk" ? "#ef4444" : "#22c55e"} />
+                        <text x="153" y="76" textAnchor="middle" fill={styles.text} opacity={0.8} fontSize="10">
                           {riskLabel}
                         </text>
                       </>
@@ -489,16 +533,33 @@ function TreeCanvas({
   );
 }
 
-export default function FocusedOrgTree() {
+type FocusedOrgTreeProps = {
+  searchQuery?: string;
+  onSearchQueryChange?: (value: string) => void;
+  selectedDepartment?: string;
+  onSelectedDepartmentChange?: (value: string) => void;
+};
+
+export default function FocusedOrgTree({
+  searchQuery: externalSearchQuery,
+  onSearchQueryChange,
+  selectedDepartment: externalSelectedDepartment,
+  onSelectedDepartmentChange,
+}: FocusedOrgTreeProps = {}) {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [hierarchy, setHierarchy] = useState<OrgNode | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({ 1: 0, 2: 0, 3: 0, 4: 0 });
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
+  const [internalSelectedDepartment, setInternalSelectedDepartment] = useState<string>("All");
   const [riskOverlay, setRiskOverlay] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fullTreeOpen, setFullTreeOpen] = useState(false);
+
+  const searchQuery = externalSearchQuery ?? internalSearchQuery;
+  const setSearchQuery = onSearchQueryChange ?? setInternalSearchQuery;
+  const selectedDepartment = externalSelectedDepartment ?? internalSelectedDepartment;
+  const setSelectedDepartment = onSelectedDepartmentChange ?? setInternalSelectedDepartment;
 
   useEffect(() => {
     const loadHierarchy = async () => {
@@ -521,11 +582,11 @@ export default function FocusedOrgTree() {
   const root = hierarchy;
 
   if (loading) {
-    return <div className="rounded-xl border p-6 text-sm text-muted-foreground">Loading organizational hierarchy...</div>;
+    return <div className="rounded-xl border p-6 text-sm text-muted-foreground">Loading org tree...</div>;
   }
 
   if (!root) {
-    return <div className="rounded-xl border p-6 text-sm text-muted-foreground">Organization hierarchy is unavailable.</div>;
+    return <div className="rounded-xl border p-6 text-sm text-muted-foreground">Org tree is unavailable.</div>;
   }
 
   return (
@@ -551,7 +612,7 @@ export default function FocusedOrgTree() {
             <DialogTitle>Full Org Tree</DialogTitle>
           </DialogHeader>
           <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Loading full org tree... the default view keeps level 4 nodes collapsed for performance.
+            Full-screen org tree view. Click any node to collapse or expand that team.
           </div>
           <div className="mt-4">
             <TreeCanvas
@@ -593,12 +654,12 @@ function roleChip(node: OrgNode): { label: string; fill: string; stroke: string;
     return { label: `VP · ${node.department.toUpperCase()}`, fill: "#111827", stroke: "#111827", textColor: "#ffffff" };
   }
   const palette: Record<string, { fill: string; stroke: string; textColor: string }> = {
-    Engineering: { fill: "#e0f2fe", stroke: "#7dd3fc", textColor: "#0c4a6e" },
-    Sales: { fill: "#fef3c7", stroke: "#fcd34d", textColor: "#78350f" },
-    HR: { fill: "#ffe4e6", stroke: "#fda4af", textColor: "#881337" },
-    Design: { fill: "#f3e8ff", stroke: "#d8b4fe", textColor: "#581c87" },
-    Finance: { fill: "#dcfce7", stroke: "#86efac", textColor: "#14532d" },
-    Operations: { fill: "#e2e8f0", stroke: "#94a3b8", textColor: "#0f172a" },
+    Engineering: { fill: "#3b82f6", stroke: "#3b82f6", textColor: "#ffffff" },
+    Sales: { fill: "#f59e0b", stroke: "#f59e0b", textColor: "#111827" },
+    HR: { fill: "#8b5cf6", stroke: "#8b5cf6", textColor: "#ffffff" },
+    Design: { fill: "#ec4899", stroke: "#ec4899", textColor: "#ffffff" },
+    Finance: { fill: "#10b981", stroke: "#10b981", textColor: "#052e16" },
+    Operations: { fill: "#06b6d4", stroke: "#06b6d4", textColor: "#083344" },
   };
   const style = palette[node.department] || { fill: "#f3f4f6", stroke: "#d1d5db", textColor: "#111827" };
   return {

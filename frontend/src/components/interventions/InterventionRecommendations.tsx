@@ -81,6 +81,8 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
     critical: 'Critical - Act Immediately',
   };
 
+  const isDarkTheme = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
   const interventionPrefillMap: Record<string, {
     meetingLoadReductionPct: number;
     workHoursNormalizationPct: number;
@@ -198,10 +200,23 @@ const InterventionRecommendations: React.FC<InterventionRecommendationsProps> = 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className={`border-l-4 p-4 rounded-r-lg ${urgencyColors[overallUrgency]}`}>
+      <div
+        className={`border-l-4 p-4 rounded-r-lg ${isDarkTheme ? urgencyColors[overallUrgency] : ''}`}
+        style={
+          isDarkTheme
+            ? { backgroundColor: 'var(--alert-banner-bg)' }
+            : {
+                backgroundColor: 'var(--bg-card)',
+                borderLeftColor: 'var(--accent-primary)',
+                color: 'var(--text-primary)',
+              }
+        }
+      >
         <div className="flex items-center gap-3 mb-2">
           {urgencyIcons[overallUrgency]}
-          <h3 className="font-semibold text-[#F5C518]">Intervention Recommendations for {employeeName}</h3>
+          <h3 className="font-semibold" style={{ color: isDarkTheme ? 'var(--accent-primary)' : '#1a1a1a' }}>
+            Intervention Recommendations for {employeeName}
+          </h3>
         </div>
         <p className="text-sm opacity-90 mb-2">{urgencyBadgeText[overallUrgency]}</p>
         <p className="text-sm italic">{reasoning}</p>

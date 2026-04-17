@@ -17,7 +17,7 @@ export default function DashboardPage() {
     <HRDashboard />;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 dashboard-blue-theme">
       <nav className="text-xs text-muted-foreground" aria-label="Breadcrumb">
         <Link to="/org-health" className="hover:text-foreground underline-offset-2 hover:underline">
           Org Wellbeing

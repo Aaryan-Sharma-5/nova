@@ -47,7 +47,8 @@ export default function HRDashboard() {
         </div>
         <Link
           to="/org-health"
-          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 border-foreground bg-[#FFE500] shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] transition-all"
+          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 border-foreground shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] transition-all"
+          style={{ backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' }}
         >
           Full Analytics <ArrowRight className="h-2.5 w-2.5" />
         </Link>
@@ -62,7 +63,8 @@ export default function HRDashboard() {
 
       <Link
         to="/departments/heatmap"
-        className="flex items-center justify-between border-2 border-foreground bg-[#FFE500] p-4 shadow-[4px_4px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#000] transition-all"
+        className="flex items-center justify-between border-2 border-foreground p-4 shadow-[4px_4px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#000] transition-all"
+        style={{ backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' }}
       >
         <div className="flex items-center gap-3">
           <LayoutGrid className="h-5 w-5" />
@@ -124,7 +126,7 @@ export default function HRDashboard() {
                     className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-2 border-foreground"
                     style={{
                       backgroundColor:
-                        emp.burnoutRisk >= 70 ? '#FF1744' : emp.burnoutRisk >= 50 ? '#FFB300' : '#00C853',
+                        emp.burnoutRisk >= 70 ? '#FF1744' : emp.burnoutRisk >= 50 ? '#2563eb' : '#00C853',
                       color: emp.burnoutRisk >= 70 ? '#fff' : '#1A1A1A',
                     }}
                   >
@@ -134,7 +136,7 @@ export default function HRDashboard() {
                     className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-2 border-foreground"
                     style={{
                       backgroundColor:
-                        emp.attritionRisk >= 70 ? '#FF1744' : emp.attritionRisk >= 50 ? '#FFB300' : '#00C853',
+                        emp.attritionRisk >= 70 ? '#FF1744' : emp.attritionRisk >= 50 ? '#2563eb' : '#00C853',
                       color: emp.attritionRisk >= 70 ? '#fff' : '#1A1A1A',
                     }}
                   >

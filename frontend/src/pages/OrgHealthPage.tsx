@@ -808,11 +808,24 @@ export default function OrgHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {atRiskEmployees.map((emp, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+              {atRiskEmployees.map((emp, i) => {
+                const rankColors = ['#b91c1c', '#dc2626', '#f97316', '#f59e0b', '#eab308'];
+                const rankColor = rankColors[i] ?? rankColors[rankColors.length - 1];
+                const reasonChips = emp.reason.split('+').map((item) => item.trim()).filter(Boolean);
+
+                return (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded-lg border p-4"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    borderColor: 'var(--border-color)',
+                    borderLeft: `4px solid ${rankColor}`,
+                  }}
+                >
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <Badge variant="destructive" className="w-8 justify-center">
+                      <Badge className="w-8 justify-center" style={{ backgroundColor: rankColor, color: '#fff' }}>
                         #{i + 1}
                       </Badge>
                       <div>
@@ -822,14 +835,37 @@ export default function OrgHealthPage() {
                         <p className="text-sm text-muted-foreground">{emp.department}</p>
                       </div>
                     </div>
-                    <p className="text-sm text-red-700 mt-2 ml-11">{emp.reason}</p>
+                    <div className="mt-2 ml-11 flex flex-wrap gap-1.5">
+                      {reasonChips.map((chip) => (
+                        <span
+                          key={`${emp.id}-${chip}`}
+                          className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                          style={{
+                            backgroundColor: `color-mix(in srgb, ${rankColor} 16%, var(--bg-card))`,
+                            color: 'var(--text-primary)',
+                            border: `1px solid color-mix(in srgb, ${rankColor} 60%, transparent)`,
+                          }}
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-red-600">{emp.riskScore}</p>
+                  <div className="text-right space-y-2">
+                    <p className="text-3xl font-bold" style={{ color: rankColor }}>{emp.riskScore}</p>
                     <p className="text-xs text-muted-foreground">Risk Score</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/insights/${emp.id}`)}
+                      className="text-xs"
+                    >
+                      Take Action →
+                    </Button>
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </CardContent>
         </Card>

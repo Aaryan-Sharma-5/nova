@@ -140,6 +140,53 @@
     box-shadow: var(--shadow-lg);
   }
 
+  html.dark .dashboard-blue-theme .metric-card,
+  html.dark .dashboard-blue-theme [class~="bg-card"] {
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+  }
+
+  html.dark .dashboard-blue-theme [class~="bg-background"] {
+    background-color: #111827 !important;
+    color: #e2e8f0 !important;
+  }
+
+  html.dark .dashboard-blue-theme [class~="border-foreground"] {
+    border-color: #334155 !important;
+  }
+
+  html.dark .dashboard-blue-theme [class~="text-foreground"] {
+    color: #e2e8f0 !important;
+  }
+
+  html.dark .dashboard-blue-theme [class~="text-muted-foreground"] {
+    color: #94a3b8 !important;
+  }
+
+  html.dark .dashboard-blue-theme [class~="bg-white"],
+  html.dark .dashboard-blue-theme [class~="bg-gray-50"],
+  html.dark .dashboard-blue-theme [class~="bg-slate-50"] {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+  }
+
+  .insights-dark-theme [class~="bg-slate-50"],
+  .insights-dark-theme [class~="bg-blue-50"],
+  .insights-dark-theme [class~="bg-emerald-50"],
+  .insights-dark-theme [class~="bg-red-100"] {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+  }
+
+  .insights-dark-theme [class~="text-slate-700"],
+  .insights-dark-theme [class~="text-slate-800"],
+  .insights-dark-theme [class~="text-slate-900"],
+  .insights-dark-theme [class~="text-blue-800"],
+  .insights-dark-theme [class~="text-blue-900"] {
+    color: #e2e8f0 !important;
+  }
+
   /* ─── Risk Badges ─── */
   .risk-badge {
     @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold tracking-wider uppercase border-2 border-foreground;

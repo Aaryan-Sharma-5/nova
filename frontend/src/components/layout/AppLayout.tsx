@@ -13,13 +13,14 @@ import {
   LogOut,
   CalendarClock,
   Settings2,
+  Sun,
+  Moon,
   LineChart,
   FileText,
   AlertTriangle,
   ClipboardList,
   Home,
   LayoutGrid,
-  Network,
   GitCommit,
   Briefcase,
   ListChecks,
@@ -104,7 +105,6 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           title: 'My Team',
           items: [
             { to: '/employees', icon: Users, label: 'Team Roster' },
-            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
             { to: '/sentiment', icon: MessageSquare, label: 'Team Sentiment' },
             { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
             { to: '/anomalies', icon: AlertTriangle, label: 'Risk Alerts' },
@@ -125,7 +125,6 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
             { to: '/hr/appraisals', icon: ClipboardList, label: 'Appraisals' },
             { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
             { to: `/insights/${insightsEmployeeId}`, icon: Brain, label: 'AI Insights' },
-            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
             { to: '/hr/sessions-schedule', icon: CalendarClock, label: 'Schedule Sessions' },
             { to: '/hr/sessions-review', icon: ClipboardList, label: 'Sessions to Review' },
             { to: '/integrations', icon: Settings2, label: 'Integrations' },
@@ -161,7 +160,6 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           title: 'Analytics',
           items: [
             { to: '/employees', icon: Users, label: 'Workforce' },
-            { to: '/employees/org-tree', icon: Network, label: '↳ Org Tree' },
             { to: '/departments/heatmap', icon: LayoutGrid, label: 'Dept Heatmap' },
             { to: '/sentiment', icon: MessageSquare, label: 'Sentiment Analyzer' },
             { to: '/hr/appraisals', icon: ClipboardList, label: 'Appraisals' },
@@ -184,7 +182,6 @@ function buildNavSections(role: UserRole, insightsEmployeeId: string): NavSectio
           items: [
             { to: '/', icon: Home, label: 'Home' },
             { to: '/your-data', icon: UserCircle, label: 'Your Data' },
-            { to: '/employees/org-tree', icon: Network, label: 'Org Tree' },
             { to: '/feedback-session', icon: MessageSquare, label: 'Feedback Session' },
             { to: '/work-profiles', icon: GitCommit, label: 'My Work Profile' },
             { to: '/employee/profile', icon: ShieldCheck, label: 'Privacy & Profile' },
@@ -242,6 +239,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [pendingAssignmentCount, setPendingAssignmentCount] = useState(0);
   const [pendingJobCount, setPendingJobCount] = useState(0);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
 
   const insightsEmployeeId = employees[0]?.id ?? 'emp-123';
 
@@ -331,6 +329,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [token, user?.role]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const savedTheme = window.localStorage.getItem('nova_theme');
+    const shouldUseDark = savedTheme === 'dark';
+    root.classList.toggle('dark', shouldUseDark);
+    setIsDarkTheme(shouldUseDark);
+  }, []);
+
+  useEffect(() => {
     const handler = (event: Event) => {
       event.preventDefault();
       const promptEvent = event as Partial<BeforeInstallPromptEvent>;
@@ -341,6 +347,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  const toggleTheme = () => {
+    const root = document.documentElement;
+    const nextIsDark = !isDarkTheme;
+    root.classList.toggle('dark', nextIsDark);
+    window.localStorage.setItem('nova_theme', nextIsDark ? 'dark' : 'light');
+    setIsDarkTheme(nextIsDark);
+  };
 
   const navSectionsWithBadges = useMemo<NavSection[]>(() => {
     return navSections.map((section) => ({
@@ -458,6 +472,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex-1">
             <h2 className="text-lg font-bold font-heading">{pageTitle}</h2>
           </div>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={isDarkTheme ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={isDarkTheme ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="inline-flex h-9 w-9 items-center justify-center border-2 border-foreground bg-card text-foreground shadow-[2px_2px_0px_#000] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px]"
+          >
+            {isDarkTheme ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          </button>
           {user && (
             <div className="flex items-center gap-2 border-2 border-foreground bg-card px-2 py-1 shadow-[2px_2px_0px_#000]">
               {user.avatar_url ? (
@@ -477,7 +500,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => void logout()}
-                className="inline-flex items-center gap-1 border-2 border-foreground bg-[#FFE500] px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_#000]"
+                className="inline-flex items-center gap-1 border-2 border-foreground px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_#000]"
+                style={{ backgroundColor: 'var(--button-primary-bg)', color: 'var(--button-primary-text)' }}
               >
                 <LogOut className="h-3 w-3" />
                 <span className="hidden sm:inline">Logout</span>
@@ -521,9 +545,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   className={({ isActive }) =>
                     `flex flex-col items-center justify-center py-2 border-2 ${
                       isActive
-                        ? 'border-foreground bg-[#FFE500] shadow-[2px_2px_0px_#000]'
+                        ? 'border-foreground shadow-[2px_2px_0px_#000]'
                         : 'border-transparent hover:border-foreground'
                     }`
+                  }
+                  style={({ isActive }) =>
+                    isActive
+                      ? { backgroundColor: 'var(--nav-active-bg)', color: 'var(--nav-active-text)' }
+                      : undefined
                   }
                 >
                   <item.icon className="h-3.5 w-3.5" />

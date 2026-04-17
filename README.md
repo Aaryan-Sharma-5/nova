@@ -17,12 +17,13 @@ Live demo: https://nova-two-woad.vercel.app/
 5. [Setup and Installation](#setup-and-installation)
 6. [Running the Application](#running-the-application)
 7. [Testing](#testing)
-8. [Docker Setup](#docker-setup)
-9. [API Endpoints](#api-endpoints)
-10. [Role-Based Access Control](#role-based-access-control)
-11. [Troubleshooting](#troubleshooting)
-12. [Documentation](#documentation)
-13. [License and Support](#license-and-support)
+8. [Backend CI and Render Deploy](#backend-ci-and-render-deploy)
+9. [Docker Setup](#docker-setup)
+10. [API Endpoints](#api-endpoints)
+11. [Role-Based Access Control](#role-based-access-control)
+12. [Troubleshooting](#troubleshooting)
+13. [Documentation](#documentation)
+14. [License and Support](#license-and-support)
 
 ---
 
@@ -209,6 +210,32 @@ Quick health check:
 ```bash
 curl http://localhost:8000/health
 ```
+
+---
+
+## Backend CI and Render Deploy
+
+This repository includes a backend-only GitHub Actions workflow:
+
+- Workflow file: [.github/workflows/backend-ci-render.yml](.github/workflows/backend-ci-render.yml)
+- Trigger scope: changes under backend/, render.yaml, or the workflow file itself
+- CI behavior: installs backend dependencies, runs compile check, then runs pytest on backend tests
+- CD behavior: on push to main/master, triggers Render deploy only if deploy hook secret is configured
+
+### GitHub Secrets Required
+
+Add this repository secret in GitHub:
+
+- RENDER_BACKEND_DEPLOY_HOOK_URL
+
+To get this value in Render:
+
+1. Open your Render service (nova-backend).
+2. Go to Settings.
+3. Find Deploy Hook and create/copy the hook URL.
+4. Save it as RENDER_BACKEND_DEPLOY_HOOK_URL in GitHub repository secrets.
+
+If the secret is missing, CI still runs, but deploy is skipped.
 
 ---
 

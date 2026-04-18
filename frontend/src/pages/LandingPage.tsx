@@ -475,7 +475,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:col-span-5">
             {[
               { value: "100%", subtitle: "EXPLAINABLE DECISIONS", tone: "bg-white text-black border-black shadow-[6px_6px_0_#F5C518]" },
-              { value: "6", subtitle: "INTEGRATED DATA SOURCES", tone: "bg-black text-[#F5C518] border-black shadow-[6px_6px_0_#F5C518]" },
+              { value: "3", subtitle: "INTEGRATED DATA SOURCES", tone: "bg-black text-[#F5C518] border-black shadow-[6px_6px_0_#F5C518]" },
               { value: "ZERO", subtitle: "OPAQUE AI DECISIONS", tone: "bg-[#F5C518] text-black border-black shadow-[6px_6px_0_#000]" },
               { value: "4", subtitle: "RBAC ACCESS LEVELS", tone: "bg-white text-black border-[#F5C518] shadow-[6px_6px_0_#F5C518]" },
             ].map((card, idx) => (

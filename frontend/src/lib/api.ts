@@ -1,7 +1,45 @@
 import { AuthUser, RegisterPayload, TokenResponse } from "@/types/auth";
 
 const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() ?? "";
-const API_BASE_URL = RAW_API_BASE_URL.replace(/\/$/, "");
+const NORMALIZED_API_BASE_URL = RAW_API_BASE_URL.replace(/\/$/, "");
+
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function resolveApiBaseUrl(): string {
+  if (!NORMALIZED_API_BASE_URL) {
+    return "";
+  }
+
+  if (typeof window === "undefined") {
+    return NORMALIZED_API_BASE_URL;
+  }
+
+  let parsedBase: URL;
+  try {
+    parsedBase = new URL(NORMALIZED_API_BASE_URL);
+  } catch {
+    return NORMALIZED_API_BASE_URL;
+  }
+
+  const browserHost = window.location.hostname;
+  if (!browserHost) {
+    return NORMALIZED_API_BASE_URL;
+  }
+
+  const browserIsLoopback = isLoopbackHost(browserHost);
+  const baseIsLoopback = isLoopbackHost(parsedBase.hostname);
+
+  if (!browserIsLoopback && baseIsLoopback) {
+    return `${parsedBase.protocol}//${browserHost}:${parsedBase.port || "8000"}`;
+  }
+
+  return NORMALIZED_API_BASE_URL;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";

@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { API_BASE_URL } from "@/lib/api";
 import { RefreshCw, Loader2, CheckCircle2, XCircle } from "lucide-react";
 
-const API_BASE = "";
+const API_BASE = API_BASE_URL;
 const ORG_ID = "demo-org";
 
 interface ComposioConnection {

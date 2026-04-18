@@ -4,7 +4,7 @@
 
 NOVA is an AI-powered organizational wellness and workforce risk intelligence platform. It helps HR, managers, and leadership identify burnout and attrition risk early, with explainable scoring and intervention recommendations.
 
-Live demo: https://nova-two-woad.vercel.app/
+Live demo: https://nova-brown-xi.vercel.app/
 
 ---
 

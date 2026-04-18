@@ -4,7 +4,7 @@ from typing import Any
 import requests
 try:
     from composio import ComposioToolSet as _ComposioToolSet
-except ModuleNotFoundError:
+except (ImportError, AttributeError):
     _ComposioToolSet = None
 
 from core.config import settings

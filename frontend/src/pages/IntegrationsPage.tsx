@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { API_BASE_URL } from "@/lib/api";
-import { RefreshCw, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { RefreshCw, Loader2, CheckCircle2, XCircle, Calendar } from "lucide-react";
 
 const API_BASE = API_BASE_URL;
 const ORG_ID = "demo-org";
@@ -21,6 +21,15 @@ interface ComposioConnection {
   redirect_url?: string;
 }
 
+type IntegrationState = {
+  conn: ComposioConnection | null;
+  loading: boolean;
+  connecting: boolean;
+  syncing: boolean;
+  syncResult: string | null;
+  connectError: string | null;
+};
+
 
 export default function IntegrationsPage() {
   useDocumentTitle("NOVA — Integrations");
@@ -28,13 +37,23 @@ export default function IntegrationsPage() {
 
   const [loading, setLoading] = useState(false);
 
-  // Slack / Composio state
-  const [slackConn, setSlackConn] = useState<ComposioConnection | null>(null);
-  const [slackLoading, setSlackLoading] = useState(false);
-  const [connectingSlack, setConnectingSlack] = useState(false);
-  const [syncingSlack, setSyncingSlack] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
-  const [connectError, setConnectError] = useState<string | null>(null);
+  const [slackState, setSlackState] = useState<IntegrationState>({
+    conn: null,
+    loading: false,
+    connecting: false,
+    syncing: false,
+    syncResult: null,
+    connectError: null,
+  });
+
+  const [calendarState, setCalendarState] = useState<IntegrationState>({
+    conn: null,
+    loading: false,
+    connecting: false,
+    syncing: false,
+    syncResult: null,
+    connectError: null,
+  });
 
   // Load Jira status
   useEffect(() => {
@@ -52,10 +71,9 @@ export default function IntegrationsPage() {
     void load();
   }, [token]);
 
-  // Load Slack connection status
-  const loadSlackStatus = async () => {
+  const loadComposioStatus = async (appName: string, setState: (updater: (prev: IntegrationState) => IntegrationState) => void) => {
     if (!token) return;
-    setSlackLoading(true);
+    setState((prev) => ({ ...prev, loading: true }));
     try {
       const res = await fetch(`${API_BASE}/api/composio/status/${ORG_ID}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -63,55 +81,71 @@ export default function IntegrationsPage() {
       if (!res.ok) return;
       const data = await res.json();
       const slack = (data.connections as ComposioConnection[])?.find(
-        (c) => c.app_name === "slack"
+        (c) => c.app_name === appName
       ) ?? null;
-      setSlackConn(slack);
+      setState((prev) => ({ ...prev, conn: slack }));
     } catch { /* ignore */ }
-    finally { setSlackLoading(false); }
+    finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
   };
 
-  useEffect(() => { void loadSlackStatus(); }, [token]);
+  useEffect(() => {
+    void loadComposioStatus("slack", setSlackState);
+    void loadComposioStatus("gcal", setCalendarState);
+  }, [token]);
 
   // When the user returns from the OAuth tab, re-check status automatically
   useEffect(() => {
-    const handleFocus = () => { void loadSlackStatus(); };
+    const handleFocus = () => {
+      void loadComposioStatus("slack", setSlackState);
+      void loadComposioStatus("gcal", setCalendarState);
+    };
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
   }, [token]);
 
-  // Connect Slack — opens OAuth in new tab
-  const connectSlack = async () => {
+  const connectComposioApp = async (
+    appName: string,
+    setState: (updater: (prev: IntegrationState) => IntegrationState) => void,
+  ) => {
     if (!token) return;
-    setConnectingSlack(true);
-    setConnectError(null);
+    setState((prev) => ({ ...prev, connecting: true, connectError: null }));
     try {
       const res = await fetch(`${API_BASE}/api/composio/connect`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ app_name: "slack", org_id: ORG_ID }),
+        body: JSON.stringify({ app_name: appName, org_id: ORG_ID }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setConnectError(err.detail ?? `Error ${res.status}: ${res.statusText}`);
+        setState((prev) => ({
+          ...prev,
+          connectError: err.detail ?? `Error ${res.status}: ${res.statusText}`,
+        }));
         return;
       }
       const data = await res.json();
       if (data.redirect_url) {
         window.open(data.redirect_url, "_blank", "noopener,noreferrer");
       }
-      setTimeout(() => void loadSlackStatus(), 5000);
+      setTimeout(() => {
+        void loadComposioStatus(appName, setState);
+      }, 5000);
     } catch (e) {
-      setConnectError(`Network error — is the backend running on port 8000?`);
+      setState((prev) => ({
+        ...prev,
+        connectError: `Network error — is the backend running on port 8000?`,
+      }));
     } finally {
-      setConnectingSlack(false);
+      setState((prev) => ({ ...prev, connecting: false }));
     }
   };
 
   // Trigger Slack sync
   const triggerSync = async () => {
     if (!token) return;
-    setSyncingSlack(true);
-    setSyncResult(null);
+    setSlackState((prev) => ({ ...prev, syncing: true, syncResult: null }));
     try {
       const res = await fetch(`${API_BASE}/api/composio/sync/trigger`, {
         method: "POST",
@@ -125,25 +159,30 @@ export default function IntegrationsPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setSyncResult(err.detail ?? "Sync failed — check backend logs.");
+        setSlackState((prev) => ({ ...prev, syncResult: err.detail ?? "Sync failed — check backend logs." }));
         return;
       }
-      setSyncResult("Sync started! Sentiment analysis will run in the background.");
-      void loadSlackStatus();
+      setSlackState((prev) => ({ ...prev, syncResult: "Sync started! Sentiment analysis will run in the background." }));
+      void loadComposioStatus("slack", setSlackState);
     } catch {
-      setSyncResult("Network error — is the backend running?");
+      setSlackState((prev) => ({ ...prev, syncResult: "Network error — is the backend running?" }));
     } finally {
-      setSyncingSlack(false);
+      setSlackState((prev) => ({ ...prev, syncing: false }));
     }
   };
 
-  const comingSoon = ["Google Calendar", "HRMS / SAP"];
-
-  const slackIsActive = Boolean(slackConn?.is_active);
+  const slackIsActive = Boolean(slackState.conn?.is_active);
   const slackIsPending = Boolean(
-    slackConn &&
-    !slackConn.is_active &&
-    ((slackConn.is_pending === true) || (slackConn.connection_status || "").toUpperCase() === "INITIATED")
+    slackState.conn &&
+    !slackState.conn.is_active &&
+    ((slackState.conn.is_pending === true) || (slackState.conn.connection_status || "").toUpperCase() === "INITIATED")
+  );
+
+  const calendarIsActive = Boolean(calendarState.conn?.is_active);
+  const calendarIsPending = Boolean(
+    calendarState.conn &&
+    !calendarState.conn.is_active &&
+    ((calendarState.conn.is_pending === true) || (calendarState.conn.connection_status || "").toUpperCase() === "INITIATED")
   );
 
   return (
@@ -160,7 +199,7 @@ export default function IntegrationsPage() {
                 <span className="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-[#4A154B] text-white text-xs font-black">#</span>
                 Slack
               </span>
-              {slackLoading ? (
+              {slackState.loading ? (
                 <Skeleton className="h-5 w-24" />
               ) : slackIsActive ? (
                 <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
@@ -180,23 +219,23 @@ export default function IntegrationsPage() {
           <CardContent className="space-y-3">
             {slackIsActive ? (
               <>
-                {slackConn?.last_synced_at && (
+                {slackState.conn?.last_synced_at && (
                   <p className="text-xs text-muted-foreground">
-                    Last synced: {new Date(slackConn.last_synced_at).toLocaleString()}
+                    Last synced: {new Date(slackState.conn.last_synced_at).toLocaleString()}
                   </p>
                 )}
                 <div className="flex items-center gap-3 flex-wrap">
                   <Button
                     onClick={() => void triggerSync()}
-                    disabled={syncingSlack}
+                    disabled={slackState.syncing}
                     className="flex items-center gap-2"
                   >
-                    {syncingSlack
+                    {slackState.syncing
                       ? <><Loader2 className="h-4 w-4 animate-spin" /> Syncing…</>
                       : <><RefreshCw className="h-4 w-4" /> Sync now</>
                     }
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => void loadSlackStatus()}>
+                  <Button variant="outline" size="sm" onClick={() => void loadComposioStatus("slack", setSlackState)}>
                     Refresh status
                   </Button>
                 </div>
@@ -204,11 +243,11 @@ export default function IntegrationsPage() {
             ) : (
               <div className="flex items-center gap-3 flex-wrap">
                 <Button
-                  onClick={() => void connectSlack()}
-                  disabled={connectingSlack}
+                  onClick={() => void connectComposioApp("slack", setSlackState)}
+                  disabled={slackState.connecting}
                   className="flex items-center gap-2"
                 >
-                  {connectingSlack
+                  {slackState.connecting
                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening OAuth…</>
                     : "Connect Slack"
                   }
@@ -216,22 +255,104 @@ export default function IntegrationsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={slackLoading}
-                  onClick={() => void loadSlackStatus()}
+                  disabled={slackState.loading}
+                  onClick={() => void loadComposioStatus("slack", setSlackState)}
                   className="flex items-center gap-2"
                 >
-                  {slackLoading
+                  {slackState.loading
                     ? <><Loader2 className="h-3 w-3 animate-spin" /> Checking…</>
                     : <><RefreshCw className="h-3 w-3" /> Refresh status</>
                   }
                 </Button>
               </div>
             )}
-            {syncResult && (
-              <p className="text-xs text-muted-foreground border border-muted bg-muted/30 p-2">{syncResult}</p>
+            {slackState.syncResult && (
+              <p className="text-xs text-muted-foreground border border-muted bg-muted/30 p-2">{slackState.syncResult}</p>
             )}
-            {connectError && (
-              <p className="text-xs text-red-600 border border-red-200 bg-red-50 p-2">{connectError}</p>
+            {slackState.connectError && (
+              <p className="text-xs text-red-600 border border-red-200 bg-red-50 p-2">{slackState.connectError}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-foreground shadow-[2px_2px_0px_#000]">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-[#F5C518] text-black text-xs font-black">
+                  <Calendar className="h-4 w-4" />
+                </span>
+                Google Calendar
+              </span>
+              {calendarState.loading ? (
+                <Skeleton className="h-5 w-24" />
+              ) : calendarIsActive ? (
+                <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Connected
+                </Badge>
+              ) : calendarIsPending ? (
+                <Badge className="bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3" /> Auth pending
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <XCircle className="h-3 w-3" /> Not connected
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {calendarIsActive ? (
+              <>
+                {calendarState.conn?.last_synced_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Last synced: {new Date(calendarState.conn.last_synced_at).toLocaleString()}
+                  </p>
+                )}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Button
+                    onClick={() => void connectComposioApp("gcal", setCalendarState)}
+                    disabled={calendarState.connecting}
+                    className="flex items-center gap-2"
+                  >
+                    {calendarState.connecting
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening OAuth…</>
+                      : "Reconnect Calendar"
+                    }
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => void loadComposioStatus("gcal", setCalendarState)}>
+                    Refresh status
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button
+                  onClick={() => void connectComposioApp("gcal", setCalendarState)}
+                  disabled={calendarState.connecting}
+                  className="flex items-center gap-2"
+                >
+                  {calendarState.connecting
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening OAuth…</>
+                    : "Connect Google Calendar"
+                  }
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={calendarState.loading}
+                  onClick={() => void loadComposioStatus("gcal", setCalendarState)}
+                  className="flex items-center gap-2"
+                >
+                  {calendarState.loading
+                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Checking…</>
+                    : <><RefreshCw className="h-3 w-3" /> Refresh status</>
+                  }
+                </Button>
+              </div>
+            )}
+            {calendarState.connectError && (
+              <p className="text-xs text-red-600 border border-red-200 bg-red-50 p-2">{calendarState.connectError}</p>
             )}
           </CardContent>
         </Card>
@@ -271,17 +392,6 @@ export default function IntegrationsPage() {
           </CardHeader>
           <CardContent />
         </Card>
-
-        {comingSoon.map((item) => (
-          <Card key={item} className="border-2 border-muted opacity-60">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between text-base">
-                <span>{item}</span>
-                <Badge variant="outline">Coming Soon</Badge>
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        ))}
       </div>
     </div>
   );

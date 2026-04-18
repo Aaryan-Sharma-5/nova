@@ -92,7 +92,7 @@ async def integration_status(
     statuses = {
         "jira": {"connected": False, "last_sync_at": None, "mode": "mock"},
         "slack": {"connected": False, "last_sync_at": None, "mode": "coming_soon"},
-        "google_calendar": {"connected": False, "last_sync_at": None, "mode": "coming_soon"},
+        "google_calendar": {"connected": False, "last_sync_at": None, "mode": "available_via_composio"},
         "hrms_sap": {"connected": False, "last_sync_at": None, "mode": "coming_soon"},
     }
 

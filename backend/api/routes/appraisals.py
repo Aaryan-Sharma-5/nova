@@ -55,10 +55,38 @@ def _is_supabase_connectivity_error(exc: Exception) -> bool:
         "nodename nor servname provided",
         "httpx.connecterror",
         "httpcore.connecterror",
+        "httpx.readerror",
+        "httpcore.readerror",
         "connecterror",
+        "readerror",
+        "winerror 10054",
+        "forcibly closed by the remote host",
+        "connection reset by peer",
+        "server disconnected",
+        "remote protocol error",
         "errno 11001",
     )
     return any(marker in text for marker in connectivity_markers)
+
+
+def _raise_storage_http_exception(exc: Exception) -> None:
+    if _is_supabase_connectivity_error(exc):
+        logger.warning("Supabase connectivity issue while reading appraisals: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase is unreachable (DNS/network). Verify SUPABASE_URL and local DNS settings.",
+        ) from exc
+    if _is_missing_appraisals_table(exc):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "appraisal_suggestions table is unavailable. Run backend/database/005_appraisals.sql first."
+            ),
+        ) from exc
+    raise HTTPException(
+        status_code=503,
+        detail="Appraisals storage is unavailable.",
+    ) from exc
 
 
 def _empty_summary(*, storage_unavailable: bool = False, reason: str | None = None) -> dict[str, Any]:
@@ -85,23 +113,7 @@ def _appraisals_table() -> Any:
         supabase.table("appraisal_suggestions").select("id").limit(1).execute()
         return supabase.table("appraisal_suggestions")
     except Exception as exc:
-        if _is_supabase_connectivity_error(exc):
-            logger.warning("Supabase connectivity issue while resolving appraisal table: %s", exc)
-            raise HTTPException(
-                status_code=503,
-                detail="Supabase is unreachable (DNS/network). Verify SUPABASE_URL and local DNS settings.",
-            ) from exc
-        if _is_missing_appraisals_table(exc):
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "appraisal_suggestions table is unavailable. Run backend/database/005_appraisals.sql first."
-                ),
-            ) from exc
-        raise HTTPException(
-            status_code=503,
-            detail="Appraisals storage is unavailable.",
-        ) from exc
+        _raise_storage_http_exception(exc)
 
 
 def _seed_from_employee(employee_id: str) -> int:
@@ -520,6 +532,13 @@ async def appraisal_summary(
         if exc.status_code == 503:
             return _empty_summary(storage_unavailable=True, reason=str(exc.detail))
         raise
+    except Exception as exc:
+        try:
+            _raise_storage_http_exception(exc)
+        except HTTPException as http_exc:
+            if http_exc.status_code == 503:
+                return _empty_summary(storage_unavailable=True, reason=str(http_exc.detail))
+            raise
 
     rows = response.data or []
     if not rows:

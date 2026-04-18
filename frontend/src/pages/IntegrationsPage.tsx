@@ -10,6 +10,8 @@ import { RefreshCw, Loader2, CheckCircle2, XCircle, Calendar } from "lucide-reac
 
 const API_BASE = API_BASE_URL;
 const ORG_ID = "default-org";
+const GOOGLE_CALENDAR_CLIENT_ID = import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID?.trim() ?? "";
+const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
 interface ComposioConnection {
   app_name: string;
@@ -21,8 +23,18 @@ interface ComposioConnection {
   redirect_url?: string;
 }
 
-type IntegrationState = {
-  conn: ComposioConnection | null;
+interface GoogleCalendarConnection {
+  connected: boolean;
+  last_sync_at: string | null;
+  mode: string;
+  connected_at?: string | null;
+  expires_at?: string | null;
+  calendar_count?: number;
+  scope?: string | null;
+}
+
+type IntegrationState<TConnection> = {
+  conn: TConnection | null;
   loading: boolean;
   connecting: boolean;
   syncing: boolean;
@@ -37,7 +49,7 @@ export default function IntegrationsPage() {
 
   const [loading, setLoading] = useState(false);
 
-  const [slackState, setSlackState] = useState<IntegrationState>({
+  const [slackState, setSlackState] = useState<IntegrationState<ComposioConnection>>({
     conn: null,
     loading: false,
     connecting: false,
@@ -46,7 +58,7 @@ export default function IntegrationsPage() {
     connectError: null,
   });
 
-  const [calendarState, setCalendarState] = useState<IntegrationState>({
+  const [calendarState, setCalendarState] = useState<IntegrationState<GoogleCalendarConnection>>({
     conn: null,
     loading: false,
     connecting: false,
@@ -61,7 +73,7 @@ export default function IntegrationsPage() {
       if (!token) return;
       setLoading(true);
       try {
-        const res = await fetch("/api/integrations/status", {
+        const res = await fetch(`${API_BASE}/api/integrations/status`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) await res.json();
@@ -73,7 +85,7 @@ export default function IntegrationsPage() {
 
   const loadComposioStatus = useCallback(async (
     appName: string,
-    setState: (updater: (prev: IntegrationState) => IntegrationState) => void,
+    setState: (updater: (prev: IntegrationState<ComposioConnection>) => IntegrationState<ComposioConnection>) => void,
   ) => {
     if (!token) return;
     setState((prev) => ({ ...prev, loading: true }));
@@ -94,24 +106,41 @@ export default function IntegrationsPage() {
     }
   }, [token]);
 
+  const loadGoogleCalendarStatus = useCallback(async () => {
+    if (!token) return;
+    setCalendarState((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/google-calendar/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as GoogleCalendarConnection;
+      setCalendarState((prev) => ({ ...prev, conn: data }));
+    } catch {
+      // ignore
+    } finally {
+      setCalendarState((prev) => ({ ...prev, loading: false }));
+    }
+  }, [token]);
+
   useEffect(() => {
     void loadComposioStatus("slack", setSlackState);
-    void loadComposioStatus("gcal", setCalendarState);
-  }, [loadComposioStatus]);
+    void loadGoogleCalendarStatus();
+  }, [loadComposioStatus, loadGoogleCalendarStatus]);
 
   // When the user returns from the OAuth tab, re-check status automatically
   useEffect(() => {
     const handleFocus = () => {
       void loadComposioStatus("slack", setSlackState);
-      void loadComposioStatus("gcal", setCalendarState);
+      void loadGoogleCalendarStatus();
     };
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [loadComposioStatus]);
+  }, [loadComposioStatus, loadGoogleCalendarStatus]);
 
   const connectComposioApp = async (
     appName: string,
-    setState: (updater: (prev: IntegrationState) => IntegrationState) => void,
+    setState: (updater: (prev: IntegrationState<ComposioConnection>) => IntegrationState<ComposioConnection>) => void,
   ) => {
     if (!token) return;
     setState((prev) => ({ ...prev, connecting: true, connectError: null }));
@@ -143,6 +172,77 @@ export default function IntegrationsPage() {
       }));
     } finally {
       setState((prev) => ({ ...prev, connecting: false }));
+    }
+  };
+
+  const requestGoogleCalendarToken = useCallback(async (): Promise<GoogleTokenResponse> => {
+    if (!GOOGLE_CALENDAR_CLIENT_ID) {
+      throw new Error("Google Calendar is not configured. Missing VITE_GOOGLE_CALENDAR_CLIENT_ID.");
+    }
+
+    const tokenClient = window.google?.accounts?.oauth2?.initTokenClient;
+    if (!tokenClient) {
+      throw new Error("Google Identity Services failed to load. Refresh the page and try again.");
+    }
+
+    return await new Promise<GoogleTokenResponse>((resolve, reject) => {
+      const client = tokenClient({
+        client_id: GOOGLE_CALENDAR_CLIENT_ID,
+        scope: GOOGLE_CALENDAR_SCOPE,
+        prompt: "consent",
+        include_granted_scopes: true,
+        callback: (response) => {
+          if (response.error || !response.access_token) {
+            reject(new Error(response.error_description || response.error || "Google Calendar authorization failed."));
+            return;
+          }
+          resolve(response);
+        },
+      });
+
+      client.requestAccessToken({ prompt: "consent" });
+    });
+  }, []);
+
+  const connectGoogleCalendar = async () => {
+    if (!token) return;
+    setCalendarState((prev) => ({ ...prev, connecting: true, connectError: null }));
+    try {
+      const auth = await requestGoogleCalendarToken();
+      const res = await fetch(`${API_BASE}/api/integrations/google-calendar/connect`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          org_id: ORG_ID,
+          access_token: auth.access_token,
+          expires_in: auth.expires_in,
+          scope: auth.scope,
+          token_type: auth.token_type,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setCalendarState((prev) => ({
+          ...prev,
+          connectError: err.detail ?? `Error ${res.status}: ${res.statusText}`,
+        }));
+        return;
+      }
+
+      const data = (await res.json()) as GoogleCalendarConnection;
+      setCalendarState((prev) => ({ ...prev, conn: data }));
+      void loadGoogleCalendarStatus();
+    } catch (e) {
+      setCalendarState((prev) => ({
+        ...prev,
+        connectError: e instanceof Error ? e.message : "Unable to connect Google Calendar.",
+      }));
+    } finally {
+      setCalendarState((prev) => ({ ...prev, connecting: false }));
     }
   };
 
@@ -182,12 +282,7 @@ export default function IntegrationsPage() {
     ((slackState.conn.is_pending === true) || (slackState.conn.connection_status || "").toUpperCase() === "INITIATED")
   );
 
-  const calendarIsActive = Boolean(calendarState.conn?.is_active);
-  const calendarIsPending = Boolean(
-    calendarState.conn &&
-    !calendarState.conn.is_active &&
-    ((calendarState.conn.is_pending === true) || (calendarState.conn.connection_status || "").toUpperCase() === "INITIATED")
-  );
+  const calendarIsActive = Boolean(calendarState.conn?.connected);
 
   return (
     <div className="space-y-6">
@@ -294,10 +389,6 @@ export default function IntegrationsPage() {
                 <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3" /> Connected
                 </Badge>
-              ) : calendarIsPending ? (
-                <Badge className="bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3" /> Auth pending
-                </Badge>
               ) : (
                 <Badge variant="outline" className="flex items-center gap-1">
                   <XCircle className="h-3 w-3" /> Not connected
@@ -308,23 +399,28 @@ export default function IntegrationsPage() {
           <CardContent className="space-y-3">
             {calendarIsActive ? (
               <>
-                {calendarState.conn?.last_synced_at && (
+                {calendarState.conn?.last_sync_at && (
                   <p className="text-xs text-muted-foreground">
-                    Last synced: {new Date(calendarState.conn.last_synced_at).toLocaleString()}
+                    Last synced: {new Date(calendarState.conn.last_sync_at).toLocaleString()}
+                  </p>
+                )}
+                {calendarState.conn?.expires_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Token expires: {new Date(calendarState.conn.expires_at).toLocaleString()}
                   </p>
                 )}
                 <div className="flex items-center gap-3 flex-wrap">
                   <Button
-                    onClick={() => void connectComposioApp("gcal", setCalendarState)}
+                    onClick={() => void connectGoogleCalendar()}
                     disabled={calendarState.connecting}
                     className="flex items-center gap-2"
                   >
                     {calendarState.connecting
-                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening OAuth…</>
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Connecting…</>
                       : "Reconnect Calendar"
                     }
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => void loadComposioStatus("gcal", setCalendarState)}>
+                  <Button variant="outline" size="sm" onClick={() => void loadGoogleCalendarStatus()}>
                     Refresh status
                   </Button>
                 </div>
@@ -332,12 +428,12 @@ export default function IntegrationsPage() {
             ) : (
               <div className="flex items-center gap-3 flex-wrap">
                 <Button
-                  onClick={() => void connectComposioApp("gcal", setCalendarState)}
+                  onClick={() => void connectGoogleCalendar()}
                   disabled={calendarState.connecting}
                   className="flex items-center gap-2"
                 >
                   {calendarState.connecting
-                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening OAuth…</>
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Connecting…</>
                     : "Connect Google Calendar"
                   }
                 </Button>
@@ -345,7 +441,7 @@ export default function IntegrationsPage() {
                   variant="outline"
                   size="sm"
                   disabled={calendarState.loading}
-                  onClick={() => void loadComposioStatus("gcal", setCalendarState)}
+                  onClick={() => void loadGoogleCalendarStatus()}
                   className="flex items-center gap-2"
                 >
                   {calendarState.loading

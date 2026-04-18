@@ -55,6 +55,9 @@ DEFAULT_FEATURE_IMPORTANCE: dict[str, float] = {
 }
 
 
+CALIBRATION_BUCKETS = (0.2, 0.4, 0.6, 0.8, 1.0)
+
+
 class MockRandomForestClassifier:
     """Mock Random Forest classifier for demo/testing.
     Replace with actual sklearn.ensemble.RandomForestClassifier in production."""
@@ -120,6 +123,7 @@ class BurnoutClassifier:
         self.scaler_params: dict[str, tuple[float, float]] = {}  # mean, std
         self.feature_names: list[str] = []
         self.model_path = model_path
+        self.calibration_report: dict[str, Any] = {}
 
         if model_path and Path(model_path).exists():
             self.load(model_path)
@@ -131,6 +135,15 @@ class BurnoutClassifier:
         feature_names: list[str],
     ) -> BurnoutClassifier:
         """Train the model on burnout data."""
+        if len(feature_names) == 0:
+            raise ValueError("feature_names must not be empty")
+        if X.shape[0] != len(y):
+            raise ValueError("X and y must contain the same number of rows")
+        if X.shape[1] != len(feature_names):
+            raise ValueError("feature_names length must match X columns")
+        if not np.isin(y, [0, 1]).all():
+            raise ValueError("y must contain binary labels 0 or 1")
+
         self.feature_names = feature_names
 
         # Compute scaling parameters for later normalization
@@ -144,6 +157,7 @@ class BurnoutClassifier:
 
         # Train model
         self.model.fit(X_normalized, y, feature_names)
+        self.calibration_report = self._build_calibration_report(X_normalized, y)
 
         return self
 
@@ -180,6 +194,7 @@ class BurnoutClassifier:
             "feature_names": self.feature_names,
             "scaler_params": self.scaler_params,
             "importances": self.model.feature_importances_,
+            "calibration_report": self.calibration_report,
         }
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
@@ -191,7 +206,47 @@ class BurnoutClassifier:
         self.feature_names = data["feature_names"]
         self.scaler_params = data["scaler_params"]
         self.model.feature_importances_ = data["importances"]
+        self.calibration_report = data.get("calibration_report", {})
         self.model.is_trained = True
+
+    def get_training_quality_report(self) -> dict[str, Any]:
+        """Return the most recent calibration and label-quality summary."""
+        return dict(self.calibration_report)
+
+    def _build_calibration_report(self, X: np.ndarray, y: np.ndarray) -> dict[str, Any]:
+        predictions = self.model.predict_proba(X)[:, 1]
+        predicted_labels = (predictions >= 0.5).astype(int)
+        y_int = y.astype(int)
+
+        accuracy = float(np.mean(predicted_labels == y_int)) if len(y_int) else 0.0
+        base_rate = float(np.mean(y_int)) if len(y_int) else 0.0
+        predicted_rate = float(np.mean(predictions)) if len(predictions) else 0.0
+
+        buckets: list[dict[str, Any]] = []
+        lower = 0.0
+        for upper in CALIBRATION_BUCKETS:
+            mask = (predictions > lower) & (predictions <= upper)
+            count = int(mask.sum())
+            if count:
+                bucket_labels = y_int[mask]
+                bucket_predictions = predictions[mask]
+                buckets.append(
+                    {
+                        "range": [round(lower, 2), round(upper, 2)],
+                        "count": count,
+                        "mean_prediction": round(float(bucket_predictions.mean()), 4),
+                        "observed_rate": round(float(bucket_labels.mean()), 4),
+                    }
+                )
+            lower = upper
+
+        return {
+            "sample_count": int(len(y_int)),
+            "positive_rate": round(base_rate, 4),
+            "predicted_positive_rate": round(predicted_rate, 4),
+            "training_accuracy": round(accuracy, 4),
+            "bucket_summary": buckets,
+        }
 
 
 def create_burnout_features(employee_data: dict[str, Any]) -> tuple[np.ndarray, list[str]]:
@@ -203,52 +258,52 @@ def create_burnout_features(employee_data: dict[str, Any]) -> tuple[np.ndarray, 
     feature_names = []
 
     # 1. Overtime hours (normalized to 0-1 scale, typical: 0-70 hours/month)
-    overtime = min(employee_data.get("overtime_hours", 0.0) / 70.0, 1.0)
+    overtime = min(max(float(employee_data.get("overtime_hours", 0.0)), 0.0) / 70.0, 1.0)
     features.append(overtime)
     feature_names.append("overtime_hours_normalized")
 
     # 2. Unused PTO days (normalized, typical: 0-25 days/year)
-    pto_unused = min(employee_data.get("pto_days_unused", 0.0) / 25.0, 1.0)
+    pto_unused = min(max(float(employee_data.get("pto_days_unused", 0.0)), 0.0) / 25.0, 1.0)
     features.append(pto_unused)
     feature_names.append("pto_days_unused_normalized")
 
     # 3. Meeting load hours (normalized to 0-1, typical: 0-40 hours/week → /40)
-    meeting_load = min(employee_data.get("meeting_load_hours", 0.0) / 40.0, 1.0)
+    meeting_load = min(max(float(employee_data.get("meeting_load_hours", 0.0)), 0.0) / 40.0, 1.0)
     features.append(meeting_load)
     feature_names.append("meeting_load_normalized")
 
     # 4. Sentiment score (-1 to 1 → 0 to 1)
-    sentiment = (employee_data.get("sentiment_score", 0.0) + 1.0) / 2.0
+    sentiment = (max(min(float(employee_data.get("sentiment_score", 0.0)), 1.0), -1.0) + 1.0) / 2.0
     features.append(max(min(sentiment, 1.0), 0.0))
     feature_names.append("sentiment_score_normalized")
 
     # 5. Tenure months (normalized, typical: 0-360 months)
-    tenure = min(employee_data.get("tenure_months", 0.0) / 360.0, 1.0)
+    tenure = min(max(float(employee_data.get("tenure_months", 0.0)), 0.0) / 360.0, 1.0)
     features.append(tenure)
     feature_names.append("tenure_months_normalized")
 
     # 6. Performance score (if available, 0-1)
-    performance = employee_data.get("performance_score", 0.5)
+    performance = float(employee_data.get("performance_score", 0.5))
     features.append(max(min(performance, 1.0), 0.0))
     feature_names.append("performance_score")
 
     # 7. Days since last promotion (normalized, typical: 0-1825 days / 1825)
-    days_since_promo = min(employee_data.get("days_since_promotion", 0.0) / 1825.0, 1.0)
+    days_since_promo = min(max(float(employee_data.get("days_since_promotion", 0.0)), 0.0) / 1825.0, 1.0)
     features.append(days_since_promo)
     feature_names.append("days_since_promotion_normalized")
 
     # 8. After-hours email ratio (0-1, how much work happens outside 9-5)
-    after_hours_ratio = employee_data.get("after_hours_ratio", 0.0)
+    after_hours_ratio = float(employee_data.get("after_hours_ratio", 0.0))
     features.append(max(min(after_hours_ratio, 1.0), 0.0))
     feature_names.append("after_hours_ratio")
 
     # 9. Communication frequency drop (0-1, where 1 = significant drop)
-    comm_drop = employee_data.get("communication_drop_indicator", 0.0)
+    comm_drop = float(employee_data.get("communication_drop_indicator", 0.0))
     features.append(max(min(comm_drop, 1.0), 0.0))
     feature_names.append("communication_drop_indicator")
 
     # 10. Engagement score (0-1, inverse relationship with burnout)
-    engagement = employee_data.get("engagement_score", 0.5)
+    engagement = float(employee_data.get("engagement_score", 0.5))
     features.append(max(min(engagement, 1.0), 0.0))
     feature_names.append("engagement_score")
 

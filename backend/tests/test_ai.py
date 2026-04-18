@@ -1,15 +1,19 @@
 import json
 
+import numpy as np
 import pytest
 from httpx import AsyncClient
 
 from ai.burnout import assess_burnout
+from ai.ml.burnout_classifier import BurnoutClassifier
 from ai.retention import assess_retention
 from ai.schemas import BurnoutRequest, RetentionRequest
+from core.data_schema import EmployeeDataInput
 from core.security import create_access_token
 from main import app
 from models.user import UserInDB, UserRole
 from api import deps
+from api.routes import integrations as integrations_api
 from ai import groq_client
 
 
@@ -96,6 +100,121 @@ async def test_burnout_rule_score_without_llm(monkeypatch: pytest.MonkeyPatch):
 
     assert result.risk_score == 1.0
     assert result.risk_level == "critical"
+
+
+def test_employee_data_input_normalizes_boundary_values():
+    payload = EmployeeDataInput(
+        employee_id="  emp-7  ",
+        role_family="  TECH  ",
+        kpi_score=" 82.5 ",
+        sentiment_score=" -0.25 ",
+        engagement_score=" 91.0 ",
+        manager_relationship_score=" 0.8 ",
+        team_dynamics_score=" 0.7 ",
+        growth_satisfaction_score=" 0.6 ",
+        tenure_months=18,
+        absenteeism_days_90d=2,
+    )
+
+    normalized = payload.normalized_model_payload()
+
+    assert normalized["employee_id"] == "emp-7"
+    assert normalized["role_family"] == "tech"
+    assert normalized["kpi_score"] == 82.5
+    assert normalized["sentiment_score"] == -0.25
+    assert payload.data_quality_score > 0
+
+
+def test_burnout_classifier_rejects_bad_labels_and_reports_calibration():
+    classifier = BurnoutClassifier()
+    X = np.array([[0.1, 0.2], [0.8, 0.9], [0.3, 0.4]], dtype=float)
+    y = np.array([0, 1, 2], dtype=int)
+
+    with pytest.raises(ValueError, match="binary labels"):
+        classifier.fit(X, y, ["load", "sentiment"])
+
+    classifier.fit(
+        X=np.array([[0.1, 0.2], [0.8, 0.9], [0.3, 0.4]], dtype=float),
+        y=np.array([0, 1, 1], dtype=int),
+        feature_names=["load", "sentiment"],
+    )
+
+    report = classifier.get_training_quality_report()
+
+    assert report["sample_count"] == 3
+    assert report["training_accuracy"] >= 0.0
+    assert "bucket_summary" in report
+
+
+def test_google_calendar_status_helpers_handle_expiry_and_active_tokens(monkeypatch: pytest.MonkeyPatch):
+    future = "2099-01-01T00:00:00+00:00"
+    past = "2000-01-01T00:00:00+00:00"
+
+    assert integrations_api._is_live_google_calendar_config({"access_token": "abc", "expires_at": future}) is True
+    assert integrations_api._is_live_google_calendar_config({"access_token": "abc", "expires_at": past}) is False
+
+    status = integrations_api._google_calendar_status_from_row(
+        {
+            "is_active": True,
+            "last_sync_at": "2026-04-18T00:00:00+00:00",
+            "config": {"access_token": "abc", "expires_at": future, "calendar_count": 2, "scope": "calendar.readonly"},
+        }
+    )
+
+    assert status["connected"] is True
+    assert status["calendar_count"] == 2
+    assert status["scope"] == "calendar.readonly"
+
+
+@pytest.mark.anyio
+async def test_google_calendar_connect_validates_and_saves(monkeypatch: pytest.MonkeyPatch):
+    class FakeGoogleResponse:
+        status_code = 200
+
+        def json(self):
+            return {"items": [{"id": "primary"}]}
+
+    class FakeInsertResult:
+        data = []
+
+        def execute(self):
+            return self
+
+    class FakeTable:
+        def __init__(self):
+            self.saved_row = None
+
+        def insert(self, row):
+            self.saved_row = row
+            return FakeInsertResult()
+
+    class FakeSupabase:
+        def __init__(self):
+            self.table_instance = FakeTable()
+
+        def table(self, name: str):
+            assert name == "integration_configs"
+            return self.table_instance
+
+    fake_supabase = FakeSupabase()
+    monkeypatch.setattr(integrations_api.requests, "get", lambda *args, **kwargs: FakeGoogleResponse())
+    monkeypatch.setattr(integrations_api, "get_supabase_admin", lambda: fake_supabase)
+
+    user = make_user("hr@company.com", UserRole.HR)
+    payload = integrations_api.GoogleCalendarConnectRequest(
+        org_id="demo-org",
+        access_token="google-access-token",
+        expires_in=3600,
+        scope="https://www.googleapis.com/auth/calendar.readonly",
+        token_type="Bearer",
+    )
+
+    result = await integrations_api.connect_google_calendar(payload, current_user=user)
+
+    assert result["integration"] == "google_calendar"
+    assert result["calendar_count"] == 1
+    assert fake_supabase.table_instance.saved_row["integration_type"] == "google_calendar"
+    assert fake_supabase.table_instance.saved_row["config"]["access_token"] == "google-access-token"
 
 
 @pytest.mark.anyio

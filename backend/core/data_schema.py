@@ -4,7 +4,21 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator
+
+
+def _strip_string(value: Any) -> Any:
+    if isinstance(value, str):
+        normalized = value.strip()
+        return normalized or None
+    return value
+
+
+def _normalize_role_family(value: Any) -> Any:
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized or None
+    return value
 
 
 class EmployeeDataInput(BaseModel):
@@ -102,6 +116,57 @@ class EmployeeDataInput(BaseModel):
         le=90,
         description="Absence days in 90 days. Rising unplanned absence can indicate stress, health burden, or disengagement.",
     )
+
+    @field_validator("employee_id")
+    @classmethod
+    def _normalize_employee_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("employee_id cannot be empty")
+        return normalized
+
+    @field_validator("role_family", mode="before")
+    @classmethod
+    def _normalize_role_family(cls, value: Any) -> Any:
+        return _normalize_role_family(value)
+
+    @field_validator(
+        "kpi_score",
+        "sentiment_score",
+        "engagement_score",
+        "manager_relationship_score",
+        "team_dynamics_score",
+        "growth_satisfaction_score",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_numeric_values(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                return None
+            try:
+                return float(normalized)
+            except ValueError:
+                return value
+        return value
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.sentiment_score is not None and -1.0 <= self.sentiment_score <= 1.0:
+            self.sentiment_score = round(float(self.sentiment_score), 4)
+        if self.manager_relationship_score is not None:
+            self.manager_relationship_score = round(float(self.manager_relationship_score), 4)
+        if self.team_dynamics_score is not None:
+            self.team_dynamics_score = round(float(self.team_dynamics_score), 4)
+        if self.growth_satisfaction_score is not None:
+            self.growth_satisfaction_score = round(float(self.growth_satisfaction_score), 4)
+
+    def normalized_model_payload(self) -> dict[str, Any]:
+        """Return a canonical payload with string values trimmed and numeric fields bounded."""
+        payload = self.model_dump()
+        payload["employee_id"] = self.employee_id
+        payload["role_family"] = self.role_family
+        return payload
 
     @computed_field(return_type=float)
     @property

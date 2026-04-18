@@ -13,6 +13,7 @@ from core.security import create_access_token
 from main import app
 from models.user import UserInDB, UserRole
 from api import deps
+from api.routes import integrations as integrations_api
 from ai import groq_client
 
 
@@ -143,6 +144,77 @@ def test_burnout_classifier_rejects_bad_labels_and_reports_calibration():
     assert report["sample_count"] == 3
     assert report["training_accuracy"] >= 0.0
     assert "bucket_summary" in report
+
+
+def test_google_calendar_status_helpers_handle_expiry_and_active_tokens(monkeypatch: pytest.MonkeyPatch):
+    future = "2099-01-01T00:00:00+00:00"
+    past = "2000-01-01T00:00:00+00:00"
+
+    assert integrations_api._is_live_google_calendar_config({"access_token": "abc", "expires_at": future}) is True
+    assert integrations_api._is_live_google_calendar_config({"access_token": "abc", "expires_at": past}) is False
+
+    status = integrations_api._google_calendar_status_from_row(
+        {
+            "is_active": True,
+            "last_sync_at": "2026-04-18T00:00:00+00:00",
+            "config": {"access_token": "abc", "expires_at": future, "calendar_count": 2, "scope": "calendar.readonly"},
+        }
+    )
+
+    assert status["connected"] is True
+    assert status["calendar_count"] == 2
+    assert status["scope"] == "calendar.readonly"
+
+
+@pytest.mark.anyio
+async def test_google_calendar_connect_validates_and_saves(monkeypatch: pytest.MonkeyPatch):
+    class FakeGoogleResponse:
+        status_code = 200
+
+        def json(self):
+            return {"items": [{"id": "primary"}]}
+
+    class FakeInsertResult:
+        data = []
+
+        def execute(self):
+            return self
+
+    class FakeTable:
+        def __init__(self):
+            self.saved_row = None
+
+        def insert(self, row):
+            self.saved_row = row
+            return FakeInsertResult()
+
+    class FakeSupabase:
+        def __init__(self):
+            self.table_instance = FakeTable()
+
+        def table(self, name: str):
+            assert name == "integration_configs"
+            return self.table_instance
+
+    fake_supabase = FakeSupabase()
+    monkeypatch.setattr(integrations_api.requests, "get", lambda *args, **kwargs: FakeGoogleResponse())
+    monkeypatch.setattr(integrations_api, "get_supabase_admin", lambda: fake_supabase)
+
+    user = make_user("hr@company.com", UserRole.HR)
+    payload = integrations_api.GoogleCalendarConnectRequest(
+        org_id="demo-org",
+        access_token="google-access-token",
+        expires_in=3600,
+        scope="https://www.googleapis.com/auth/calendar.readonly",
+        token_type="Bearer",
+    )
+
+    result = await integrations_api.connect_google_calendar(payload, current_user=user)
+
+    assert result["integration"] == "google_calendar"
+    assert result["calendar_count"] == 1
+    assert fake_supabase.table_instance.saved_row["integration_type"] == "google_calendar"
+    assert fake_supabase.table_instance.saved_row["config"]["access_token"] == "google-access-token"
 
 
 @pytest.mark.anyio

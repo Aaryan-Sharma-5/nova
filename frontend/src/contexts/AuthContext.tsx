@@ -8,6 +8,24 @@ const LEGACY_AUTH_STORAGE_KEY = "nova.auth.token";
 const AUTH_STORAGE_SCOPE = (API_BASE_URL || "same-origin").replace(/[^a-zA-Z0-9]+/g, "_");
 const AUTH_STORAGE_KEY = `nova.auth.token.${AUTH_STORAGE_SCOPE}`;
 
+function normalizeStoredToken(raw: string | null): string | null {
+  if (!raw) {
+    return null;
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const lowered = trimmed.toLowerCase();
+  if (lowered === "null" || lowered === "undefined") {
+    return null;
+  }
+
+  return trimmed;
+}
+
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
@@ -34,6 +52,14 @@ function isTokenExpired(token: string): boolean {
   return payload.exp <= nowEpochSeconds + 15;
 }
 
+function getTokenExpiryEpochMs(token: string): number | null {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== "number") {
+    return null;
+  }
+  return payload.exp * 1000;
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
@@ -50,7 +76,22 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_STORAGE_KEY));
+  const [token, setToken] = useState<string | null>(() => {
+    const scopedToken = normalizeStoredToken(localStorage.getItem(AUTH_STORAGE_KEY));
+    if (scopedToken) {
+      return scopedToken;
+    }
+
+    const legacyToken = normalizeStoredToken(localStorage.getItem(LEGACY_AUTH_STORAGE_KEY));
+    if (legacyToken) {
+      localStorage.setItem(AUTH_STORAGE_KEY, legacyToken);
+      localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+      return legacyToken;
+    }
+
+    localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+    return null;
+  });
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -104,14 +145,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [bootstrapSession, clearSession, token]);
 
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    const expiresAtMs = getTokenExpiryEpochMs(token);
+    if (!expiresAtMs) {
+      clearSession();
+      return;
+    }
+
+    const msUntilExpiry = expiresAtMs - Date.now() - 1000;
+    if (msUntilExpiry <= 0) {
+      clearSession();
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      clearSession();
+    }, msUntilExpiry);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [clearSession, token]);
+
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const auth = await loginApi(email, password);
-      localStorage.setItem(AUTH_STORAGE_KEY, auth.access_token);
+      const normalizedToken = normalizeStoredToken(auth.access_token);
+      if (!normalizedToken) {
+        throw new Error("Invalid authentication token received from server.");
+      }
+      localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken);
       localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
-      setToken(auth.access_token);
-      return await bootstrapSession(auth.access_token);
+      setToken(normalizedToken);
+      return await bootstrapSession(normalizedToken);
     } catch (error) {
       clearSession();
       throw error;
@@ -153,10 +222,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const auth = await oauthExchangeApi(data.session.access_token, "google");
-      localStorage.setItem(AUTH_STORAGE_KEY, auth.access_token);
+      const normalizedToken = normalizeStoredToken(auth.access_token);
+      if (!normalizedToken) {
+        throw new Error("Invalid authentication token received from server.");
+      }
+      localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken);
       localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
-      setToken(auth.access_token);
-      return await bootstrapSession(auth.access_token);
+      setToken(normalizedToken);
+      return await bootstrapSession(normalizedToken);
     } catch (error) {
       clearSession();
       throw error;

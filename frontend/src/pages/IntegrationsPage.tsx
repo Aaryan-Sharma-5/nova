@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,10 @@ export default function IntegrationsPage() {
     void load();
   }, [token]);
 
-  const loadComposioStatus = async (appName: string, setState: (updater: (prev: IntegrationState) => IntegrationState) => void) => {
+  const loadComposioStatus = useCallback(async (
+    appName: string,
+    setState: (updater: (prev: IntegrationState) => IntegrationState) => void,
+  ) => {
     if (!token) return;
     setState((prev) => ({ ...prev, loading: true }));
     try {
@@ -84,16 +87,17 @@ export default function IntegrationsPage() {
         (c) => c.app_name === appName
       ) ?? null;
       setState((prev) => ({ ...prev, conn: slack }));
-    } catch { /* ignore */ }
-    finally {
+    } catch {
+      // ignore
+    } finally {
       setState((prev) => ({ ...prev, loading: false }));
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     void loadComposioStatus("slack", setSlackState);
     void loadComposioStatus("gcal", setCalendarState);
-  }, [token]);
+  }, [loadComposioStatus]);
 
   // When the user returns from the OAuth tab, re-check status automatically
   useEffect(() => {
@@ -103,7 +107,7 @@ export default function IntegrationsPage() {
     };
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [token]);
+  }, [loadComposioStatus]);
 
   const connectComposioApp = async (
     appName: string,

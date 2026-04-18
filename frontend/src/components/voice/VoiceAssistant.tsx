@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bot, CalendarCheck, Lightbulb, Mic, Minus, Send, Volume2, VolumeX, X } from 'lucide-react';
+import { Bot, CalendarCheck, Lightbulb, Mic, Minus, RefreshCw, Send, Volume2, VolumeX, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { protectedPostApi } from '@/lib/api';
 import {
@@ -658,7 +658,7 @@ export function VoiceAssistant() {
           >
             {agentSwitchToast && (
               <div className="mx-auto mb-2 w-fit rounded-full bg-gray-100 px-3 py-1 text-[11px] italic text-gray-700 nova-agent-switch-pill">
-                🔄 {agentSwitchToast}
+                <RefreshCw size={11} className="inline-block mr-1 align-middle" />{agentSwitchToast}
               </div>
             )}
             {messages.length === 0 && (

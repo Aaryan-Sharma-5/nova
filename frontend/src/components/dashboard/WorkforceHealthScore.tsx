@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import ScoreExplanationDrawer from "@/components/explainability/ScoreExplanationDrawer";
 import { useAuth } from "@/contexts/AuthContext";
@@ -232,7 +232,7 @@ export default function WorkforceHealthScore() {
               <div className="rounded border p-2">Industry Median: <span className="font-semibold">{industry.avg_engagement_score}</span></div>
               <div className="rounded border p-2">Top Quartile: <span className="font-semibold">85</span></div>
             </div>
-            {data.score > 80 && <p className="mt-2 inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Top 25% in IT Sector 🏆</p>}
+            {data.score > 80 && <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800"><Trophy size={12} />Top 25% in IT Sector</p>}
             <p className="mt-2 text-xs text-muted-foreground">Benchmarks: Simulated IT sector medians</p>
           </div>
         )}

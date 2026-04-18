@@ -475,7 +475,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:col-span-5">
             {[
               { value: "100%", subtitle: "EXPLAINABLE DECISIONS", tone: "bg-white text-black border-black shadow-[6px_6px_0_#F5C518]" },
-              { value: "6", subtitle: "INTEGRATED DATA SOURCES", tone: "bg-black text-[#F5C518] border-black shadow-[6px_6px_0_#F5C518]" },
+              { value: "3", subtitle: "INTEGRATED DATA SOURCES", tone: "bg-black text-[#F5C518] border-black shadow-[6px_6px_0_#F5C518]" },
               { value: "ZERO", subtitle: "OPAQUE AI DECISIONS", tone: "bg-[#F5C518] text-black border-black shadow-[6px_6px_0_#000]" },
               { value: "4", subtitle: "RBAC ACCESS LEVELS", tone: "bg-white text-black border-[#F5C518] shadow-[6px_6px_0_#F5C518]" },
             ].map((card, idx) => (
@@ -504,9 +504,6 @@ export default function LandingPage() {
           <p data-reveal className={`${revealClass("fade-up", 100)} mt-8 text-lg font-medium leading-relaxed text-[#374151]`}>
             NOVA (Next-Gen Organizational Vitality Analytics) is an AI-powered HR intelligence platform that shifts workforce management from reactive to predictive. It identifies employee burnout, flight risk, and disengagement before they escalate - enabling organizations to intervene early. NOVA combines sentiment analysis, ML risk scoring, peer network analysis, and explainable AI into a unified platform accessible through role-based dashboards for C-suite, HR managers, and employees.
           </p>
-          <p data-reveal className={`${revealClass("fade-up", 180)} mt-8 text-center text-base italic text-[#6b7280]`}>
-            Built by a team of 4 undergraduate students · Grand Finale 2025
-          </p>
         </div>
       </section>
 
@@ -517,7 +514,7 @@ export default function LandingPage() {
             className={`${revealClass("fade-up")} text-[clamp(3rem,8vw,6rem)] font-black uppercase leading-none text-[#F5C518]`}
             style={{ fontFamily: "Playfair Display, serif" }}
           >
-            DEPLOY NOVA.
+            TRY NOVA.
           </h3>
           <div data-reveal className={`${revealClass("fade-up", 120)} mt-10 flex flex-col items-center justify-center gap-5 sm:flex-row`}>
             <button
@@ -525,7 +522,7 @@ export default function LandingPage() {
               onClick={() => navigate("/login")}
               className="w-full border-[3px] border-[#F5C518] bg-[#F5C518] px-10 py-4 text-[0.7rem] font-black tracking-[0.2em] text-black transition-colors hover:bg-black hover:text-[#F5C518] sm:w-auto"
             >
-              DEPLOY PLATFORM
+              TRY PLATFORM
             </button>
             <button
               type="button"

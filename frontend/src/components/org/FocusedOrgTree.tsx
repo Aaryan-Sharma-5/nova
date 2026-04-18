@@ -415,10 +415,10 @@ function TreeCanvas({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>👑 CEO ({counts[1] ?? 0})</span>
-          <span>🔷 VPs ({counts[2] ?? 0})</span>
-          <span>👔 Managers ({counts[3] ?? 0})</span>
-          <span>👤 ICs ({counts[4] ?? 0})</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-amber-500" />CEO ({counts[1] ?? 0})</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-blue-500" />VPs ({counts[2] ?? 0})</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-violet-500" />Managers ({counts[3] ?? 0})</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-slate-400" />ICs ({counts[4] ?? 0})</span>
           <Badge variant="outline">Visible {maxVisibleNodes}</Badge>
         </div>
       </div>
